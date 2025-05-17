@@ -1,0 +1,117 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// 媒体类型枚举：电视剧、电影或合集
+enum Type {
+  tv /// 电视剧
+  movie /// 电影
+  collection /// 合集
+}
+
+/// 媒体信息主表，存储所有类型媒体的共有信息
+model Media {
+  id            Int       @id @default(autoincrement()) /// 唯一标识符
+  files         File[] /// 关联的媒体文件列表
+  type          Type /// 媒体类型（电视剧/电影/合集）
+  tmdbId        Int       @map("tmdb_id") /// TMDB网站的媒体ID
+  title         String /// 媒体标题
+  originalTitle String?   @map("original_title") /// 原始标题（非本地化）
+  releaseDate   DateTime? @map("release_date") /// 发布日期
+  description   String? /// 媒体描述
+  posterUrl     String?   @map("poster_url") /// 海报图片URL
+
+  /// 关联的电视剧详细信息
+  tvInfos          TvInfo?         @relation(fields: [tvInfoId], references: [id])
+  tvInfoId         Int? /// 关联电视剧信息的ID
+  /// 关联的电影详细信息
+  movieInfo        MovieInfo?      @relation(fields: [movieInfoId], references: [id])
+  movieInfoId      Int? /// 关联电影信息的ID
+  /// 关联的合集详细信息
+  collectionInfo   CollectionInfo? @relation(fields: [collectionInfoId], references: [id])
+  collectionInfoId Int? /// 关联合集信息的ID
+
+  createdAt DateTime @default(now()) @map("created_at") /// 记录创建时间
+  updatedAt DateTime @updatedAt @map("updated_at") /// 记录更新时间
+
+  @@index([title]) /// 标题索引，用于加速查询
+  @@index([tmdbId]) /// TMDB ID索引，用于加速查询
+}
+
+/// 媒体文件信息表，存储文件系统相关信息
+model File {
+  id        Int      @id @default(autoincrement()) /// 唯一标识符
+  deviceId  BigInt   @map("device_id") /// 设备ID，与inode一起确保文件的唯一性
+  inode     BigInt /// 文件系统inode号
+  fileHash  String   @map("file_hash") /// 文件内容哈希值
+  fileSize  BigInt   @map("file_size") /// 文件大小（字节）
+  filePath  String   @unique @map("file_path") /// 原始文件路径
+  linkPath  String   @unique @map("link_path") /// 硬链接文件路径
+  createdAt DateTime @default(now()) @map("created_at") /// 记录创建时间
+
+  /// 关联的媒体信息
+  Media   Media? @relation(fields: [mediaId], references: [id])
+  mediaId Int? /// 关联媒体的ID
+
+  /// 关联的电视剧单集信息（一对一关系）
+  episode EpisodeInfo? @relation("FileToEpisode")
+
+  @@unique([deviceId, inode], name: "device_inode_unique") /// 设备ID和inode联合唯一约束
+  @@index([fileHash]) /// 文件哈希索引，用于加速查询
+}
+
+/// 电视剧详细信息表
+model TvInfo {
+  id          Int     @id @default(autoincrement()) /// 唯一标识符
+  tmdbId      Int     @map("tmdb_id") /// TMDB上的电视剧ID
+  description String? /// 电视剧详细描述
+
+  episodes EpisodeInfo[] /// 关联的集数信息
+
+  Media Media[] /// 关联的媒体基本信息
+}
+
+/// 电影详细信息表
+model MovieInfo {
+  id          Int     @id @default(autoincrement()) /// 唯一标识符
+  tmdbId      Int     @map("tmdb_id") /// TMDB上的电影ID
+  description String? /// 电影详细描述
+
+  Media Media[] /// 关联的媒体基本信息
+}
+
+/// 合集详细信息表（如电影系列）
+model CollectionInfo {
+  id          Int     @id @default(autoincrement()) /// 唯一标识符
+  tmdbId      Int     @map("tmdb_id") /// TMDB上的合集ID
+  description String? /// 合集详细描述
+
+  Media Media[] /// 关联的媒体基本信息
+}
+
+/// 电视剧单集信息表
+model EpisodeInfo {
+  id            Int       @id @default(autoincrement()) /// 唯一标识符
+  tmdbId        Int       @map("tmdb_id") /// TMDB上的集数ID
+  episodeNumber Int       @map("episode_number") /// 集数编号
+  title         String? /// 单集标题
+  releaseDate   DateTime? @map("release_date") /// 播出日期
+  description   String? /// 单集描述
+  posterUrl     String?   @map("poster_url") /// 单集海报URL
+
+  /// 关联的电视剧信息
+  TvInfo   TvInfo? @relation(fields: [tvInfoId], references: [id])
+  tvInfoId Int? /// 关联电视剧的ID
+
+  /// 关联的文件信息（一对一关系）
+  file   File? @relation("FileToEpisode", fields: [fileId], references: [id])
+  fileId Int?  @unique @map("file_id") /// 关联文件的ID
+}

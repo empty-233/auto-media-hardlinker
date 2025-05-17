@@ -1,0 +1,16 @@
+{
+    //监听目录位置
+    "monitorFilePath": "./file",
+    //目标目录位置
+    "targetFilePath": "./file",
+    //tmdb api https://www.themoviedb.org/settings/api
+    "tmdbApi": "your_tmdb_api_key",
+    //tmdb 语言
+    "language": "zh-CN",
+    //是否使用LLM进行刮削(true/false)
+    "useLlm": true,
+    //LLM服务主机地址
+    "llmHost": "http://localhost:11434",
+    //LLM模型名称
+    "llmModel": "qwen2.5"
+}
