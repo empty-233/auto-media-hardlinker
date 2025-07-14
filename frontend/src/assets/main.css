@@ -1,11 +1,18 @@
 @import './base.css';
 
+/* 重置默认样式，适配后台管理系统 */
 #app {
-  width: 100%;
+  width: 100vw;
   height: 100vh;
   margin: 0;
   padding: 0;
   font-weight: normal;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  padding: 0;
 }
 
 a,
@@ -19,5 +26,29 @@ a,
 @media (hover: hover) {
   a:hover {
     background-color: hsla(160, 100%, 37%, 0.2);
+  }
+}
+
+/* 移动端全局样式优化 */
+@media (max-width: 768px) {
+  /* 防止横向滚动 */
+  html, body {
+    overflow-x: hidden;
+  }
+  
+  /* 优化触摸滚动 */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* 提高点击响应速度 */
+  button, 
+  .el-button,
+  .el-menu-item,
+  .el-sub-menu__title {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
 }

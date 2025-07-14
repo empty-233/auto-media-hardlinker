@@ -7,6 +7,9 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+!src/api/logs
+!src/views/logs
+
 node_modules
 .DS_Store
 dist

@@ -1,5 +1,5 @@
-import { PrismaClient, Type } from "@prisma/client";
-import { getConfig } from "./config";
+import { Type } from "@prisma/client";
+import { getConfig } from "../config/config";
 import { fileMonitor } from "./fileMonitor";
 import {
   RetrieveTMDBInfo,
@@ -12,10 +12,10 @@ import { RetrieveLLMInfo } from "./LLMmediaData";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
-import { logger } from "./logger";
+import { logger } from "../utils/logger";
+import prisma from "../client";
 
 const config = getConfig();
-const prisma = new PrismaClient();
 
 // 添加一个辅助函数，将日期字符串转换为有效的日期时间格式
 const formatDate = (dateStr: string | null | undefined): Date | null => {
@@ -271,7 +271,7 @@ const saveToDatabase = async (
           },
         });
 
-        console.log(`成功将文件 "${fileName}" 信息保存到数据库`);
+        logger.info(`成功将文件 "${fileName}" 信息保存到数据库`);
         return; // 已创建完文件记录，提前返回
       }
     } else if (mediaInfo.type === "movie") {
@@ -306,7 +306,7 @@ const saveToDatabase = async (
       },
     });
 
-    console.log(`成功将文件 "${fileName}" 信息保存到数据库`);
+    logger.info(`成功将文件 "${fileName}" 信息保存到数据库`);
   } catch (dbErr) {
     console.error("数据库操作失败:", dbErr);
   }

@@ -8,7 +8,12 @@
 		"ghcr.io/devcontainers-extra/features/pnpm:2": {},
 		"ghcr.io/devcontainers-extra/features/ts-node:1": {},
 		"ghcr.io/devcontainers-extra/features/tsx:1": {}
-	}
+	},
+	"mounts": [
+	  "source=${localWorkspaceFolderBasename}-node_modules,target=${containerWorkspaceFolder}/node_modules,type=volume",
+	  "source=${localWorkspaceFolderBasename}-frontend-node_modules,target=${containerWorkspaceFolder}/frontend/node_modules,type=volume"
+	],
+	"postCreateCommand": "sudo chown node:node node_modules && pnpm install && cd frontend && sudo chown node:node node_modules && pnpm install"
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	// "features": {},

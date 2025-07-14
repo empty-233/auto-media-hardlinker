@@ -7,14 +7,13 @@ import {
   SearchCollectionResponse,
   TvSeasonResponse,
   MovieResponse,
-  CollectionInfoResponse,
 } from "moviedb-promise";
-import { getConfig } from "./config";
-import { regexConfig } from "../config/regexConfig"; // 从配置文件导入
+import { getConfig } from "../config/config";
+import { regexConfig } from "../../config/regexConfig"; // 从配置文件导入
 import fs from "fs";
 import path from "path";
 import axios from "axios";
-import { logger } from "./logger";
+import { logger } from "../utils/logger";
 
 const config = getConfig();
 const TitleRegExp = regexConfig.TitleRegExps;

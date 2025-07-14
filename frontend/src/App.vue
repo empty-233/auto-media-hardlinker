@@ -1,215 +1,259 @@
+<script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { RouterView, useRouter } from 'vue-router'
+import { ElContainer, ElHeader, ElAside, ElMain, ElButton, ElDrawer } from 'element-plus'
+import { Fold, Expand, Menu } from '@element-plus/icons-vue'
+import { SidebarMenu } from '@/components/Menu'
+
+// 菜单折叠状态
+const isCollapse = ref(false)
+// 移动端抽屉状态
+const drawerVisible = ref(false)
+// 是否为移动端
+const isMobile = ref(false)
+
+// 获取路由实例
+const router = useRouter()
+
+// 动态生成需要缓存的组件名列表
+const cachedComponents = computed(() => {
+  const components: string[] = []
+  
+  // 递归遍历路由配置
+  const collectCachedComponents = (routes: any[]) => {
+    routes.forEach(route => {
+      // 如果路由配置了 keepAlive: true 且有组件名，则添加到缓存列表
+      if (route.meta?.keepAlive === true && route.meta?.componentName) {
+        if (!components.includes(route.meta.componentName)) {
+          components.push(route.meta.componentName)
+        }
+      }
+      
+      // 递归处理子路由
+      if (route.children && route.children.length > 0) {
+        collectCachedComponents(route.children)
+      }
+    })
+  }
+  
+  collectCachedComponents(router.getRoutes())
+  console.log('Cached components:', components) // 调试用，可以在开发时查看缓存的组件
+  return components
+})
+
+// 检查屏幕尺寸
+const checkScreenSize = () => {
+  isMobile.value = window.innerWidth < 768
+  // 在移动端时关闭侧边栏，在桌面端时关闭抽屉
+  if (isMobile.value) {
+    isCollapse.value = false
+  } else {
+    drawerVisible.value = false
+  }
+}
+
+// 切换菜单折叠状态（桌面端）
+const toggleCollapse = () => {
+  isCollapse.value = !isCollapse.value
+}
+
+// 切换移动端抽屉
+const toggleDrawer = () => {
+  drawerVisible.value = !drawerVisible.value
+}
+
+// 关闭抽屉
+const closeDrawer = () => {
+  drawerVisible.value = false
+}
+
+onMounted(() => {
+  checkScreenSize()
+  window.addEventListener('resize', checkScreenSize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkScreenSize)
+})
+</script>
+
 <template>
-  <div class="overlay" v-if="isMobile && !isCollapse" @click="toggleSidebar"></div>
-  <el-container class="app-container" :class="{'mobile-open': isMobile && !isCollapse}">
-    <el-aside :width="isCollapse ? '64px' : '200px'" class="sidebar" :class="{'collapsed': isCollapse, 'mobile': isMobile}">
-      <div class="collapse-btn" @click="toggleSidebar">
-        <el-icon :size="20">
-          <el-icon-fold v-if="!isCollapse" />
-          <el-icon-expand v-else />
-        </el-icon>
+  <el-container class="app-container">
+    <!-- 桌面端侧边栏 -->
+    <el-aside v-if="!isMobile" width="auto" class="app-aside">
+      <div class="logo-container">
+        <h2 v-if="!isCollapse" class="logo-title">A M H</h2>
+        <span v-else class="logo-icon">M</span>
       </div>
-      <el-menu
-        router
-        default-active="/"
-        class="el-menu-vertical"
-        :collapse="isCollapse"
-        background-color="#545c64"
-        text-color="#fff"
-        active-text-color="#ffd04b"
-        @select="handleMenuSelect"
-      >
-        <el-menu-item index="/">
-          <el-icon><el-icon-house /></el-icon>
-          <template #title>首页</template>
-        </el-menu-item>
-        <el-menu-item index="/media">
-          <el-icon><el-icon-film /></el-icon>
-          <template #title>媒体库</template>
-        </el-menu-item>
-        <el-menu-item index="/files">
-          <el-icon><el-icon-document /></el-icon>
-          <template #title>文件管理</template>
-        </el-menu-item>
-        <el-menu-item index="/logs">
-          <el-icon><el-icon-list /></el-icon>
-          <template #title>系统日志</template>
-        </el-menu-item>
-      </el-menu>
+      <SidebarMenu :collapse="isCollapse" />
     </el-aside>
-    <el-container :class="{'content-container': true, 'mobile-shifted': isMobile && !isCollapse}">
-      <el-header class="header">
-        <div class="mobile-toggle" @click="toggleSidebar">
-          <el-icon :size="24"><el-icon-menu /></el-icon>
+
+    <!-- 移动端抽屉菜单 -->
+    <div class="mobile-drawer" v-if="isMobile">
+      <el-drawer v-model="drawerVisible" direction="ltr" size="50%" :with-header="false">
+        <div class="logo-container">
+          <h2 class="logo-title">A M H</h2>
         </div>
-        <h2>媒体文件管理系统</h2>
+        <SidebarMenu :collapse="false" :is-drawer="true" @close-drawer="closeDrawer" />
+      </el-drawer>
+    </div>
+
+    <!-- 主内容区域 -->
+    <el-container class="main-container">
+      <!-- 顶部导航栏 -->
+      <el-header class="app-header">
+        <div class="header-content">
+          <!-- 桌面端折叠按钮 -->
+          <el-button
+            v-if="!isMobile"
+            :icon="isCollapse ? Expand : Fold"
+            @click="toggleCollapse"
+            text
+            class="collapse-btn"
+          />
+          <!-- 移动端菜单按钮 -->
+          <el-button v-else :icon="Menu" @click="toggleDrawer" text class="mobile-menu-btn" />
+          <div class="header-title">Auto Media Hardlinker</div>
+        </div>
       </el-header>
-      <el-main>
-        <router-view />
+
+      <!-- 主内容 -->
+      <el-main class="app-main">
+        <router-view v-slot="{ Component, route }">
+          <keep-alive :include="cachedComponents">
+            <component :is="Component" :key="route.path" />
+          </keep-alive>
+        </router-view>
       </el-main>
-      <el-footer>
-        <p>&copy; 2025 媒体文件管理系统</p>
-      </el-footer>
     </el-container>
   </el-container>
 </template>
 
-<script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-import {
-  House as ElIconHouse,
-  Film as ElIconFilm,
-  Document as ElIconDocument,
-  List as ElIconList,
-  Fold as ElIconFold,
-  Expand as ElIconExpand,
-  Menu as ElIconMenu
-} from '@element-plus/icons-vue'
-
-const isCollapse = ref(false)
-const isMobile = ref(false)
-
-const toggleSidebar = () => {
-  isCollapse.value = !isCollapse.value
-}
-
-// 响应式检测屏幕宽度
-const checkScreenWidth = () => {
-  isMobile.value = window.innerWidth <= 768
-  isCollapse.value = isMobile.value
-}
-
-// 在移动设备上选择菜单项后自动收起侧边栏
-const handleMenuSelect = () => {
-  if (isMobile.value) {
-    isCollapse.value = true
-  }
-}
-
-onMounted(() => {
-  checkScreenWidth()
-  window.addEventListener('resize', checkScreenWidth)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('resize', checkScreenWidth)
-})
-</script>
-
 <style scoped>
 .app-container {
   height: 100vh;
-  width: 100%;
-  position: relative;
+  width: 100vw;
 }
 
-.overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  z-index: 999;
-}
-
-.content-container {
-  transition: margin-left 0.3s;
-  position: relative;
-  flex-grow: 1;
-}
-
-.sidebar {
-  transition: width 0.3s, transform 0.3s;
-  position: relative;
-  background-color: #545c64;
-  color: white;
+.app-aside {
   overflow: hidden;
-  flex-shrink: 0;
-  z-index: 1001;
+  height: 100vh;
+  position: relative;
 }
 
-.collapse-btn {
-  height: 56px;
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  padding: 0 20px;
-  color: #ffffff;
-  cursor: pointer;
-}
-
-.header {
+.logo-container {
   display: flex;
   align-items: center;
-  background-color: #f0f2f5;
-  color: #333;
-  padding: 0 20px;
-  width: 100%;
+  justify-content: center;
+  height: 60px;
+  color: #3da1f3;
+  /* border-bottom: 1px solid #434a58; */
+  background-color: white;
 }
 
-.mobile-toggle {
-  display: none;
-  cursor: pointer;
-  margin-right: 10px;
+.logo-title {
+  margin: 0;
+  font-size: 20px;
+  white-space: nowrap;
+  font-weight: 500;
 }
 
-.el-header {
-  background-color: #f0f2f5;
-  color: #333;
-  text-align: center;
-  width: 100%;
-  flex-shrink: 0;
+.logo-icon {
+  font-size: 24px;
+  font-weight: bold;
 }
 
-.el-main {
+.main-container {
   flex: 1;
-  width: 100%;
-  overflow-x: hidden;
+  height: 100vh;
+  overflow: hidden;
 }
 
-.el-footer {
-  background-color: #f0f2f5;
-  color: #666;
-  text-align: center;
-  padding: 20px 0;
+.app-header {
+  background-color: #fff;
+  /* border-bottom: 1px solid #e4e7ed; */
+  padding: 0;
+  display: flex;
+  align-items: center;
+  height: 60px;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
   width: 100%;
+  padding: 0 20px;
+}
+
+.collapse-btn,
+.mobile-menu-btn {
+  margin-right: 20px;
+  font-size: 18px;
+  color: #606266;
+}
+
+.collapse-btn:hover,
+.mobile-menu-btn:hover {
+  color: #409eff;
+}
+
+.header-title {
+  font-size: 18px;
+  font-weight: 500;
+  color: #303133;
+}
+
+.app-main {
+  background-color: #f5f5f5;
+  padding: 20px;
+  height: calc(100vh - 60px);
+  overflow-y: auto;
+}
+
+/* 移动端抽屉样式 */
+.mobile-drawer {
+  &:deep(.el-drawer__body) {
+    padding: 0;
+  }
+}
+
+.drawer-content {
+  height: 100%;
+  background-color: #304156;
+  display: flex;
+  flex-direction: column;
+}
+
+.drawer-content .logo-container {
   flex-shrink: 0;
 }
 
-.el-menu-vertical {
-  height: calc(100% - 56px);
-  border-right: none;
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .app-container {
+    height: 100vh;
+    width: 100vw;
+  }
+
+  .main-container {
+    width: 100%;
+  }
+
+  .app-main {
+    padding: 10px;
+  }
+
+  .header-content {
+    padding: 0 15px;
+  }
+
+  .header-title {
+    font-size: 16px;
+  }
 }
 
-/* 响应式布局 */
-@media (max-width: 768px) {
-  .mobile-toggle {
-    display: block;
-  }
-  
-  .sidebar {
-    position: fixed;
-    height: 100%;
-    left: 0;
-    top: 0;
-    transform: translateX(-100%);
-  }
-  
-  .sidebar.mobile:not(.collapsed) {
-    transform: translateX(0);
-    width: 200px !important;
-  }
-  
-  .sidebar.mobile.collapsed {
-    transform: translateX(-100%);
-  }
-  
-  .content-container {
-    margin-left: 0 !important;
-  }
-  
-  .collapse-btn {
-    display: none;
-  }
+/* 全局重置样式 */
+* {
+  box-sizing: border-box;
 }
 </style>

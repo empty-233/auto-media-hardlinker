@@ -3,15 +3,13 @@ node_modules
 .pnpm-store
 
 # Logs
-logs
+/logs
 *.log
 npm-debug.log*
 pnpm-debug.log*
 
 # Environment variables
 .env
-.env.*
-!.env.example
 config/config.json
 
 # Build outputs
