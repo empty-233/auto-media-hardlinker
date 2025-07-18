@@ -5,12 +5,18 @@ import fs from "fs";
 
 export class SystemService {
   // 获取系统日志
-  getLogs(limit: number = 100, level?: LogLevel, keyword?: string) {
+  getLogs(page: number = 1, limit: number = 100, level?: LogLevel, keyword?: string) {
     try {
-      const logs = logger.getLogs(limit, level, keyword);
-      return logs;
+      const { logs, total } = logger.getLogs(page, limit, level, keyword);
+      return {
+        items: logs,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      };
     } catch (error) {
-      logger.error(`获取系统日志失败: ${error}`);
+      logger.error(`获取系统日志失败`, error);
       throw error;
     }
   }
@@ -28,7 +34,7 @@ export class SystemService {
       logger.info("获取系统配置成功");
       return clientConfig;
     } catch (error) {
-      logger.error(`获取系统配置失败: ${error}`);
+      logger.error(`获取系统配置失败`, error);
       throw error;
     }
   }
@@ -70,7 +76,7 @@ export class SystemService {
         llmModel: updatedConfig.llmModel || "qwen2.5",
       };
     } catch (error) {
-      logger.error(`更新系统配置失败: ${error}`);
+      logger.error(`更新系统配置失败`, error);
       throw error;
     }
   }

@@ -1,5 +1,6 @@
 import http from '@/utils/http'
-import type { Media, MediaType, UpdateEpisodeParams, EpisodeInfo } from './types'
+import type { Media, MediaType, UpdateEpisodeParams, EpisodeInfo,MediaPaginationParams } from './types'
+import type { PaginatedResponse } from '@/types/api'
 
 /**
  * 媒体API服务
@@ -8,8 +9,10 @@ export class MediaService {
   /**
    * 获取所有媒体列表
    */
-  static async getAllMedia(): Promise<Media[]> {
-    return http.get<Media[]>('/media')
+  static async getAllMedia(
+    params: MediaPaginationParams
+  ): Promise<PaginatedResponse<Media>> {
+    return http.get<PaginatedResponse<Media>>('/media', params)
   }
 
   /**
@@ -22,8 +25,11 @@ export class MediaService {
   /**
    * 按类型获取媒体列表
    */
-  static async getMediaByType(type: MediaType): Promise<Media[]> {
-    return http.get<Media[]>(`/media/type/${type}`)
+  static async getMediaByType(
+    type: MediaType,
+    params: MediaPaginationParams
+  ): Promise<PaginatedResponse<Media>> {
+    return http.get<PaginatedResponse<Media>>(`/media/type/${type}`, params)
   }
 
   /**

@@ -1,79 +1,87 @@
-import chokidar from "chokidar";
-import fs from "fs";
+import chokidar, { FSWatcher } from "chokidar";
 import path from "path";
+import { logger } from "../utils/logger";
 
 /**
  * 文件监控器配置选项
  */
 export interface FileMonitorOptions {
-  /** 是否持久化监控 */
   persistent?: boolean;
-  /** 监控深度，仅在recursive为true时有效 */
   depth?: number;
-  /** 是否轮询 */
   usePolling?: boolean;
-  /** 是否忽略初始文件扫描事件 */
   ignoreInitial?: boolean;
-  /** 要忽略的文件/目录模式 */
   ignored?: RegExp | string | Array<RegExp | string>;
 }
 
-export class fileMonitor {
-  private filePath: string;
-  private options: FileMonitorOptions;
+type EventCallback = (eventType: string, fileInfo: { path: string; filename: string; isDirectory: boolean }) => void;
+
+/**
+ * @class FileMonitor
+ * @description 一个基于chokidar的健壮文件系统监控器。
+ */
+export class FileMonitor {
+  private readonly filePath: string;
+  private readonly options: FileMonitorOptions;
+
   constructor(filePath: string, options: FileMonitorOptions) {
     this.filePath = filePath;
-
     this.options = {
       persistent: true,
       ignoreInitial: true,
       ...options,
     };
-
-    // 检测路径是否存在
-    if (!fs.existsSync(this.filePath)) {
-      console.warn(`该路径不存在: ${this.filePath}`);
-    }
   }
 
-  watchFile(callback: (eventType: string, fileInfo: { path: string, filename: string, isDirectory: boolean }) => void) {
+  /**
+   * @method watchFile
+   * @description 初始化并开始文件监控。
+   * @param callback - 当文件事件发生时调用的回调函数。
+   * @returns 返回一个函数，调用该函数可以停止监控。
+   */
+  public watchFile(callback: EventCallback): () => Promise<boolean> {
     const watcher = chokidar.watch(this.filePath, this.options);
+    this.setupEventListeners(watcher, callback);
+
     let isWatching = true;
 
-    // 监听所有事件类型
-    watcher.on("add", (filePath) => callback("add", { path: filePath, filename: path.basename(filePath), isDirectory: false }));
-    watcher.on("change", (filePath) => callback("change", { path: filePath, filename: path.basename(filePath), isDirectory: false }));
-    watcher.on("unlink", (filePath) => callback("unlink", { path: filePath, filename: path.basename(filePath), isDirectory: false }));
-    watcher.on("addDir", (dirPath) => callback("addDir", { path: dirPath, filename: path.basename(dirPath), isDirectory: true }));
-    watcher.on("unlinkDir", (dirPath) => callback("unlinkDir", { path: dirPath, filename: path.basename(dirPath), isDirectory: true }));
-    watcher.on("error", (error) => console.error(`监控错误: ${error}`));
-    watcher.on("ready", () => console.log("初始扫描完成，准备监控文件变化"));
-
-    /**
-     * 停止文件监控
-     * @returns 返回Promise，表示监控停止的结果
-     */
     return async (): Promise<boolean> => {
       if (!isWatching) {
-        console.log(`监控器已经停止，无需重复操作`);
+        logger.warn(`监控器已经停止，无需重复操作`);
         return true;
       }
 
-      console.log(`正在停止对 ${this.filePath} 的监控...`);
-
+      logger.info(`正在停止对 ${this.filePath} 的监控...`);
       try {
         await watcher.close();
         isWatching = false;
-        console.log(`成功停止监控路径: ${this.filePath}`);
+        logger.info(`成功停止监控路径: ${this.filePath}`);
         return true;
       } catch (error) {
-        console.error(
-          `关闭监控器时出错: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-        );
+        logger.error(`关闭监控器时出错`, error);
         return false;
       }
     };
+  }
+
+  /**
+   * @private
+   * @method setupEventListeners
+   * @description 封装事件监听器的设置逻辑。
+   * @param watcher - chokidar的FSWatcher实例。
+   * @param callback - 事件回调函数。
+   */
+  private setupEventListeners(watcher: FSWatcher, callback: EventCallback): void {
+    const eventHandler = (eventType: string, itemPath: string, isDirectory: boolean) => {
+      callback(eventType, { path: itemPath, filename: path.basename(itemPath), isDirectory });
+    };
+
+    watcher
+      .on("add", (filePath) => eventHandler("add", filePath, false))
+      .on("change", (filePath) => eventHandler("change", filePath, false))
+      .on("unlink", (filePath) => eventHandler("unlink", filePath, false))
+      .on("addDir", (dirPath) => eventHandler("addDir", dirPath, true))
+      .on("unlinkDir", (dirPath) => eventHandler("unlinkDir", dirPath, true))
+      .on("error", (error) => logger.error(`监控错误`, error))
+      .on("ready", () => logger.info("初始扫描完成，准备监控文件变化"));
   }
 }

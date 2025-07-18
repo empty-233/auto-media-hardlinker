@@ -420,6 +420,12 @@ watch(
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+.navigation-section :deep(.el-breadcrumb__inner) {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 /* 表格容器 */
 .table-container {
   background: white;

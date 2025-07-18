@@ -2,32 +2,37 @@ import { Server } from "http";
 import app from "./app";
 import prisma from "./client";
 import { logger } from "./utils/logger";
-
-import "./core/mediaHardlinker";
+import { MediaHardlinkerService } from "./core/mediaHardlinker";
 
 const port = process.env.PORT || 3000;
 
 let server: Server;
+const hardlinkerService = new MediaHardlinkerService();
+
 prisma.$connect().then(() => {
   logger.info("Connected to SQL Database");
+  // 启动核心服务
+  hardlinkerService.start();
   server = app.listen(port, () => {
     logger.info(`Listening to port ${port}`);
   });
 });
 
 const exitHandler = () => {
-  if (server) {
-    server.close(() => {
-      logger.info("Server closed");
+  hardlinkerService.stop().then(() => {
+    if (server) {
+      server.close(() => {
+        logger.info("Server closed");
+        process.exit(1);
+      });
+    } else {
       process.exit(1);
-    });
-  } else {
-    process.exit(1);
-  }
+    }
+  });
 };
 
 const unexpectedErrorHandler = (error: unknown) => {
-  logger.error(String(error));
+  logger.error("未捕获的异常或未处理的拒绝", error);
   exitHandler();
 };
 

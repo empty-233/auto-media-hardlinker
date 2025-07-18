@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onActivated } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useDebounceFn } from '@vueuse/core'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh, Picture, Document } from '@element-plus/icons-vue'
 import { MediaService } from '@/api/media'
-import type { Media, MediaType } from '@/api/media/types'
+import type { Media, MediaType, MediaPaginationParams } from '@/api/media/types'
+import { MediaType as MediaTypeEnum } from '@/api/media/types'
 
 // 定义组件名称以支持 keep-alive
 defineOptions({
@@ -18,52 +20,26 @@ const router = useRouter()
 const loading = ref(false)
 const mediaList = ref<Media[]>([])
 const searchKeyword = ref('')
-const selectedType = ref<string>('')
+const selectedType = ref<MediaType | ''>('')
 const currentPage = ref(1)
-const pageSize = 12
-const isDataLoaded = ref(false) // 标记数据是否已加载
-
-// 计算属性
-const totalCount = computed(() => mediaList.value.length)
-
-const filteredMediaList = computed(() => {
-  let result = mediaList.value
-
-  // 按类型筛选
-  if (selectedType.value) {
-    result = result.filter((media) => media.type === selectedType.value)
-  }
-
-  // 按关键词搜索
-  if (searchKeyword.value.trim()) {
-    const keyword = searchKeyword.value.trim().toLowerCase()
-    result = result.filter(
-      (media) =>
-        media.title.toLowerCase().includes(keyword) ||
-        (media.originalTitle && media.originalTitle.toLowerCase().includes(keyword)),
-    )
-  }
-
-  return result
-})
-
-const displayedMediaList = computed(() => {
-  const start = (currentPage.value - 1) * pageSize
-  const end = start + pageSize
-  return filteredMediaList.value.slice(start, end)
-})
+const pageSize = ref(10)
+const totalCount = ref(0)
 
 // 方法
-const loadMediaList = async (force = false) => {
-  // 如果数据已加载且不是强制刷新，则跳过
-  if (isDataLoaded.value && !force) {
-    return
-  }
-
+const loadMediaList = async () => {
   try {
     loading.value = true
-    mediaList.value = await MediaService.getAllMedia()
-    isDataLoaded.value = true
+    const params: MediaPaginationParams = {
+      page: currentPage.value,
+      limit: pageSize.value,
+      keyword: searchKeyword.value,
+    }
+    const res = selectedType.value
+      ? await MediaService.getMediaByType(selectedType.value, params)
+      : await MediaService.getAllMedia(params)
+
+    mediaList.value = res.items
+    totalCount.value = res.total
   } catch (error) {
     console.error('加载媒体列表失败:', error)
     ElMessage.error('加载媒体列表失败，请稍后重试')
@@ -74,19 +50,25 @@ const loadMediaList = async (force = false) => {
 
 const refreshData = () => {
   currentPage.value = 1
-  loadMediaList(true) // 强制刷新
+  searchKeyword.value = ''
+  loadMediaList()
 }
 
-const handleSearch = () => {
+const handleSearch = useDebounceFn(() => {
   currentPage.value = 1
-}
+  loadMediaList()
+}, 500)
 
-const handleTypeFilter = () => {
+const handleTypeFilter = (tab: any) => {
   currentPage.value = 1
+  const type = tab.props.name as MediaType | ''
+  selectedType.value = type
+  loadMediaList()
 }
 
 const handlePageChange = (page: number) => {
   currentPage.value = page
+  loadMediaList()
 }
 
 const goToDetail = (id: number) => {
@@ -152,9 +134,9 @@ onMounted(() => {
         <div>
           <el-tabs v-model="selectedType" class="type-tabs" @tab-click="handleTypeFilter">
             <el-tab-pane label="媒体列表" name="" />
-            <el-tab-pane label="电视剧" name="tv" />
-            <el-tab-pane label="电影" name="movie" />
-            <el-tab-pane label="合集" name="collection" />
+            <el-tab-pane label="电视剧" :name="MediaTypeEnum.TV" />
+            <el-tab-pane label="电影" :name="MediaTypeEnum.MOVIE" />
+            <el-tab-pane label="合集" :name="MediaTypeEnum.COLLECTION" />
           </el-tabs>
         </div>
       </div>
@@ -169,7 +151,7 @@ onMounted(() => {
 
     <!-- 空状态 -->
     <el-empty
-      v-else-if="!loading && filteredMediaList.length === 0"
+      v-else-if="!loading && mediaList.length === 0"
       description="暂无媒体内容"
       class="empty-state"
     >
@@ -179,7 +161,7 @@ onMounted(() => {
     <!-- 媒体卡片网格 -->
     <div v-else class="media-grid">
       <div
-        v-for="media in displayedMediaList"
+        v-for="media in mediaList"
         :key="media.id"
         class="media-card"
         @click="goToDetail(media.id)"
@@ -245,13 +227,15 @@ onMounted(() => {
     </div>
 
     <!-- 分页 -->
-    <div v-if="filteredMediaList.length > pageSize" class="pagination-container">
+    <div v-if="totalCount > 0" class="pagination-container">
       <el-pagination
         v-model:current-page="currentPage"
-        :page-size="pageSize"
-        :total="filteredMediaList.length"
-        layout="total, prev, pager, next, jumper"
+        v-model:page-size="pageSize"
+        :total="totalCount"
+        :page-sizes="[10, 50, 100]"
+        layout="total, sizes, prev, pager, next, jumper"
         @current-change="handlePageChange"
+        @size-change="loadMediaList"
       />
     </div>
   </div>

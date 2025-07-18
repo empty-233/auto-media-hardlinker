@@ -16,7 +16,7 @@ export class FileService {
       logger.info(`获取文件列表成功，共${files.length}个文件`);
       return files;
     } catch (error) {
-      logger.error(`获取文件列表失败: ${error}`);
+      logger.error(`获取文件列表失败`, error);
       throw error;
     }
   }
@@ -33,14 +33,14 @@ export class FileService {
       });
 
       if (!file) {
-        logger.warning(`查询ID为${id}的文件不存在`);
+        logger.warn(`查询ID为${id}的文件不存在`);
         return null;
       }
 
       logger.info(`获取ID为${id}的文件详情成功`);
       return file;
     } catch (error) {
-      logger.error(`获取文件${id}详情失败: ${error}`);
+      logger.error(`获取文件${id}详情失败`, error);
       throw error;
     }
   }

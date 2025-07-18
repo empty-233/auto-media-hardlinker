@@ -10,8 +10,7 @@ export class DashboardController {
       const dashboardData = await dashboardService.getDashboardStats();
       success(res, dashboardData, '获取仪表板统计信息成功');
     } catch (error) {
-      logger.error(`获取仪表板统计信息失败: ${error}`);
-      console.error("获取仪表板统计信息失败:", error);
+      logger.error(`获取仪表板统计信息失败`, error);
       internalError(res, "获取仪表板统计信息失败");
     }
   }
@@ -23,8 +22,7 @@ export class DashboardController {
       const recentMedia = await dashboardService.getRecentMedia(limit);
       success(res, recentMedia, '获取最近添加的媒体成功');
     } catch (error) {
-      logger.error(`获取最近添加的媒体失败: ${error}`);
-      console.error("获取最近添加的媒体失败:", error);
+      logger.error(`获取最近添加的媒体失败`, error);
       internalError(res, "获取最近添加的媒体失败");
     }
   }
@@ -35,8 +33,7 @@ export class DashboardController {
       const storageInfo = await dashboardService.getStorageInfo();
       success(res, storageInfo, '获取存储空间信息成功');
     } catch (error) {
-      logger.error(`获取存储空间信息失败: ${error}`);
-      console.error("获取存储空间信息失败:", error);
+      logger.error(`获取存储空间信息失败`, error);
       internalError(res, "获取存储空间信息失败");
     }
   }

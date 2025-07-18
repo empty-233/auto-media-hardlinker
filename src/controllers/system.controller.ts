@@ -1,20 +1,25 @@
 import { Request, Response } from "express";
 import { systemService } from "../services";
 import { logger, LogLevel } from "../utils/logger";
-import { success, badRequest, internalError } from "../utils/response";
+import {
+  success,
+  successWithPagination,
+  internalError,
+  badRequest,
+} from "../utils/response";
 
 export class SystemController {
   // 获取系统日志
   static async getLogs(req: Request, res: Response) {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 100;
       const level = req.query.level as LogLevel;
       const keyword = req.query.keyword as string | undefined;
-      const logs = systemService.getLogs(limit, level, keyword);
-      success(res, logs, "获取系统日志成功");
+      const logs = systemService.getLogs(page, limit, level, keyword);
+      successWithPagination(res, logs, "获取系统日志成功");
     } catch (error) {
-      logger.error(`获取系统日志失败: ${error}`);
-      console.error("获取系统日志失败:", error);
+      logger.error(`获取系统日志失败`, error);
       internalError(res, "获取系统日志失败");
     }
   }
@@ -25,8 +30,7 @@ export class SystemController {
       const config = systemService.getConfig();
       success(res, config, "获取系统配置成功");
     } catch (error) {
-      logger.error(`获取系统配置失败: ${error}`);
-      console.error("获取系统配置失败:", error);
+      logger.error(`获取系统配置失败`, error);
       internalError(res, "获取系统配置失败");
     }
   }
@@ -65,8 +69,7 @@ export class SystemController {
       const updatedConfig = systemService.updateConfig({ useLlm, llmHost, llmModel });
       success(res, updatedConfig, "更新系统配置成功");
     } catch (error) {
-      logger.error(`更新系统配置失败: ${error}`);
-      console.error("更新系统配置失败:", error);
+      logger.error(`更新系统配置失败`, error);
       internalError(res, "更新系统配置失败");
     }
   }

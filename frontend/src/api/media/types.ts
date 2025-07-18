@@ -1,3 +1,4 @@
+import type { BasePaginationParams } from '@/types/api'
 /**
  * 媒体类型枚举
  */
@@ -95,4 +96,11 @@ export interface UpdateEpisodeParams {
   title?: string
   description?: string
   episodeNumber?: number
+}
+
+/**
+ * 媒体分页查询参数
+ */
+export interface MediaPaginationParams extends BasePaginationParams {
+  keyword?: string
 }

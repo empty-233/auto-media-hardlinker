@@ -19,11 +19,12 @@ export interface LogEntry {
   details?: any
 }
 
+import type { BasePaginationParams } from '@/types/api'
+
 /**
  * 获取日志查询参数
  */
-export interface GetLogsParams {
-  limit?: number
+export interface GetLogsParams extends BasePaginationParams {
   level?: LogLevel | string
   keyword?: string
 }

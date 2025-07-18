@@ -10,8 +10,7 @@ export class FileController {
       const files = await fileService.getAllFiles();
       success(res, files, "获取文件列表成功");
     } catch (error) {
-      logger.error(`获取文件列表失败: ${error}`);
-      console.error("获取文件列表失败:", error);
+      logger.error(`获取文件列表失败`, error);
       internalError(res, "获取文件列表失败");
     }
   }
@@ -36,8 +35,7 @@ export class FileController {
 
       success(res, file, "获取文件详情成功");
     } catch (error) {
-      logger.error(`获取文件详情失败: ${error}`);
-      console.error("获取文件详情失败:", error);
+      logger.error(`获取文件详情失败`, error);
       internalError(res, "获取文件详情失败");
     }
   }

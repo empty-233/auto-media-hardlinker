@@ -9,6 +9,7 @@ export interface Config {
   targetFilePath: string;
   tmdbApi: string;
   language: string;
+  videoExtensions: string[];
   // LLM相关配置
   llmHost?: string;
   llmModel?: string;
@@ -56,6 +57,10 @@ export function getConfig(
 
     if (!config.tmdbApi) {
       throw new Error("配置文件缺少 tmdbApi 字段");
+    }
+
+    if (!config.videoExtensions || !Array.isArray(config.videoExtensions) || config.videoExtensions.length === 0) {
+      throw new Error("配置文件缺少或无效的 videoExtensions 字段");
     }
 
     if (!config.useLlm && (!config.llmHost || !config.llmModel)) {

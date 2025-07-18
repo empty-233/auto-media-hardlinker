@@ -31,8 +31,7 @@ export class EpisodeController {
 
       success(res, updatedEpisode, "更新剧集信息成功");
     } catch (error) {
-      logger.error(`更新剧集信息失败: ${error}`);
-      console.error("更新剧集信息失败:", error);
+      logger.error(`更新剧集信息失败`, error);
       internalError(res, "更新剧集信息失败");
     }
   }

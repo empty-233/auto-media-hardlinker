@@ -12,5 +12,7 @@
     //LLM服务主机地址
     "llmHost": "http://localhost:11434",
     //LLM模型名称
-    "llmModel": "qwen2.5"
+    "llmModel": "qwen2.5",
+    //支持的视频文件扩展名
+    "videoExtensions": [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".ts"]
 }

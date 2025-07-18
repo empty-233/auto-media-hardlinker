@@ -4,7 +4,7 @@ import { ElMessage } from 'element-plus'
 import { Search, Refresh, Clock, CopyDocument } from '@element-plus/icons-vue'
 import { useDebounceFn } from '@vueuse/core'
 import { LogService } from '@/api/logs'
-import type { LogEntry } from '@/api/logs/types'
+import type { LogEntry, GetLogsParams } from '@/api/logs/types'
 
 // 定义组件名称以支持 keep-alive
 defineOptions({
@@ -17,7 +17,8 @@ const logList = ref<LogEntry[]>([])
 const searchKeyword = ref('')
 const selectedLevel = ref('')
 const currentPage = ref(1)
-const pageSize = 50
+const pageSize = ref(50)
+const totalCount = ref(0)
 const sortConfig = ref<{ prop: string; order: string }>({ prop: 'timestamp', order: 'descending' })
 
 // 对话框相关
@@ -25,11 +26,8 @@ const detailDialogVisible = ref(false)
 const selectedLog = ref<LogEntry | null>(null)
 
 // 计算属性
-const filteredLogList = computed(() => {
-  let result = logList.value
-
-  // 后端已支持关键词和级别过滤，无需前端过滤
-
+const sortedLogList = computed(() => {
+  let result = [...logList.value]
   // 排序
   if (sortConfig.value.prop) {
     result.sort((a, b) => {
@@ -53,12 +51,6 @@ const filteredLogList = computed(() => {
   return result
 })
 
-const displayedLogList = computed(() => {
-  const start = (currentPage.value - 1) * pageSize
-  const end = start + pageSize
-  return filteredLogList.value.slice(start, end)
-})
-
 // 检查是否有激活的过滤器
 const hasActiveFilters = computed(() => {
   return !!(selectedLevel.value || searchKeyword.value)
@@ -70,16 +62,16 @@ const loadLogList = async () => {
     loading.value = true
 
     // 构建查询参数
-    const params: any = { limit: 1000 }
-
-    if (selectedLevel.value) {
-      params.level = selectedLevel.value
-    }
-    if (searchKeyword.value.trim()) {
-      params.keyword = searchKeyword.value.trim()
+    const params: GetLogsParams = {
+      page: currentPage.value,
+      limit: pageSize.value,
+      level: selectedLevel.value,
+      keyword: searchKeyword.value.trim(),
     }
 
-    logList.value = await LogService.getLogs(params)
+    const res = await LogService.getLogs(params)
+    logList.value = res.items
+    totalCount.value = res.total
   } catch (error) {
     console.error('加载日志列表失败:', error)
     ElMessage.error('加载日志列表失败，请稍后重试')
@@ -125,6 +117,7 @@ const clearSearchFilter = () => {
 
 const handlePageChange = (page: number) => {
   currentPage.value = page
+  loadLogList()
 }
 
 const handleSortChange = ({ prop, order }: { prop: string; order: string }) => {
@@ -273,7 +266,7 @@ onMounted(() => {
 
     <!-- 空状态 -->
     <el-empty
-      v-else-if="!loading && filteredLogList.length === 0"
+      v-else-if="!loading && logList.length === 0"
       description="暂无日志记录"
       class="empty-state"
     >
@@ -283,7 +276,7 @@ onMounted(() => {
     <!-- 日志表格 -->
     <div v-else class="table-container">
       <el-table
-        :data="displayedLogList"
+        :data="sortedLogList"
         style="width: 100%"
         stripe
         :default-sort="{ prop: 'timestamp', order: 'descending' }"
@@ -342,13 +335,15 @@ onMounted(() => {
     </div>
 
     <!-- 分页 -->
-    <div v-if="filteredLogList.length > pageSize" class="pagination-container">
+    <div v-if="totalCount > 0" class="pagination-container">
       <el-pagination
         v-model:current-page="currentPage"
-        :page-size="pageSize"
-        :total="filteredLogList.length"
-        layout="total, prev, pager, next, jumper"
+        v-model:page-size="pageSize"
+        :total="totalCount"
+        :page-sizes="[50, 100, 200, 500]"
+        layout="total, sizes, prev, pager, next, jumper"
         @current-change="handlePageChange"
+        @size-change="loadLogList"
       />
     </div>
 

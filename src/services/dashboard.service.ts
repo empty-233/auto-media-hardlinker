@@ -87,7 +87,7 @@ export class DashboardService {
       logger.info(`获取仪表板统计信息成功: 媒体${totalMedia}条，文件${totalFiles}个，存储${totalStorageTB.toFixed(2)}TB`);
       return dashboardData;
     } catch (error) {
-      logger.error(`获取仪表板统计信息失败: ${error}`);
+      logger.error(`获取仪表板统计信息失败`, error);
       throw error;
     }
   }
@@ -118,7 +118,7 @@ export class DashboardService {
       logger.info(`获取最近添加的媒体成功，共${recentMedia.length}条记录`);
       return processedRecentMedia;
     } catch (error) {
-      logger.error(`获取最近添加的媒体失败: ${error}`);
+      logger.error(`获取最近添加的媒体失败`, error);
       throw error;
     }
   }
@@ -188,7 +188,7 @@ export class DashboardService {
       logger.info(`获取存储空间信息成功: 总计${storageInfo.totalTB}TB`);
       return storageInfo;
     } catch (error) {
-      logger.error(`获取存储空间信息失败: ${error}`);
+      logger.error(`获取存储空间信息失败`, error);
       throw error;
     }
   }

@@ -89,7 +89,7 @@ class Logger {
     return messageLevelValue >= currentLevelValue;
   }
 
-  private log(level: LogLevel, message: string): LogEntry {
+  private log(level: LogLevel, message: string, error?: unknown): LogEntry {
     // 检查是否应该记录此级别的日志
     if (!this.shouldLog(level)) {
       return {
@@ -101,11 +101,17 @@ class Logger {
     }
 
     const timestamp = new Date();
+    let detailedMessage = message;
+    if (error instanceof Error) {
+      detailedMessage = `${message}\n${error.stack}`;
+    } else if (error) {
+      detailedMessage = `${message}\n${String(error)}`;
+    }
     const logEntry: LogEntry = {
       id: this.logs.length + 1,
       timestamp,
       level,
-      message,
+      message: detailedMessage,
     };
 
     // 添加到内存日志
@@ -115,7 +121,8 @@ class Logger {
       this.logs.shift();
     }
 
-    // 使用 pino 记录日志到文件
+    const pinoError = error ? { err: error } : undefined;
+
     switch (level) {
       case LogLevel.INFO:
         this.pinoLogger.info(message);
@@ -126,8 +133,13 @@ class Logger {
         this.consoleLogger?.warn(message);
         break;
       case LogLevel.ERROR:
-        this.pinoLogger.error(message);
-        this.consoleLogger?.error(message);
+        if (pinoError) {
+          this.pinoLogger.error(pinoError, message);
+          this.consoleLogger?.error(pinoError, message);
+        } else {
+          this.pinoLogger.error(message);
+          this.consoleLogger?.error(message);
+        }
         break;
       case LogLevel.DEBUG:
         this.pinoLogger.debug(message);
@@ -142,12 +154,12 @@ class Logger {
     return this.log(LogLevel.INFO, message);
   }
 
-  public warning(message: string): LogEntry {
+  public warn(message: string): LogEntry {
     return this.log(LogLevel.WARNING, message);
   }
 
-  public error(message: string): LogEntry {
-    return this.log(LogLevel.ERROR, message);
+  public error(message: string, error?: unknown): LogEntry {
+    return this.log(LogLevel.ERROR, message, error);
   }
 
   public debug(message: string): LogEntry {
@@ -200,7 +212,7 @@ class Logger {
     };
   }
 
-  public getLogs(limit: number = 100, level?: LogLevel, keyword?: string): LogEntry[] {
+  public getLogs(page: number = 1, limit: number = 100, level?: LogLevel, keyword?: string): { logs: LogEntry[], total: number } {
     let filteredLogs = this.logs;
     
     if (level) {
@@ -211,10 +223,16 @@ class Logger {
       filteredLogs = filteredLogs.filter(log => log.message.includes(keyword));
     }
     
+    const total = filteredLogs.length;
+    const start = (page - 1) * limit;
+    const end = start + limit;
+
     // 返回最新的日志，按时间降序排列
-    return filteredLogs
+    const logs = filteredLogs
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-      .slice(0, limit);
+      .slice(start, end);
+
+    return { logs, total };
   }
 }
 

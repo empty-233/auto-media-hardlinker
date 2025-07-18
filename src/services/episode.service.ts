@@ -26,7 +26,7 @@ export class EpisodeService {
       logger.info(`更新ID为${id}的剧集信息成功`);
       return updatedEpisode;
     } catch (error) {
-      logger.error(`更新剧集${id}信息失败: ${error}`);
+      logger.error(`更新剧集${id}信息失败`, error);
       throw error;
     }
   }

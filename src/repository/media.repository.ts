@@ -1,0 +1,196 @@
+import { Type } from "@prisma/client";
+import prisma from "../client";
+import { getConfig } from "../config/config";
+import { logger } from "../utils/logger";
+import { downloadTMDBImage } from "../utils/media";
+import {
+  IMediaRepository,
+  IdentifiedMedia,
+  FileDetails,
+} from "../types/media.types";
+
+const config = getConfig();
+
+export class MediaRepository implements IMediaRepository {
+  // REFACTOR: 将 saveMediaAndFile 分解为更小的、职责单一的方法
+  public async saveMediaAndFile(
+    media: IdentifiedMedia,
+    fileDetails: FileDetails
+  ): Promise<any> {
+    try {
+      const mediaRecord = await this.findOrCreateMediaRecord(media);
+      const episodeId = await this.saveShowOrMovieInfo(mediaRecord.id, media);
+      const fileRecord = await this.createFileRecord(mediaRecord.id, fileDetails, episodeId);
+
+      logger.info(`成功将文件 "${fileDetails.sourcePath}" 信息保存到数据库`);
+      return fileRecord;
+    } catch (error) {
+      logger.error(`数据库操作失败`, error);
+      throw error;
+    }
+  }
+
+  private async findOrCreateMediaRecord(media: IdentifiedMedia) {
+    const localPosterUrl = await downloadTMDBImage(media.posterPath, "poster");
+    logger.info(`图片本地URL: 海报=${localPosterUrl}`);
+
+    const existingMedia = await prisma.media.findFirst({
+      where: {
+        tmdbId: media.tmdbId,
+        type: media.type.toLowerCase() as Type,
+      },
+    });
+
+    if (existingMedia) {
+      if (!existingMedia.posterUrl && localPosterUrl) {
+        logger.info(`更新了已存在媒体(ID=${existingMedia.id})的海报URL`);
+        return prisma.media.update({
+          where: { id: existingMedia.id },
+          data: { posterUrl: localPosterUrl },
+        });
+      }
+      return existingMedia;
+    }
+
+    return prisma.media.create({
+      data: {
+        type: media.type.toLowerCase() as Type,
+        tmdbId: media.tmdbId,
+        title: media.title,
+        originalTitle: media.originalTitle,
+        releaseDate: media.releaseDate,
+        description: media.description,
+        posterUrl: localPosterUrl,
+      },
+    });
+  }
+
+  private async saveShowOrMovieInfo(mediaId: number, media: IdentifiedMedia): Promise<number | undefined> {
+    if (media.type === "tv") {
+      return this.saveTvShowInfo(mediaId, media);
+    } else if (media.type === "movie") {
+      await this.saveMovieInfo(mediaId, media);
+    }
+    return undefined;
+  }
+
+  private async createFileRecord(mediaId: number, fileDetails: FileDetails, episodeId?: number) {
+    return prisma.file.create({
+      data: {
+        deviceId: fileDetails.deviceId,
+        inode: fileDetails.inode,
+        fileHash: fileDetails.fileHash,
+        fileSize: fileDetails.fileSize,
+        filePath: fileDetails.sourcePath,
+        linkPath: fileDetails.linkPath,
+        Media: { connect: { id: mediaId } },
+        ...(episodeId ? { episode: { connect: { id: episodeId } } } : {}),
+      },
+    });
+  }
+
+  private async saveMovieInfo(mediaId: number, media: IdentifiedMedia) {
+    const existingMovie = await prisma.movieInfo.findFirst({
+      where: { tmdbId: media.tmdbId },
+    });
+
+    if (existingMovie) {
+      logger.info(`电影信息已存在，无需创建: TMDB ID ${media.tmdbId}`);
+      return;
+    }
+
+    const movieInfo = await prisma.movieInfo.create({
+      data: {
+        tmdbId: media.tmdbId,
+        description: media.description,
+      },
+    });
+
+    await prisma.media.update({
+      where: { id: mediaId },
+      data: { movieInfoId: movieInfo.id },
+    });
+  }
+
+  private async saveTvShowInfo(
+    mediaId: number,
+    media: IdentifiedMedia
+  ): Promise<number | undefined> {
+    // 1. 创建或查找 TvInfo
+    let tvInfo = await prisma.tvInfo.findFirst({
+      where: { tmdbId: media.tmdbId },
+    });
+
+    if (!tvInfo) {
+      tvInfo = await prisma.tvInfo.create({
+        data: {
+          tmdbId: media.tmdbId,
+          description: media.description,
+        },
+      });
+    }
+
+    // 2. 关联 Media 和 TvInfo
+    await prisma.media.update({
+      where: { id: mediaId },
+      data: { tvInfoId: tvInfo.id },
+    });
+
+    // 3. 如果是剧集文件，创建或更新 EpisodeInfo
+    if (media.episodeNumber && media.rawData?.episodes) {
+      const episodeData = media.rawData.episodes.find(
+        (e: any) => e.episode_number === media.episodeNumber
+      );
+
+      if (episodeData) {
+        const episodeTmdbId = episodeData.id;
+        let episodeInfo = await prisma.episodeInfo.findFirst({
+          where: { tmdbId: episodeTmdbId, tvInfoId: tvInfo.id },
+        });
+
+        const localStillUrl = await downloadTMDBImage(
+          episodeData.still_path,
+          "still"
+        );
+
+        if (episodeInfo) {
+          // 更新现有剧集
+          if (!episodeInfo.posterUrl && localStillUrl) {
+            await prisma.episodeInfo.update({
+              where: { id: episodeInfo.id },
+              data: { posterUrl: localStillUrl },
+            });
+          }
+        } else {
+          // 创建新剧集
+          episodeInfo = await prisma.episodeInfo.create({
+            data: {
+              tmdbId: episodeTmdbId,
+              episodeNumber: episodeData.episode_number,
+              title: episodeData.name,
+              releaseDate: formatDate(episodeData.air_date),
+              description: episodeData.overview,
+              posterUrl: localStillUrl,
+              tvInfoId: tvInfo.id,
+            },
+          });
+        }
+        return episodeInfo.id; // 返回剧集ID
+      }
+    }
+    return undefined; // 如果不是剧集文件，返回undefined
+  }
+}
+
+// 辅助函数，将日期字符串转换为有效的日期时间格式
+const formatDate = (dateStr: string | null | undefined): Date | null => {
+  if (!dateStr) return null;
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return null;
+    return date;
+  } catch (error) {
+    logger.error(`日期格式化错误`, error);
+    return null;
+  }
+};

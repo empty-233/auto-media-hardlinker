@@ -22,7 +22,7 @@ export enum HttpStatus {
  * 默认配置
  */
 const defaultConfig: RequestConfig = {
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL: import.meta.env.DEV ? '/api' : import.meta.env.VITE_API_BASE_URL,
   timeout: Number(import.meta.env.VITE_API_TIMEOUT) || 10000,
   headers: {
     'Content-Type': 'application/json;charset=UTF-8'
