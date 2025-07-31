@@ -1,15 +1,25 @@
 import http from '@/utils/http'
-import type { FileInfo } from './types'
+import type { FileInfo, FileSystemItem, RenameFileParams, LinkMediaParams } from './types'
+
+/**
+ * 目录内容响应接口
+ */
+export interface DirectoryResponse {
+  items: FileSystemItem[]
+  currentPath: string
+  parentPath: string | null
+}
 
 /**
  * 文件API服务
  */
 export class FileService {
   /**
-   * 获取所有文件列表
+   * 获取目录内容
    */
-  static async getAllFiles(): Promise<FileInfo[]> {
-    return http.get<FileInfo[]>('/files')
+  static async getDirectoryContents(dirPath?: string): Promise<DirectoryResponse> {
+    const url = dirPath ? `/files/directory?dirPath=${encodeURIComponent(dirPath)}` : '/files/directory'
+    return http.get<DirectoryResponse>(url)
   }
 
   /**
@@ -17,5 +27,29 @@ export class FileService {
    */
   static async getFileById(id: number): Promise<FileInfo> {
     return http.get<FileInfo>(`/files/${id}`)
+  }
+
+  /**
+   * 重命名文件
+   */
+  static async renameFile(filePath: string, params: RenameFileParams): Promise<{ success: boolean; newPath: string }> {
+    return http.post<{ success: boolean; newPath: string }>('/files/rename', {
+      filePath,
+      ...params
+    })
+  }
+
+  /**
+   * 关联媒体文件
+   */
+  static async linkMedia(fileId: number | string, params: LinkMediaParams): Promise<FileInfo> {
+    return http.post<FileInfo>(`/files/${fileId}/link-media`, params)
+  }
+
+  /**
+   * 取消关联媒体文件
+   */
+  static async unlinkMedia(fileId: number): Promise<FileInfo> {
+    return http.post<FileInfo>(`/files/${fileId}/unlink-media`)
   }
 }

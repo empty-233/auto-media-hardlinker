@@ -1,80 +1,147 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { useRoute } from 'vue-router'
-import { 
-  Search, 
-  Refresh, 
-  House, 
-  View, 
-  Document, 
-  VideoCamera, 
+import { useRoute, useRouter } from 'vue-router'
+import {
+  Search,
+  Refresh,
+  House,
+  View,
+  Document,
+  VideoCamera,
   Picture,
   Film,
-  Folder
+  Folder,
+  Check,
+  Close,
+  Warning,
+  ArrowLeft,
+  ArrowRight,
 } from '@element-plus/icons-vue'
-import { FileService } from '@/api/files'
-import type { FileInfo } from '@/api/files/types'
+import { FileService, type DirectoryResponse } from '@/api/files'
+import type { FileSystemItem } from '@/api/files/types'
 import FileDetailDialog from './components/FileDetailDialog.vue'
 
 // 定义组件名称以支持 keep-alive
 defineOptions({
-  name: 'FileListView'
+  name: 'FileListView',
 })
 
 // 路由
 const route = useRoute()
+const router = useRouter()
 
 // 响应式数据
 const loading = ref(false)
-const fileList = ref<FileInfo[]>([])
+const fileList = ref<FileSystemItem[]>([])
+const currentPath = ref('')
+const parentPath = ref<string | null>(null)
 const searchKeyword = ref('')
 const currentPage = ref(1)
 const pageSize = 20
-const sortConfig = ref<{prop: string, order: string}>({ prop: 'createdAt', order: 'descending' })
+const sortConfig = ref<{ prop: string; order: string }>({ prop: 'name', order: 'ascending' })
 const detailDialogVisible = ref(false)
-const selectedFile = ref<FileInfo | null>(null)
+const selectedFile = ref<FileSystemItem | null>(null)
+const viewMode = ref<'grid' | 'list'>('grid')
+const filterType = ref<'all' | 'inDb' | 'notInDb' | 'directory'>('all')
 
 // 面包屑导航
-const breadcrumbItems = ref([
-  { name: '文件管理' }
-])
+const breadcrumbItems = computed(() => {
+  if (!currentPath.value) {
+    return [{ name: '根目录', path: '' }]
+  }
+
+  const pathParts = currentPath.value.split(/[/\\]/).filter((part) => part)
+  const items = [{ name: '根目录', path: '' }]
+
+  let accumulatedPath = ''
+  for (const part of pathParts) {
+    accumulatedPath = accumulatedPath ? `${accumulatedPath}/${part}` : part
+    items.push({ name: part, path: accumulatedPath })
+  }
+
+  return items
+})
 
 // 计算属性
 const totalCount = computed(() => fileList.value.length)
 
+// 统计数据
+const statistics = computed(() => {
+  const total = fileList.value.length
+  const inDatabase = fileList.value.filter((item) => item.inDatabase).length
+  const notInDatabase = fileList.value.filter(
+    (item) => !item.inDatabase && !item.isDirectory,
+  ).length
+  const directories = fileList.value.filter((item) => item.isDirectory).length
+  const files = fileList.value.filter((item) => !item.isDirectory).length
+
+  return {
+    total,
+    inDatabase,
+    notInDatabase,
+    directories,
+    files,
+  }
+})
+
 const filteredFileList = computed(() => {
   let result = fileList.value
+
+  // 按类型过滤
+  if (filterType.value !== 'all') {
+    switch (filterType.value) {
+      case 'inDb':
+        result = result.filter((item) => item.inDatabase)
+        break
+      case 'notInDb':
+        result = result.filter((item) => !item.inDatabase && !item.isDirectory)
+        break
+      case 'directory':
+        result = result.filter((item) => item.isDirectory)
+        break
+    }
+  }
 
   // 按关键词搜索
   if (searchKeyword.value.trim()) {
     const keyword = searchKeyword.value.trim().toLowerCase()
-    result = result.filter(file => 
-      file.filePath.toLowerCase().includes(keyword) ||
-      file.linkPath?.toLowerCase().includes(keyword) ||
-      file.Media?.title.toLowerCase().includes(keyword)
+    result = result.filter(
+      (item) =>
+        item.name.toLowerCase().includes(keyword) ||
+        item.path.toLowerCase().includes(keyword) ||
+        item.databaseRecord?.Media?.title.toLowerCase().includes(keyword),
     )
   }
 
-  // 排序
-  if (sortConfig.value.prop) {
-    result.sort((a, b) => {
+  // 排序 - 目录永远在前面
+  result.sort((a, b) => {
+    // 目录永远在前面
+    if (a.isDirectory !== b.isDirectory) {
+      return a.isDirectory ? -1 : 1
+    }
+
+    // 如果有排序配置，按照指定字段排序
+    if (sortConfig.value.prop) {
       let aValue = getValueByPath(a, sortConfig.value.prop)
       let bValue = getValueByPath(b, sortConfig.value.prop)
-      
+
       // 特殊处理文件大小
-      if (sortConfig.value.prop === 'fileSize') {
-        aValue = parseInt(aValue as string) || 0
-        bValue = parseInt(bValue as string) || 0
+      if (sortConfig.value.prop === 'size') {
+        aValue = aValue || 0
+        bValue = bValue || 0
       }
-      
+
       if (sortConfig.value.order === 'ascending') {
         return aValue > bValue ? 1 : -1
       } else {
         return aValue < bValue ? 1 : -1
       }
-    })
-  }
+    } else {
+      // 默认按名称排序
+      return a.name.localeCompare(b.name)
+    }
+  })
 
   return result
 })
@@ -86,24 +153,25 @@ const displayedFileList = computed(() => {
 })
 
 // 方法
-const loadFileList = async () => {
+const loadDirectoryContents = async (dirPath?: string) => {
   try {
     loading.value = true
-    fileList.value = await FileService.getAllFiles()
-    
-    // 检查是否有fileId查询参数，如果有则自动显示对应文件详情
-    const fileId = route.query.fileId as string
-    if (fileId) {
-      const targetFile = fileList.value.find(file => file.id.toString() === fileId)
-      if (targetFile) {
-        viewFileDetail(targetFile)
-      } else {
-        ElMessage.warning('未找到指定的文件')
-      }
+    const response = await FileService.getDirectoryContents(dirPath)
+    fileList.value = response.items
+    currentPath.value = response.currentPath
+    parentPath.value = response.parentPath
+
+    // 更新URL参数
+    const query = { ...route.query }
+    if (response.currentPath) {
+      query.path = response.currentPath
+    } else {
+      delete query.path
     }
+    router.replace({ query })
   } catch (error) {
-    console.error('加载文件列表失败:', error)
-    ElMessage.error('加载文件列表失败，请稍后重试')
+    console.error('加载目录内容失败:', error)
+    ElMessage.error('加载目录内容失败，请稍后重试')
   } finally {
     loading.value = false
   }
@@ -111,7 +179,7 @@ const loadFileList = async () => {
 
 const refreshData = () => {
   currentPage.value = 1
-  loadFileList()
+  loadDirectoryContents(currentPath.value || undefined)
 }
 
 const handleSearch = () => {
@@ -126,9 +194,40 @@ const handleSortChange = ({ prop, order }: { prop: string; order: string }) => {
   sortConfig.value = { prop, order }
 }
 
-const viewFileDetail = (file: FileInfo) => {
+const viewFileDetail = (file: FileSystemItem) => {
   selectedFile.value = file
   detailDialogVisible.value = true
+}
+
+const handleDetailDialogRefresh = () => {
+  // 清除选中的文件，因为文件信息可能已经改变
+  selectedFile.value = null
+  // 刷新数据
+  refreshData()
+}
+
+const handleFilterChange = (type: 'all' | 'inDb' | 'notInDb' | 'directory') => {
+  filterType.value = type
+  currentPage.value = 1
+}
+
+const navigateToDirectory = (dirPath: string) => {
+  if (dirPath === currentPath.value) return
+  loadDirectoryContents(dirPath || undefined)
+}
+
+const navigateToParent = () => {
+  if (parentPath.value !== null) {
+    loadDirectoryContents(parentPath.value || undefined)
+  }
+}
+
+const handleItemClick = (item: FileSystemItem) => {
+  if (item.isDirectory) {
+    navigateToDirectory(item.navigationPath ?? item.path)
+  } else {
+    viewFileDetail(item)
+  }
 }
 
 // 工具函数
@@ -136,42 +235,45 @@ const getFileName = (filePath: string): string => {
   return filePath.split(/[/\\]/).pop() || filePath
 }
 
-const getFileIcon = (filePath: string) => {
-  const ext = filePath.split('.').pop()?.toLowerCase()
+const getFileIcon = (item: FileSystemItem) => {
+  if (item.isDirectory) return Folder
+
+  const ext = item.extension?.toLowerCase()
   if (!ext) return Document
-  
-  if (['mp4', 'mkv', 'avi', 'wmv', 'flv', 'mov', 'webm'].includes(ext)) {
+
+  if (['.mp4', '.mkv', '.avi', '.wmv', '.flv', '.mov', '.webm'].includes(ext)) {
     return VideoCamera
   }
-  if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp'].includes(ext)) {
+  if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.webp'].includes(ext)) {
     return Picture
   }
-  if (['mp3', 'wav', 'flac', 'aac', 'ogg'].includes(ext)) {
+  if (['.mp3', '.wav', '.flac', '.aac', '.ogg'].includes(ext)) {
     return Film
   }
   return Document
 }
 
-const getFileIconColor = (filePath: string): string => {
-  const ext = filePath.split('.').pop()?.toLowerCase()
+const getFileIconColor = (item: FileSystemItem): string => {
+  if (item.isDirectory) return '#F56C6C'
+
+  const ext = item.extension?.toLowerCase()
   if (!ext) return '#909399'
-  
-  if (['mp4', 'mkv', 'avi', 'wmv', 'flv', 'mov', 'webm'].includes(ext)) {
+
+  if (['.mp4', '.mkv', '.avi', '.wmv', '.flv', '.mov', '.webm'].includes(ext)) {
     return '#E6A23C'
   }
-  if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp'].includes(ext)) {
+  if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.webp'].includes(ext)) {
     return '#67C23A'
   }
-  if (['mp3', 'wav', 'flac', 'aac', 'ogg'].includes(ext)) {
+  if (['.mp3', '.wav', '.flac', '.aac', '.ogg'].includes(ext)) {
     return '#409EFF'
   }
   return '#909399'
 }
 
-const formatFileSize = (sizeStr: string): string => {
-  const size = parseInt(sizeStr)
-  if (isNaN(size)) return sizeStr
-  
+const formatFileSize = (size?: number): string => {
+  if (!size) return '-'
+
   if (size < 1024) return `${size} B`
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
   if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`
@@ -190,22 +292,30 @@ const getValueByPath = (obj: any, path: string): any => {
   return path.split('.').reduce((o, p) => o?.[p], obj)
 }
 
+const getStatusTag = (item: FileSystemItem) => {
+  if (item.isDirectory) {
+    return { type: 'info', text: '目录', icon: Folder }
+  }
+  if (item.inDatabase) {
+    return { type: 'success', text: '已入库', icon: Check }
+  }
+  return { type: 'warning', text: '未入库', icon: Warning }
+}
+
 // 生命周期
 onMounted(() => {
-  loadFileList()
+  const initialPath = route.query.path as string
+  loadDirectoryContents(initialPath)
 })
 
 // 监听路由查询参数变化
 watch(
-  () => route.query.fileId,
-  (newFileId) => {
-    if (newFileId && fileList.value.length > 0) {
-      const targetFile = fileList.value.find(file => file.id.toString() === newFileId)
-      if (targetFile) {
-        viewFileDetail(targetFile)
-      }
+  () => route.query.path,
+  (newPath) => {
+    if (newPath !== currentPath.value) {
+      loadDirectoryContents(newPath as string)
     }
-  }
+  },
 )
 </script>
 
@@ -215,14 +325,19 @@ watch(
     <div class="header-section">
       <div class="title-section">
         <h1 class="page-title">文件管理</h1>
-        <p class="page-description">共 {{ totalCount }} 个文件</p>
+        <div class="statistics">
+          <el-tag class="stat-tag">总计: {{ statistics.total }}</el-tag>
+          <el-tag type="success" class="stat-tag">已入库: {{ statistics.inDatabase }}</el-tag>
+          <el-tag type="warning" class="stat-tag">未入库: {{ statistics.notInDatabase }}</el-tag>
+          <el-tag type="info" class="stat-tag">目录: {{ statistics.directories }}</el-tag>
+        </div>
       </div>
 
       <!-- 搜索和操作 -->
       <div class="actions-section">
         <el-input
           v-model="searchKeyword"
-          placeholder="搜索文件名..."
+          placeholder="搜索文件名、路径或媒体标题..."
           :prefix-icon="Search"
           clearable
           class="search-input"
@@ -234,17 +349,64 @@ watch(
       </div>
     </div>
 
+    <!-- 过滤器和视图切换 -->
+    <div class="filter-section">
+      <div class="filter-buttons">
+        <el-button :type="filterType === 'all' ? 'primary' : ''" @click="handleFilterChange('all')">
+          全部 ({{ statistics.total }})
+        </el-button>
+        <el-button
+          :type="filterType === 'inDb' ? 'primary' : ''"
+          @click="handleFilterChange('inDb')"
+        >
+          已入库 ({{ statistics.inDatabase }})
+        </el-button>
+        <el-button
+          :type="filterType === 'notInDb' ? 'primary' : ''"
+          @click="handleFilterChange('notInDb')"
+        >
+          未入库 ({{ statistics.notInDatabase }})
+        </el-button>
+        <el-button
+          :type="filterType === 'directory' ? 'primary' : ''"
+          @click="handleFilterChange('directory')"
+        >
+          目录 ({{ statistics.directories }})
+        </el-button>
+      </div>
+
+      <div class="view-toggle">
+        <el-radio-group v-model="viewMode">
+          <el-radio-button value="grid">网格视图</el-radio-button>
+          <el-radio-button value="list">列表视图</el-radio-button>
+        </el-radio-group>
+      </div>
+    </div>
+
     <!-- 快速导航 -->
     <div class="navigation-section">
-      <el-breadcrumb separator="/">
-        <el-breadcrumb-item>
-          <el-icon><House /></el-icon>
-          根目录
-        </el-breadcrumb-item>
-        <el-breadcrumb-item v-for="item in breadcrumbItems" :key="item.name">
-          {{ item.name }}
-        </el-breadcrumb-item>
-      </el-breadcrumb>
+      <div class="navigation-header">
+        <el-button
+          :disabled="parentPath === null"
+          :icon="ArrowLeft"
+          @click="navigateToParent"
+          size="small"
+        >
+          返回上级
+        </el-button>
+
+        <el-breadcrumb separator="/" class="breadcrumb">
+          <el-breadcrumb-item
+            v-for="(item, index) in breadcrumbItems"
+            :key="index"
+            class="breadcrumb-item"
+            @click="navigateToDirectory(item.path)"
+          >
+            <el-icon v-if="index === 0"><House /></el-icon>
+            {{ item.name }}
+          </el-breadcrumb-item>
+        </el-breadcrumb>
+      </div>
     </div>
 
     <!-- 加载状态 -->
@@ -261,86 +423,123 @@ watch(
       <el-button type="primary" @click="refreshData">立即刷新</el-button>
     </el-empty>
 
-    <!-- 文件表格 -->
+    <!-- 网格视图 -->
+    <div v-else-if="viewMode === 'grid'" class="grid-container">
+      <div class="file-grid">
+        <div
+          v-for="item in displayedFileList"
+          :key="item.fullPath"
+          class="file-card"
+          :class="{ 'is-directory': item.isDirectory }"
+          @click="handleItemClick(item)"
+          @dblclick="
+            item.isDirectory
+              ? navigateToDirectory(item.navigationPath ?? item.path)
+              : viewFileDetail(item)
+          "
+        >
+          <div class="file-icon-container">
+            <el-icon class="file-icon" :color="getFileIconColor(item)">
+              <component :is="getFileIcon(item)" />
+            </el-icon>
+            <div class="status-badge">
+              <el-tag :type="getStatusTag(item).type" size="small" :icon="getStatusTag(item).icon">
+                {{ getStatusTag(item).text }}
+              </el-tag>
+            </div>
+          </div>
+
+          <div class="file-info">
+            <div class="file-name" :title="item.name">
+              {{ item.name }}
+            </div>
+            <div class="file-meta">
+              <div class="file-time">
+                {{ formatDate(item.modifiedTime) }}
+              </div>
+              <div v-if="!item.isDirectory" class="file-size">
+                {{ formatFileSize(item.size) }}
+              </div>
+            </div>
+
+            <div v-if="item.databaseRecord?.Media" class="media-info">
+              <el-tag type="primary" size="small">
+                {{ item.databaseRecord.Media.title }}
+              </el-tag>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 列表视图 -->
     <div v-else class="table-container">
       <el-table
         :data="displayedFileList"
         style="width: 100%"
         stripe
-        :default-sort="{ prop: 'createdAt', order: 'descending' }"
+        :default-sort="{ prop: 'modifiedTime', order: 'descending' }"
         @sort-change="handleSortChange"
+        @row-click="handleItemClick"
+        row-class-name="clickable-row"
       >
         <el-table-column type="index" width="50" />
-        
-        <el-table-column prop="filePath" label="文件名" min-width="300" sortable>
+
+        <el-table-column prop="name" label="名称" min-width="300" sortable="custom">
           <template #default="{ row }">
-            <div class="file-item">
-              <el-icon class="file-icon" :color="getFileIconColor(row.filePath)">
-                <component :is="getFileIcon(row.filePath)" />
+            <div class="file-item" :class="{ 'is-directory': row.isDirectory }">
+              <el-icon class="file-icon" :color="getFileIconColor(row)">
+                <component :is="getFileIcon(row)" />
               </el-icon>
               <div class="file-info">
-                <div class="file-name" :title="getFileName(row.filePath)">
-                  {{ getFileName(row.filePath) }}
+                <div class="file-name" :title="row.name">
+                  {{ row.name }}
                 </div>
-                <div class="file-path" :title="row.filePath">
-                  {{ row.filePath }}
+                <div class="file-path" :title="row.path">
+                  {{ row.path }}
                 </div>
               </div>
             </div>
           </template>
         </el-table-column>
 
-        <el-table-column prop="fileSize" label="文件大小" width="120" sortable>
+        <el-table-column prop="size" label="大小" width="120" sortable="custom">
           <template #default="{ row }">
-            <span class="file-size">{{ formatFileSize(row.fileSize) }}</span>
+            <span class="file-size">{{ formatFileSize(row.size) }}</span>
           </template>
         </el-table-column>
 
-        <el-table-column prop="Media" label="关联媒体" width="200">
+        <el-table-column label="状态" width="100">
           <template #default="{ row }">
-            <div v-if="row.Media" class="media-info">
-              <el-tag type="primary" size="small">{{ row.Media.title }}</el-tag>
+            <el-tag :type="getStatusTag(row).type" size="small" :icon="getStatusTag(row).icon">
+              {{ getStatusTag(row).text }}
+            </el-tag>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="关联媒体" width="200">
+          <template #default="{ row }">
+            <div v-if="row.databaseRecord?.Media" class="media-info">
+              <el-tag type="primary" size="small">{{ row.databaseRecord.Media.title }}</el-tag>
             </div>
             <span v-else class="no-media">-</span>
           </template>
         </el-table-column>
 
-        <el-table-column prop="episode" label="剧集信息" width="150">
+        <el-table-column label="剧集信息" width="150">
           <template #default="{ row }">
-            <div v-if="row.episode" class="episode-info">
+            <div v-if="row.databaseRecord?.episode" class="episode-info">
               <el-tag type="success" size="small">
-                第{{ row.episode.episodeNumber }}集
+                第{{ row.databaseRecord.episode.episodeNumber }}集
               </el-tag>
             </div>
             <span v-else class="no-episode">-</span>
           </template>
         </el-table-column>
 
-        <el-table-column prop="linkPath" label="硬链接路径" min-width="300">
+        <el-table-column prop="modifiedTime" label="修改时间" width="180" sortable="custom">
           <template #default="{ row }">
-            <div v-if="row.linkPath" class="link-path" :title="row.linkPath">
-              {{ row.linkPath }}
-            </div>
-            <span v-else class="no-link">未创建</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="createdAt" label="创建时间" width="180" sortable>
-          <template #default="{ row }">
-            <span>{{ formatDate(row.createdAt) }}</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="操作" width="120" fixed="right">
-          <template #default="{ row }">
-            <el-button
-              type="primary"
-              size="small"
-              @click="viewFileDetail(row)"
-              :icon="View"
-            >
-              查看
-            </el-button>
+            <span>{{ formatDate(row.modifiedTime) }}</span>
           </template>
         </el-table-column>
       </el-table>
@@ -358,9 +557,10 @@ watch(
     </div>
 
     <!-- 文件详情对话框 -->
-    <FileDetailDialog
-      v-model:visible="detailDialogVisible"
-      :file-info="selectedFile"
+    <FileDetailDialog 
+      v-model:visible="detailDialogVisible" 
+      :file-info="selectedFile" 
+      @refresh="handleDetailDialogRefresh"
     />
   </div>
 </template>
@@ -389,15 +589,19 @@ watch(
 }
 
 .page-title {
-  margin: 0 0 8px 0;
+  margin: 0 0 12px 0;
   font-size: 24px;
   font-weight: 600;
   color: #303133;
 }
 
-.page-description {
-  margin: 0;
-  color: #909399;
+.statistics {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.stat-tag {
   font-size: 14px;
 }
 
@@ -408,7 +612,30 @@ watch(
 }
 
 .search-input {
-  width: 280px;
+  width: 320px;
+}
+
+/* 过滤器区域 */
+.filter-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  padding: 16px 24px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.view-toggle {
+  display: flex;
+  align-items: center;
 }
 
 /* 导航区域 */
@@ -420,10 +647,124 @@ watch(
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.navigation-section :deep(.el-breadcrumb__inner) {
+.navigation-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.breadcrumb {
+  flex: 1;
+}
+
+.breadcrumb-item {
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.breadcrumb-item:hover {
+  color: #409eff;
+}
+
+.breadcrumb :deep(.el-breadcrumb__inner) {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+/* 网格视图 */
+.grid-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 24px;
+}
+
+.file-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.file-card {
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: #fafafa;
+  position: relative;
+}
+
+.file-card:hover {
+  border-color: #409eff;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.file-card.is-directory {
+  border-color: #e4e7ed;
+  background: #f9fafc;
+}
+
+.file-card.is-directory:hover {
+  border-color: #f56c6c;
+  box-shadow: 0 4px 12px rgba(245, 108, 108, 0.15);
+  background: #fdf2f2;
+}
+
+.file-icon-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.file-icon {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+
+.status-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+}
+
+.file-info {
+  text-align: center;
+}
+
+.file-name {
+  font-weight: 500;
+  color: #303133;
+  margin-bottom: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.file-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #909399;
+}
+
+.file-size {
+  font-family: monospace;
+}
+
+.file-time {
+  font-size: 11px;
+}
+
+.media-info {
+  margin-top: 8px;
 }
 
 /* 表格容器 */
@@ -434,11 +775,30 @@ watch(
   overflow: hidden;
 }
 
+.table-container :deep(.clickable-row) {
+  cursor: pointer;
+}
+
+.table-container :deep(.clickable-row:hover) {
+  background-color: #f5f7fa;
+}
+
 /* 文件项 */
 .file-item {
   display: flex;
   align-items: center;
   gap: 12px;
+  transition: background-color 0.2s;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.file-item.is-directory {
+  cursor: pointer;
+}
+
+.file-item.is-directory:hover {
+  background-color: #f5f7fa;
 }
 
 .file-icon {
@@ -473,14 +833,17 @@ watch(
   color: #606266;
 }
 
-.media-info, .episode-info {
+.media-info,
+.episode-info {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.no-media, .no-episode, .no-link {
-  color: #C0C4CC;
+.no-media,
+.no-episode,
+.no-link {
+  color: #c0c4cc;
   font-style: italic;
 }
 
@@ -519,24 +882,76 @@ watch(
 }
 
 /* 响应式设计 */
+@media (max-width: 1200px) {
+  .file-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+  }
+}
+
 @media (max-width: 768px) {
+  .file-list-view {
+    padding: 16px;
+  }
+
   .header-section {
     flex-direction: column;
     gap: 16px;
   }
-  
+
   .actions-section {
     width: 100%;
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .search-input {
     width: 100%;
   }
-  
-  .file-list-view {
-    padding: 16px;
+
+  .filter-section {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .filter-buttons {
+    justify-content: center;
+  }
+
+  .view-toggle {
+    justify-content: center;
+  }
+
+  .file-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .statistics {
+    justify-content: center;
+  }
+
+  .file-name {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .table-container :deep(.action-column) {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .filter-buttons {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-buttons .el-button {
+    justify-content: center;
+    margin-left: 0;
   }
 }
 </style>

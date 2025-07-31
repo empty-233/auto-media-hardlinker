@@ -52,3 +52,9 @@ a,
     user-select: none;
   }
 }
+
+
+/* custom element-plus message-box style */
+.el-overlay {
+  backdrop-filter: blur(3px);
+}

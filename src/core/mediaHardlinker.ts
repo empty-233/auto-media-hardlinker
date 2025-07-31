@@ -80,6 +80,14 @@ export class MediaHardlinkerService {
     }
   }
 
+  /**
+   * @private
+   * @method handleFileEvent
+   * @description 处理文件监控器触发的文件事件。
+   * @param {string} eventType - 事件类型 ('add', 'addDir', 'change').
+   * @param {{ path: string; filename: string; isDirectory: boolean }} fileInfo - 文件信息.
+   * @returns {Promise<void>}
+   */
   private async handleFileEvent(
     eventType: string,
     fileInfo: { path: string; filename: string; isDirectory: boolean }
@@ -103,6 +111,13 @@ export class MediaHardlinkerService {
     }
   }
 
+  /**
+   * @private
+   * @method processMediaFile
+   * @description 完整处理单个媒体文件或目录的流程。
+   * @param {{ path: string; filename: string; isDirectory: boolean }} fileInfo - 文件信息.
+   * @returns {Promise<void>}
+   */
   private async processMediaFile(fileInfo: {
     path: string;
     filename: string;
@@ -138,11 +153,21 @@ export class MediaHardlinkerService {
     }
   }
 
-  private async handleSingleFile(
+  /**
+   * @public
+   * @method handleSingleFile
+   * @description 处理单个视频文件：验证、构建目标路径、创建硬链接并保存记录。
+   * @param {{ path: string; filename: string }} fileInfo - 文件信息.
+   * @param {IdentifiedMedia} media - 已识别的媒体信息.
+   * @param {string} targetPath - 目标目录路径.
+   * @returns {Promise<FileDetails|void>}
+   */
+  public async handleSingleFile(
     fileInfo: { path: string; filename: string },
     media: IdentifiedMedia,
-    targetPath: string
-  ): Promise<void> {
+    targetPath: string,
+    isSaveDatabase = true
+  ): Promise<FileDetails | void> {
     if (!this.isValidVideoFile(fileInfo.filename)) {
       return;
     }
@@ -157,9 +182,11 @@ export class MediaHardlinkerService {
       fileInfo.path,
       targetFilePath
     );
-    if (!fileDetails) return;
 
-    await this.mediaRepository.saveMediaAndFile(media, fileDetails);
+    if (isSaveDatabase)
+      await this.mediaRepository.saveMediaAndFile(media, fileDetails);
+
+    return fileDetails;
   }
 
   /**
@@ -189,7 +216,7 @@ export class MediaHardlinkerService {
   private async prepareFileDetails(
     sourcePath: string,
     targetPath: string
-  ): Promise<FileDetails | null> {
+  ): Promise<FileDetails> {
     try {
       await createHardlink(sourcePath, targetPath);
       const stats = await fs.stat(sourcePath);
@@ -205,11 +232,18 @@ export class MediaHardlinkerService {
       };
     } catch (error) {
       logger.error(`准备文件详情时出错 (源: ${sourcePath})`, error);
-      return null;
+      throw error;
     }
   }
 
-  private buildTargetPath(media: IdentifiedMedia): string {
+  /**
+   * @public
+   * @method buildTargetPath
+   * @description 根据媒体信息构建目标目录的完整路径。
+   * @param {IdentifiedMedia} media - 已识别的媒体信息.
+   * @returns {string} 目标目录路径.
+   */
+  public buildTargetPath(media: IdentifiedMedia): string {
     let targetPath = path.join(this.config.targetFilePath, media.title);
     if (media.type === "tv" && media.seasonNumber) {
       targetPath = path.join(targetPath, `Season ${media.seasonNumber}`);
@@ -217,6 +251,14 @@ export class MediaHardlinkerService {
     return targetPath;
   }
 
+  /**
+   * @private
+   * @method buildTargetFileName
+   * @description 根据媒体信息和文件扩展名构建目标文件名。
+   * @param {IdentifiedMedia} media - 已识别的媒体信息.
+   * @param {string} fileExt - 文件扩展名.
+   * @returns {string} 目标文件名.
+   */
   private buildTargetFileName(media: IdentifiedMedia, fileExt: string): string {
     let targetFileName = media.title;
     if (media.type === "tv") {
@@ -230,6 +272,14 @@ export class MediaHardlinkerService {
     return targetFileName + fileExt;
   }
 
+  /**
+   * @private
+   * @method calculateFileHash
+   * @description 计算文件的MD5哈希值，用于唯一标识文件。
+   * @param {string} filePath - 文件路径.
+   * @param {number} fileSize - 文件大小.
+   * @returns {Promise<string>} 文件的MD5哈希值.
+   */
   private async calculateFileHash(
     filePath: string,
     fileSize: number

@@ -1,8 +1,8 @@
-import { Type } from "@prisma/client";
+import { Type, Prisma } from "@prisma/client";
 import prisma from "../client";
 import { getConfig } from "../config/config";
 import { logger } from "../utils/logger";
-import { downloadTMDBImage } from "../utils/media";
+import { downloadTMDBImage, formatDate } from "../utils/media";
 import {
   IMediaRepository,
   IdentifiedMedia,
@@ -20,7 +20,11 @@ export class MediaRepository implements IMediaRepository {
     try {
       const mediaRecord = await this.findOrCreateMediaRecord(media);
       const episodeId = await this.saveShowOrMovieInfo(mediaRecord.id, media);
-      const fileRecord = await this.createFileRecord(mediaRecord.id, fileDetails, episodeId);
+      const fileRecord = await this.upsertFileRecord(
+        mediaRecord.id,
+        fileDetails,
+        episodeId
+      );
 
       logger.info(`成功将文件 "${fileDetails.sourcePath}" 信息保存到数据库`);
       return fileRecord;
@@ -30,7 +34,7 @@ export class MediaRepository implements IMediaRepository {
     }
   }
 
-  private async findOrCreateMediaRecord(media: IdentifiedMedia) {
+  public async findOrCreateMediaRecord(media: IdentifiedMedia) {
     const localPosterUrl = await downloadTMDBImage(media.posterPath, "poster");
     logger.info(`图片本地URL: 海报=${localPosterUrl}`);
 
@@ -58,14 +62,17 @@ export class MediaRepository implements IMediaRepository {
         tmdbId: media.tmdbId,
         title: media.title,
         originalTitle: media.originalTitle,
-        releaseDate: media.releaseDate,
+        releaseDate: formatDate(media.releaseDate),
         description: media.description,
         posterUrl: localPosterUrl,
       },
     });
   }
 
-  private async saveShowOrMovieInfo(mediaId: number, media: IdentifiedMedia): Promise<number | undefined> {
+  public async saveShowOrMovieInfo(
+    mediaId: number,
+    media: IdentifiedMedia
+  ): Promise<number | undefined> {
     if (media.type === "tv") {
       return this.saveTvShowInfo(mediaId, media);
     } else if (media.type === "movie") {
@@ -74,19 +81,55 @@ export class MediaRepository implements IMediaRepository {
     return undefined;
   }
 
-  private async createFileRecord(mediaId: number, fileDetails: FileDetails, episodeId?: number) {
-    return prisma.file.create({
-      data: {
+  public async upsertFileRecord(
+    mediaId: number,
+    fileDetails: FileDetails,
+    episodeId?: number
+  ) {
+    const existingFile = await prisma.file.findFirst({
+      where: {
         deviceId: fileDetails.deviceId,
         inode: fileDetails.inode,
+      },
+      include: {
+        episodeInfo: true,
+      },
+    });
+
+    if (existingFile) {
+      logger.info(`文件记录已存在，将进行更新: ${fileDetails.sourcePath}`);
+      const updateData: Prisma.FileUpdateInput = {
         fileHash: fileDetails.fileHash,
         fileSize: fileDetails.fileSize,
         filePath: fileDetails.sourcePath,
         linkPath: fileDetails.linkPath,
         Media: { connect: { id: mediaId } },
-        ...(episodeId ? { episode: { connect: { id: episodeId } } } : {}),
-      },
-    });
+      };
+      if (episodeId) {
+        updateData.episodeInfo = { connect: { id: episodeId } };
+      } else if (existingFile.episodeInfo) {
+        updateData.episodeInfo = { disconnect: true };
+      }
+
+      return prisma.file.update({
+        where: { id: existingFile.id },
+        data: updateData,
+      });
+    } else {
+      logger.info(`创建新的文件记录: ${fileDetails.sourcePath}`);
+      return prisma.file.create({
+        data: {
+          deviceId: fileDetails.deviceId,
+          inode: fileDetails.inode,
+          fileHash: fileDetails.fileHash,
+          fileSize: fileDetails.fileSize,
+          filePath: fileDetails.sourcePath,
+          linkPath: fileDetails.linkPath,
+          Media: { connect: { id: mediaId } },
+          ...(episodeId ? { episodeInfo: { connect: { id: episodeId } } } : {}),
+        },
+      });
+    }
   }
 
   private async saveMovieInfo(mediaId: number, media: IdentifiedMedia) {
@@ -166,6 +209,7 @@ export class MediaRepository implements IMediaRepository {
           episodeInfo = await prisma.episodeInfo.create({
             data: {
               tmdbId: episodeTmdbId,
+              seasonNumber: episodeData.season_number,
               episodeNumber: episodeData.episode_number,
               title: episodeData.name,
               releaseDate: formatDate(episodeData.air_date),
@@ -181,16 +225,3 @@ export class MediaRepository implements IMediaRepository {
     return undefined; // 如果不是剧集文件，返回undefined
   }
 }
-
-// 辅助函数，将日期字符串转换为有效的日期时间格式
-const formatDate = (dateStr: string | null | undefined): Date | null => {
-  if (!dateStr) return null;
-  try {
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return null;
-    return date;
-  } catch (error) {
-    logger.error(`日期格式化错误`, error);
-    return null;
-  }
-};

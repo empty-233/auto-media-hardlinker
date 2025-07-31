@@ -57,3 +57,33 @@ export async function createHardlink(
     throw new Error(errorMessage); // 重新抛出错误，以便上层调用者可以捕获
   }
 }
+
+/**
+ * 删除指定路径的文件。
+ * @param filePath - 要删除的文件路径
+ * @returns Promise<void>
+ * @throws 如果删除失败（权限问题等），则抛出错误。
+ */
+export async function deleteHardlink(filePath: string): Promise<void> {
+  try {
+    // 1. 检查文件是否存在
+    await fs.promises.access(filePath, fs.constants.F_OK);
+
+    // 2. 删除文件
+    await fs.promises.unlink(filePath);
+    logger.info(`成功删除文件: ${filePath}`);
+  } catch (error: any) {
+    let errorMessage = `删除文件失败: "${filePath}".`;
+    if (error.code === 'ENOENT') {
+      // 如果文件已经不存在，这通常不是一个需要上报的错误，可以静默处理或只记录警告。
+      logger.warn(errorMessage + " 原因: 文件不存在。可能已被提前删除。");
+      return; // 操作目标已不存在，可视为成功
+    } else if (error.code === 'EPERM' || error.code === 'EACCES') {
+      errorMessage += " 原因: 权限不足。";
+    } else {
+      errorMessage += ` 原因: 未知错误 (${error.message})`;
+    }
+    logger.error(errorMessage, error);
+    throw new Error(errorMessage); // 重新抛出错误，以便上层调用者可以捕获
+  }
+}

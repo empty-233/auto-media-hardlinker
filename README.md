@@ -108,6 +108,20 @@ pnpm dev
 pnpm frontend:dev
 ```
 
+### Windows 环境中文支持
+
+如果在 Windows 终端中遇到乱码问题，请根据您使用的终端执行以下命令来设置UTF-8编码：
+
+- **PowerShell**:
+  ```powershell
+  [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+  ```
+
+- **CMD**:
+  ```cmd
+  chcp 65001
+  ```
+
 ### 配置文件
 
 配置文件`config.json`需要设置以下参数：

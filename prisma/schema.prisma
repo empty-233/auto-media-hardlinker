@@ -62,7 +62,8 @@ model File {
   mediaId Int? /// 关联媒体的ID
 
   /// 关联的电视剧单集信息（一对一关系）
-  episode EpisodeInfo? @relation("FileToEpisode")
+  episodeInfo   EpisodeInfo? @relation(fields: [episodeInfoId], references: [id])
+  episodeInfoId Int?         @unique @map("episode_info_id") /// 关联电视剧单集信息的ID
 
   @@unique([deviceId, inode], name: "device_inode_unique") /// 设备ID和inode联合唯一约束
   @@index([fileHash]) /// 文件哈希索引，用于加速查询
@@ -100,7 +101,8 @@ model CollectionInfo {
 /// 电视剧单集信息表
 model EpisodeInfo {
   id            Int       @id @default(autoincrement()) /// 唯一标识符
-  tmdbId        Int       @map("tmdb_id") /// TMDB上的集数ID
+  tmdbId        Int       @unique @map("tmdb_id") /// TMDB上的集数ID
+  seasonNumber  Int       @map("season_number") /// 季号
   episodeNumber Int       @map("episode_number") /// 集数编号
   title         String? /// 单集标题
   releaseDate   DateTime? @map("release_date") /// 播出日期
@@ -112,6 +114,5 @@ model EpisodeInfo {
   tvInfoId Int? /// 关联电视剧的ID
 
   /// 关联的文件信息（一对一关系）
-  file   File? @relation("FileToEpisode", fields: [fileId], references: [id])
-  fileId Int?  @unique @map("file_id") /// 关联文件的ID
+  file File?
 }

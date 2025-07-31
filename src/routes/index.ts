@@ -4,6 +4,7 @@ import mediaRoutes from "./media.routes";
 import fileRoutes from "./file.routes";
 import episodeRoutes from "./episode.routes";
 import systemRoutes from "./system.routes";
+import tmdbRoutes from "./tmdb.routes";
 
 const router = Router();
 
@@ -12,6 +13,7 @@ router.use("/dashboard", dashboardRoutes);
 router.use("/media", mediaRoutes);
 router.use("/files", fileRoutes);
 router.use("/episodes", episodeRoutes);
+router.use("/tmdb", tmdbRoutes);
 router.use("/", systemRoutes);
 
 export default router;

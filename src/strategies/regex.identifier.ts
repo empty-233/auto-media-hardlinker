@@ -1,4 +1,4 @@
-import { MovieDb, MovieResult, TvResult, MovieResultsResponse, TvResultsResponse, SearchCollectionResponse } from "moviedb-promise";
+import { MovieDb, MovieResult, TvResult } from "moviedb-promise";
 import { getConfig } from "../config/config";
 import { regexConfig } from "../../config/regexConfig";
 import path from "path";

@@ -119,6 +119,28 @@ export function getMediaReleaseDate(
   if (dateString) {
     return new Date(dateString);
   }
-
+  
   return null;
 }
+
+/**
+ * 辅助函数，将日期字符串转换为有效的日期时间格式
+ * @param dateStr 日期字符串
+ * @returns Date对象或null
+ */
+export const formatDate = (
+  dateStr: string | Date | null | undefined
+): Date | null => {
+  if (!dateStr) return null;
+  if (dateStr instanceof Date) {
+    return dateStr;
+  }
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return null;
+    return date;
+  } catch (error) {
+    logger.error(`日期格式化错误`, error);
+    return null;
+  }
+};
