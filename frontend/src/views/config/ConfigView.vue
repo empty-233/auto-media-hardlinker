@@ -16,15 +16,23 @@ const switchLoading = ref(false)
 // 表单数据
 const configForm = reactive<SystemConfig>({
   useLlm: false,
+  llmProvider: 'ollama',
   llmHost: '',
-  llmModel: ''
+  llmModel: '',
+  openaiApiKey: '',
+  openaiModel: '',
+  openaiBaseUrl: ''
 })
 
 // 原始数据备份
 const originalConfig = ref<SystemConfig>({
   useLlm: false,
+  llmProvider: 'ollama',
   llmHost: '',
-  llmModel: ''
+  llmModel: '',
+  openaiApiKey: '',
+  openaiModel: '',
+  openaiBaseUrl: ''
 })
 
 // 表单验证规则
@@ -32,8 +40,8 @@ const configRules: FormRules = {
   llmHost: [
     {
       validator: (rule, value, callback) => {
-        if (configForm.useLlm && !value) {
-          callback(new Error('启用LLM时，主机地址不能为空'))
+        if (configForm.useLlm && configForm.llmProvider === 'ollama' && !value) {
+          callback(new Error('Ollama 主机地址不能为空'))
         } else if (value && !isValidUrl(value)) {
           callback(new Error('请输入有效的URL地址'))
         } else {
@@ -46,8 +54,46 @@ const configRules: FormRules = {
   llmModel: [
     {
       validator: (rule, value, callback) => {
-        if (configForm.useLlm && !value) {
-          callback(new Error('启用LLM时，模型名称不能为空'))
+        if (configForm.useLlm && configForm.llmProvider === 'ollama' && !value) {
+          callback(new Error('Ollama 模型名称不能为空'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
+  ],
+  openaiApiKey: [
+    {
+      validator: (rule, value, callback) => {
+        if (configForm.useLlm && configForm.llmProvider === 'openai' && !value) {
+          callback(new Error('OpenAI API Key 不能为空'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
+  ],
+  openaiModel: [
+    {
+      validator: (rule, value, callback) => {
+        if (configForm.useLlm && configForm.llmProvider === 'openai' && !value) {
+          callback(new Error('OpenAI 模型名称不能为空'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
+  ],
+  openaiBaseUrl: [
+    {
+      validator: (rule, value, callback) => {
+        if (configForm.useLlm && configForm.llmProvider === 'openai' && !value) {
+          callback(new Error('OpenAI Base URL 不能为空'))
+        } else if (value && !isValidUrl(value)) {
+          callback(new Error('请输入有效的URL地址'))
         } else {
           callback()
         }
@@ -100,10 +146,15 @@ const handleUseLlmChange = async (value: boolean) => {
     }
     
     // 如果开启LLM，检查必要配置
-    if (value && (!configForm.llmHost || !configForm.llmModel)) {
-      ElMessage.warning('请先配置LLM主机地址和模型名称')
-      // 不直接更新开关状态，让用户先配置完整信息
-      return
+    if (value) {
+      if (configForm.llmProvider === 'ollama' && (!configForm.llmHost || !configForm.llmModel)) {
+        ElMessage.warning('请先配置Ollama主机地址和模型名称')
+        return
+      }
+      if (configForm.llmProvider === 'openai' && (!configForm.openaiApiKey || !configForm.openaiModel)) {
+        ElMessage.warning('请先配置OpenAI API Key和模型名称')
+        return
+      }
     }
     
     await updateConfig({ useLlm: value })
@@ -137,10 +188,10 @@ const saveConfig = async () => {
     saveLoading.value = true
     
     // 检查是否有变更
-    const hasChanges = 
-      configForm.useLlm !== originalConfig.value.useLlm ||
-      configForm.llmHost !== originalConfig.value.llmHost ||
-      configForm.llmModel !== originalConfig.value.llmModel
+    const hasChanges = Object.keys(configForm).some(key => {
+      const k = key as keyof SystemConfig
+      return configForm[k] !== originalConfig.value[k]
+    })
     
     if (!hasChanges) {
       ElMessage.info('配置没有变更')
@@ -160,15 +211,12 @@ const saveConfig = async () => {
     
     // 准备更新参数
     const updateParams: UpdateConfigParams = {}
-
-    if (configForm.useLlm !== originalConfig.value.useLlm) {
-      updateParams.useLlm = configForm.useLlm
-    }
-    if (configForm.llmHost !== originalConfig.value.llmHost) {
-      updateParams.llmHost = configForm.llmHost
-    }
-    if (configForm.llmModel !== originalConfig.value.llmModel) {
-      updateParams.llmModel = configForm.llmModel
+    for (const key in configForm) {
+      const k = key as keyof SystemConfig
+      if (configForm[k] !== originalConfig.value[k]) {
+        // @ts-ignore
+        updateParams[k] = configForm[k]
+      }
     }
     
     // 更新配置
@@ -249,31 +297,82 @@ onMounted(() => {
           </div>
         </el-form-item>
 
-        <el-form-item label="LLM 主机" prop="llmHost">
-          <el-input
-            v-model="configForm.llmHost"
-            placeholder="http://192.168.50.202:11434"
-            :disabled="!configForm.useLlm"
-            clearable
-          >
-            <template #prefix>
-              <el-icon><Link /></el-icon>
-            </template>
-          </el-input>
+        <el-form-item label="LLM 提供商" prop="llmProvider">
+          <el-radio-group v-model="configForm.llmProvider" :disabled="!configForm.useLlm">
+            <el-radio-button label="ollama">Ollama</el-radio-button>
+            <el-radio-button label="openai">OpenAI</el-radio-button>
+          </el-radio-group>
         </el-form-item>
 
-        <el-form-item label="LLM 模型" prop="llmModel">
-          <el-input
-            v-model="configForm.llmModel"
-            placeholder="qwen2:7b"
-            :disabled="!configForm.useLlm"
-            clearable
-          >
-            <template #prefix>
-              <el-icon><Cpu /></el-icon>
-            </template>
-          </el-input>
-        </el-form-item>
+        <div v-if="configForm.llmProvider === 'ollama'">
+          <el-form-item label="Ollama 主机" prop="llmHost">
+            <el-input
+              v-model="configForm.llmHost"
+              placeholder="例如: http://127.0.0.1:11434"
+              :disabled="!configForm.useLlm"
+              clearable
+            >
+              <template #prefix>
+                <el-icon><Link /></el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
+
+          <el-form-item label="Ollama 模型" prop="llmModel">
+            <el-input
+              v-model="configForm.llmModel"
+              placeholder="例如: qwen2:7b"
+              :disabled="!configForm.useLlm"
+              clearable
+            >
+              <template #prefix>
+                <el-icon><Cpu /></el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
+        </div>
+
+        <div v-if="configForm.llmProvider === 'openai'">
+          <el-form-item label="OpenAI API Key" prop="openaiApiKey">
+            <el-input
+              v-model="configForm.openaiApiKey"
+              placeholder="请输入您的 OpenAI API Key"
+              :disabled="!configForm.useLlm"
+              show-password
+              clearable
+            >
+              <template #prefix>
+                <el-icon><Document /></el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
+
+          <el-form-item label="OpenAI 模型" prop="openaiModel">
+            <el-input
+              v-model="configForm.openaiModel"
+              placeholder="例如: gpt-4-turbo"
+              :disabled="!configForm.useLlm"
+              clearable
+            >
+              <template #prefix>
+                <el-icon><Cpu /></el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
+
+          <el-form-item label="OpenAI Base URL" prop="openaiBaseUrl">
+            <el-input
+              v-model="configForm.openaiBaseUrl"
+              placeholder="例如: https://api.openai.com/v1"
+              :disabled="!configForm.useLlm"
+              clearable
+            >
+              <template #prefix>
+                <el-icon><Link /></el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
+        </div>
       </el-form>
 
       <div class="action-buttons">

@@ -26,13 +26,21 @@ export class FileService {
       const config = getConfig();
       const monitorPath = path.resolve(config.monitorFilePath);
 
-      // 如果没有指定目录，则使用监控根目录
-      const targetPath = dirPath
-        ? path.resolve(monitorPath, dirPath)
-        : monitorPath;
+      // 处理目录路径：如果是根目录或空字符串，则使用监控根目录
+      let targetPath: string;
+      if (!dirPath || dirPath === '/' || dirPath === '') {
+        targetPath = monitorPath;
+      } else {
+        // 清理路径：移除开头的斜杠，确保是相对路径
+        const cleanPath = dirPath.startsWith('/') ? dirPath.slice(1) : dirPath;
+        targetPath = path.join(monitorPath, cleanPath);
+      }
 
       // 安全检查：确保目标路径在监控目录内
-      if (!targetPath.startsWith(monitorPath)) {
+      const normalizedTargetPath = path.normalize(targetPath);
+      const normalizedMonitorPath = path.normalize(monitorPath);
+      
+      if (!normalizedTargetPath.startsWith(normalizedMonitorPath)) {
         throw new Error("目录路径不在允许的范围内");
       }
 

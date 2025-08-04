@@ -1,5 +1,5 @@
 import { logger, LogLevel } from "../utils/logger";
-import { getConfig } from "../config/config";
+import { getConfig, Config, clearConfigCache } from "../config/config";
 import path from "path";
 import fs from "fs";
 
@@ -26,13 +26,9 @@ export class SystemService {
     try {
       const config = getConfig(false); // 不使用缓存，确保获取最新配置
       // 仅返回前端需要的配置信息
-      const clientConfig = {
-        useLlm: config.useLlm || false,
-        llmHost: config.llmHost || "http://localhost:11434",
-        llmModel: config.llmModel || "qwen2.5",
-      };
+      const { useLlm, llmProvider, llmHost, llmModel, openaiApiKey, openaiModel, openaiBaseUrl } = config;
       logger.info("获取系统配置成功");
-      return clientConfig;
+      return { useLlm, llmProvider, llmHost, llmModel, openaiApiKey, openaiModel, openaiBaseUrl };
     } catch (error) {
       logger.error(`获取系统配置失败`, error);
       throw error;
@@ -40,24 +36,25 @@ export class SystemService {
   }
 
   // 更新系统配置
-  updateConfig(data: { useLlm?: boolean; llmHost?: string; llmModel?: string }) {
+  updateConfig(data: Partial<Config>) {
     try {
-      const { useLlm, llmHost, llmModel } = data;
-
       // 读取现有配置
       const configPath = path.join(process.cwd(), "config/config.json");
       const existingConfig = JSON.parse(fs.readFileSync(configPath, "utf-8"));
 
-      // 更新配置
-      if (useLlm !== undefined) {
-        existingConfig.useLlm = useLlm;
-      }
-      if (llmHost !== undefined) {
-        existingConfig.llmHost = llmHost;
-      }
-      if (llmModel !== undefined) {
-        existingConfig.llmModel = llmModel;
-      }
+      // 定义允许更新的字段列表
+      const allowedFields: (keyof Config)[] = [
+        'useLlm', 'llmProvider', 'llmHost', 'llmModel',
+        'openaiApiKey', 'openaiModel', 'openaiBaseUrl'
+      ];
+
+      // 遍历传入的数据，只更新允许的字段
+      Object.keys(data).forEach(key => {
+        const configKey = key as keyof Config;
+        if (allowedFields.includes(configKey)) {
+          existingConfig[configKey] = data[configKey];
+        }
+      });
 
       // 写入配置文件
       fs.writeFileSync(
@@ -66,15 +63,10 @@ export class SystemService {
         "utf-8"
       );
 
-      // 刷新配置缓存
-      const updatedConfig = getConfig(false);
-
-      logger.info(`更新系统配置成功: useLlm=${useLlm}, llmHost=${llmHost}, llmModel=${llmModel}`);
-      return {
-        useLlm: updatedConfig.useLlm || false,
-        llmHost: updatedConfig.llmHost || "http://localhost:11434",
-        llmModel: updatedConfig.llmModel || "qwen2.5",
-      };
+      // 刷新配置缓存并返回最新配置
+      clearConfigCache();
+      logger.info(`更新系统配置成功: ${JSON.stringify(data)}`);
+      return this.getConfig();
     } catch (error) {
       logger.error(`更新系统配置失败`, error);
       throw error;

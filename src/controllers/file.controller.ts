@@ -17,11 +17,16 @@ const mediaHardlinkerService = new MediaHardlinkerService();
 const mediaRepository = new MediaRepository();
 
 export class FileController {
-  // 获取目录内容
+  /**
+   * 获取目录内容
+   * @param req Express请求对象 
+   * @param res Express响应对象
+   */
   static async getDirectoryContents(req: Request, res: Response) {
     try {
-      const { dirPath } = req.query;
-      const result = await fileService.getDirectoryContents(dirPath as string);
+      // dirPath 是可选的，不传或传空字符串默认为根目录
+      const { dirPath } = req.query as any;
+      const result = await fileService.getDirectoryContents(dirPath);
       success(res, result, "获取目录内容成功");
     } catch (error) {
       logger.error(`获取目录内容失败`, error);
@@ -29,7 +34,11 @@ export class FileController {
     }
   }
 
-  // 获取单个文件详情
+  /**
+   * 获取单个文件详情
+   * @param req Express请求对象
+   * @param res Express响应对象
+   */
   static async getFileById(req: Request, res: Response) {
     try {
       const { id } = req.params;
@@ -54,7 +63,11 @@ export class FileController {
     }
   }
 
-  // 重命名文件
+  /**
+   * 重命名文件
+   * @param req Express请求对象 
+   * @param res Express响应对象
+   */
   static async renameFile(req: Request, res: Response) {
     try {
       const { filePath, newName } = req.body;
@@ -99,122 +112,219 @@ export class FileController {
     }
   }
 
-  // 关联媒体文件
+  /**
+   * 关联媒体文件到文件记录
+   * 支持新文件关联和已有文件的关联更新
+   */
   static async linkMedia(req: Request, res: Response) {
     try {
+      // 使用验证中间件验证后的数据，不再需要手动验证
       const { id } = req.params;
-      const { mediaInfo, filename, path, episodeTmdbId, seasonNumber, episodeNumber } =
-        req.body;
+      const { mediaInfo, filename, path: filePath, episodeTmdbId, seasonNumber, episodeNumber } = req.body;
+      
       const fileId = parseInt(id);
-      const mediaId = parseInt(mediaInfo.tmdbId);
-      const seasonNumberInt = parseInt(seasonNumber);
-      const episodeNumberInt = parseInt(episodeNumber);
+      const seasonNumberInt = seasonNumber !== null ? parseInt(seasonNumber) : null;
+      const episodeNumberInt = episodeNumber !== null ? parseInt(episodeNumber) : null;
 
-      const media = mediaInfo;
-      if (seasonNumber !== null && episodeNumber !== null) {
-        media.seasonNumber = seasonNumberInt;
-        media.episodeNumber = episodeNumberInt;
-      }
-
-      const requiredFields = [
-        "type",
-        "tmdbId",
-        "title",
-        "originalTitle",
-        "releaseDate",
-        "description",
-        "posterPath",
-        "backdropPath",
-        "rawData",
-      ];
-
-      for (const field of requiredFields) {
-        if (!(field in mediaInfo)) {
-          badRequest(res, `${field}不能为空`);
-          return;
-        }
-      }
+      // 处理媒体信息
+      const processedMedia = await FileController.processMediaInfo(
+        mediaInfo, 
+        seasonNumberInt, 
+        episodeNumberInt
+      );
 
       let result;
-
-      // 统一处理剧集同步逻辑
-      if (
-        mediaInfo.type === "tv" &&
-        seasonNumber !== null &&
-        episodeNumber !== null
-      ) {
-        logger.info(`检测到电视剧关联，触发 ${mediaInfo.title} 的剧集同步...`);
-        // 不论是首次关联还是更新，都先确保该季的剧集信息存在
-        const episodeSyncResult = await episodeService.syncEpisodesFromTmdb(
-          mediaId,
-          seasonNumberInt
-        );
-        media.rawData.episodes = episodeSyncResult;
-      }
-
-      if (media.tmdbId) {
-        const mediaRecord = await mediaRepository.findOrCreateMediaRecord(
-          media
-        );
-        await mediaRepository.saveShowOrMovieInfo(mediaRecord.id, media);
-      }
-
-      const linkMediaFile = async (isSaveDatabase?: boolean) => {
-        const targetPath = mediaHardlinkerService.buildTargetPath(media);
-
-        return await mediaHardlinkerService.handleSingleFile(
-          { path, filename },
-          media,
-          targetPath,
-          isSaveDatabase
-        );
-      };
-
+      
       if (isNaN(fileId)) {
-        await linkMediaFile();
+        // 新文件关联场景
+        result = await FileController.handleNewFileLink(
+          { path: filePath, filename }, 
+          processedMedia
+        );
       } else {
-        const fileInfo = await fileService.getFileById(fileId);
-        const linkPath = fileInfo?.linkPath;
-        const fileMediaId = fileInfo?.mediaId;
-        if (!linkPath || fileMediaId == null) {
-          notFound(res, "文件不存在或未关联媒体");
-          return;
-        }
-        await deleteHardlink(linkPath);
-        logger.info(`删除旧的硬链接: ${linkPath}`);
-
-        const mediaFileLinkInfo = await linkMediaFile(false);
-        const episodeInfo = await episodeService.findEpisode(episodeTmdbId, seasonNumberInt, episodeNumberInt);
-
-        if (!episodeInfo) {
-          // logger.warn(`同步后依然找不到剧集 S${seasonNumber}E${episodeNumber}`);
-          logger.warn(`找不到剧集 S${seasonNumber}E${episodeNumber}`);
-          throw new Error(`剧集 S${seasonNumber}E${episodeNumber} 不存在`);
-        }
-
-        if (mediaFileLinkInfo)
-          await mediaRepository.upsertFileRecord(
-            fileMediaId,
-            mediaFileLinkInfo,
-            episodeInfo.id
-          );
-        result = await fileService.linkMediaToFile(
+        // 更新已有文件关联场景
+        result = await FileController.handleExistingFileLink(
           fileId,
-          fileMediaId,
-          episodeInfo.id,
-          seasonNumber !== null ? seasonNumberInt : undefined,
-          episodeNumber !== null ? episodeNumberInt : undefined
+          { path: filePath, filename },
+          processedMedia,
+          episodeTmdbId,
+          seasonNumberInt,
+          episodeNumberInt
         );
       }
 
       success(res, result, "关联媒体成功");
     } catch (error) {
       logger.error(`关联媒体失败`, error);
-      internalError(res, "关联媒体失败");
+      
+      // 更细致的错误处理
+      const errorMessage = error instanceof Error ? error.message : "关联媒体失败";
+      if (errorMessage.includes("不存在")) {
+        notFound(res, errorMessage);
+      } else {
+        internalError(res, errorMessage);
+      }
     }
   }
 
-  // 取消关联媒体文件
+  /**
+   * 处理媒体信息，包括剧集同步和媒体记录保存
+   * @param mediaInfo 原始媒体信息
+   * @param seasonNumberInt 季号
+   * @param episodeNumberInt 集号
+   * @returns 处理后的媒体信息
+   */
+  private static async processMediaInfo(
+    mediaInfo: any, 
+    seasonNumberInt: number | null, 
+    episodeNumberInt: number | null
+  ) {
+    const media = { ...mediaInfo };
+    
+    // 为电视剧添加季集信息
+    if (seasonNumberInt !== null && episodeNumberInt !== null) {
+      media.seasonNumber = seasonNumberInt;
+      media.episodeNumber = episodeNumberInt;
+    }
+
+    // 处理电视剧剧集同步 - 合并了isTvShowWithEpisode的逻辑
+    if (media.type === "tv" && seasonNumberInt !== null && episodeNumberInt !== null) {
+      logger.info(`检测到电视剧关联，触发 ${media.title} 的剧集同步...`);
+      
+      const episodeSyncResult = await episodeService.syncEpisodesFromTmdb(
+        parseInt(media.tmdbId),
+        seasonNumberInt
+      );
+      media.rawData.episodes = episodeSyncResult;
+    }
+
+    // 保存媒体记录
+    if (media.tmdbId) {
+      const mediaRecord = await mediaRepository.findOrCreateMediaRecord(media);
+      await mediaRepository.saveShowOrMovieInfo(mediaRecord.id, media);
+    }
+
+    return media;
+  }
+
+  /**
+   * 处理新文件关联场景
+   * @param fileInfo 文件信息
+   * @param media 处理后的媒体信息
+   * @returns 文件处理结果
+   */
+  private static async handleNewFileLink(
+    fileInfo: { path: string; filename: string }, 
+    media: any
+  ) {
+    const targetPath = mediaHardlinkerService.buildTargetPath(media);
+    return await mediaHardlinkerService.handleSingleFile(
+      fileInfo,
+      media,
+      targetPath,
+      true // 保存到数据库
+    );
+  }
+
+  /**
+   * 处理已有文件的关联更新场景
+   * @param fileId 文件ID
+   * @param fileInfo 文件信息
+   * @param media 处理后的媒体信息
+   * @param episodeTmdbId 剧集TMDB ID
+   * @param seasonNumberInt 季号
+   * @param episodeNumberInt 集号
+   * @returns 文件关联结果
+   */
+  private static async handleExistingFileLink(
+    fileId: number,
+    fileInfo: { path: string; filename: string },
+    media: any,
+    episodeTmdbId: number,
+    seasonNumberInt: number | null,
+    episodeNumberInt: number | null
+  ) {
+    // 获取并验证已有文件信息
+    const existingFileInfo = await fileService.getFileById(fileId);
+    if (!existingFileInfo?.linkPath || existingFileInfo.mediaId == null) {
+      throw new Error("文件不存在或未关联媒体");
+    }
+
+    // 删除旧的硬链接
+    await deleteHardlink(existingFileInfo.linkPath);
+    logger.info(`删除旧的硬链接: ${existingFileInfo.linkPath}`);
+
+    // 创建新的硬链接
+    const targetPath = mediaHardlinkerService.buildTargetPath(media);
+    const mediaFileLinkInfo = await mediaHardlinkerService.handleSingleFile(
+      fileInfo,
+      media,
+      targetPath,
+      false // 不直接保存到数据库，手动处理
+    );
+
+    // 查找剧集信息
+    const episodeInfo = await FileController.findEpisodeInfo(
+      episodeTmdbId, 
+      seasonNumberInt, 
+      episodeNumberInt
+    );
+
+    // 更新文件记录
+    if (mediaFileLinkInfo) {
+      await mediaRepository.upsertFileRecord(
+        existingFileInfo.mediaId,
+        mediaFileLinkInfo,
+        episodeInfo.id
+      );
+    }
+
+    // 关联文件到媒体
+    return await fileService.linkMediaToFile(
+      fileId,
+      existingFileInfo.mediaId,
+      episodeInfo.id,
+      seasonNumberInt ?? undefined,
+      episodeNumberInt ?? undefined
+    );
+  }
+
+  /**
+   * 查找剧集信息
+   * @param episodeTmdbId 剧集TMDB ID
+   * @param seasonNumber 季号
+   * @param episodeNumber 集号
+   * @returns 剧集信息
+   * @throws 如果是电视剧但缺少季集信息，或者找不到剧集时抛出错误
+   */
+  private static async findEpisodeInfo(
+    episodeTmdbId: number,
+    seasonNumber: number | null,
+    episodeNumber: number | null
+  ) {
+    if (seasonNumber === null || episodeNumber === null) {
+      throw new Error("电视剧文件必须提供季和集的信息");
+    }
+
+    const episodeInfo = await episodeService.findEpisode(
+      episodeTmdbId, 
+      seasonNumber, 
+      episodeNumber
+    );
+
+    if (!episodeInfo) {
+      logger.warn(`找不到剧集 S${seasonNumber}E${episodeNumber}`);
+      throw new Error(`剧集 S${seasonNumber}E${episodeNumber} 不存在`);
+    }
+
+    return episodeInfo;
+  }
+
+  /**
+   * 取消关联媒体文件
+   * @param req Express请求对象
+   * @param res Express响应对象
+   */
   static async unlinkMedia(req: Request, res: Response) {
     try {
       const { id } = req.params;

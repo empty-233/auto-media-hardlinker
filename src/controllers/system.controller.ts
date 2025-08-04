@@ -5,7 +5,6 @@ import {
   success,
   successWithPagination,
   internalError,
-  badRequest,
 } from "../utils/response";
 
 export class SystemController {
@@ -38,35 +37,7 @@ export class SystemController {
   // 更新系统配置
   static async updateConfig(req: Request, res: Response) {
     try {
-      const { useLlm, llmHost, llmModel } = req.body;
-
-      // 验证参数类型
-      if (useLlm !== undefined && typeof useLlm !== "boolean") {
-        badRequest(res, "useLlm参数必须是布尔值");
-        return;
-      }
-
-      if (llmHost !== undefined && typeof llmHost !== "string") {
-        badRequest(res, "llmHost参数必须是字符串");
-        return;
-      }
-
-      if (llmModel !== undefined && typeof llmModel !== "string") {
-        badRequest(res, "llmModel参数必须是字符串");
-        return;
-      }
-
-      // 验证URL格式
-      if (llmHost && llmHost.trim()) {
-        try {
-          new URL(llmHost);
-        } catch {
-          badRequest(res, "llmHost必须是有效的URL格式");
-          return;
-        }
-      }
-
-      const updatedConfig = systemService.updateConfig({ useLlm, llmHost, llmModel });
+      const updatedConfig = systemService.updateConfig(req.body);
       success(res, updatedConfig, "更新系统配置成功");
     } catch (error) {
       logger.error(`更新系统配置失败`, error);

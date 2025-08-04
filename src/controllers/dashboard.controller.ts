@@ -18,7 +18,8 @@ export class DashboardController {
   // 获取最近添加的媒体
   static async getRecentMedia(req: Request, res: Response) {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      // 使用验证中间件验证后的数据
+      const { limit } = req.query as any;
       const recentMedia = await dashboardService.getRecentMedia(limit);
       success(res, recentMedia, '获取最近添加的媒体成功');
     } catch (error) {

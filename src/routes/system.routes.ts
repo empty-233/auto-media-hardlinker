@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { SystemController } from "../controllers";
+import { ValidationMiddleware, SystemValidator } from "../validators";
 
 const router = Router();
 
@@ -10,6 +11,10 @@ router.get("/logs", SystemController.getLogs);
 router.get("/config", SystemController.getConfig);
 
 // 更新系统配置
-router.put("/config", SystemController.updateConfig);
+router.put(
+  "/config",
+  ValidationMiddleware.body(SystemValidator.updateConfig),
+  SystemController.updateConfig
+);
 
 export default router;

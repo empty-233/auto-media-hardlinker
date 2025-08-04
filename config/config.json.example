@@ -9,10 +9,18 @@
     "language": "zh-CN",
     //是否使用LLM进行刮削(true/false)
     "useLlm": true,
-    //LLM服务主机地址
+    // LLM提供商，支持 "ollama" 或 "openai"
+    "llmProvider": "ollama",
+    // Ollama服务主机地址 (llmProvider为 "ollama" 时必填)
     "llmHost": "http://localhost:11434",
-    //LLM模型名称
+    // Ollama模型名称 (llmProvider为 "ollama" 时必填)
     "llmModel": "qwen2.5",
+    // OpenAI API密钥 (llmProvider为 "openai" 时必填)
+    "openaiApiKey": "your_openai_api_key",
+    // OpenAI模型名称 (llmProvider为 "openai" 时必填)
+    "openaiModel": "gpt-4-turbo",
+    // OpenAI API基础URL (可选，用于代理)
+    "openaiBaseUrl": "https://api.openai.com/v1",
     //支持的视频文件扩展名
     "videoExtensions": [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".ts"]
 }

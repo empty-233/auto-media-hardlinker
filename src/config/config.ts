@@ -8,12 +8,16 @@ export interface Config {
   monitorFilePath: string;
   targetFilePath: string;
   tmdbApi: string;
-  language: string;
+  language:string;
   videoExtensions: string[];
   // LLM相关配置
+  useLlm?: boolean;
+  llmProvider?: "ollama" | "openai";
   llmHost?: string;
   llmModel?: string;
-  useLlm?: boolean;
+  openaiApiKey?: string;
+  openaiModel?: string;
+  openaiBaseUrl?: string;
 }
 
 // 缓存配置，避免重复读取
@@ -59,12 +63,24 @@ export function getConfig(
       throw new Error("配置文件缺少 tmdbApi 字段");
     }
 
+    if (!config.language) {
+      throw new Error("配置文件缺少 language 字段");
+    }
+
     if (!config.videoExtensions || !Array.isArray(config.videoExtensions) || config.videoExtensions.length === 0) {
       throw new Error("配置文件缺少或无效的 videoExtensions 字段");
     }
 
-    if (!config.useLlm && (!config.llmHost || !config.llmModel)) {
-      throw new Error("LLM相关配置不完整");
+    if (config.useLlm) {
+      if (!config.llmProvider) {
+        throw new Error("启用LLM时，必须指定 llmProvider (ollama 或 openai)");
+      }
+      if (config.llmProvider === "ollama" && (!config.llmHost || !config.llmModel)) {
+        throw new Error("Ollama配置不完整，需要 llmHost 和 llmModel");
+      }
+      if (config.llmProvider === "openai" && (!config.openaiApiKey || !config.openaiModel)) {
+        throw new Error("OpenAI配置不完整，需要 openaiApiKey 和 openaiModel");
+      }
     }
 
     // 检测路径是否存在
@@ -85,4 +101,11 @@ export function getConfig(
     }
     throw new Error("读取配置文件时出现未知错误");
   }
+}
+
+/**
+ * 清除配置缓存
+ */
+export function clearConfigCache() {
+  cachedConfig = null;
 }
