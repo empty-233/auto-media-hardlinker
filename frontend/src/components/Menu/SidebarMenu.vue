@@ -104,14 +104,14 @@ onUnmounted(() => {
 /* 菜单项圆角样式 */
 .sidebar-menu :deep(.el-menu-item) {
   border-radius: 8px;
-  margin: 4px 8px;
+  margin: 4px 0;
   padding: 0 16px;
   transition: all 0.3s ease;
 }
 
 .sidebar-menu :deep(.el-sub-menu .el-sub-menu__title) {
   border-radius: 8px;
-  margin: 4px 8px;
+  margin: 4px 0;
   transition: all 0.3s ease;
 }
 

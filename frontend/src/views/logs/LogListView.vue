@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { Search, Refresh, Clock, CopyDocument } from '@element-plus/icons-vue'
 import { useDebounceFn } from '@vueuse/core'
 import { LogService } from '@/api/logs'
+import ResponsivePagination from '@/components/common/ResponsivePagination.vue'
 import type { LogEntry, GetLogsParams } from '@/api/logs/types'
 
 // 定义组件名称以支持 keep-alive
@@ -115,10 +116,6 @@ const clearSearchFilter = () => {
   loadLogList()
 }
 
-const handlePageChange = (page: number) => {
-  currentPage.value = page
-  loadLogList()
-}
 
 const handleSortChange = ({ prop, order }: { prop: string; order: string }) => {
   sortConfig.value = { prop, order }
@@ -335,17 +332,14 @@ onMounted(() => {
     </div>
 
     <!-- 分页 -->
-    <div v-if="totalCount > 0" class="pagination-container">
-      <el-pagination
-        v-model:current-page="currentPage"
-        v-model:page-size="pageSize"
-        :total="totalCount"
-        :page-sizes="[50, 100, 200, 500]"
-        layout="total, sizes, prev, pager, next, jumper"
-        @current-change="handlePageChange"
-        @size-change="loadLogList"
-      />
-    </div>
+    <ResponsivePagination
+      v-if="totalCount > 0"
+      v-model:current-page="currentPage"
+      v-model:page-size="pageSize"
+      :total="totalCount"
+      :page-sizes="[50, 100, 200, 500]"
+      @change="loadLogList"
+    />
 
     <!-- 日志详情对话框 -->
     <el-dialog
@@ -539,16 +533,6 @@ onMounted(() => {
   color: #409eff;
 }
 
-/* 分页 */
-.pagination-container {
-  display: flex;
-  justify-content: center;
-  padding: 24px;
-  background: white;
-  border-radius: 8px;
-  margin-top: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
 
 /* 加载和空状态 */
 .loading-container {

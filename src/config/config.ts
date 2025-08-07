@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import { QueueConfig } from "../types/queue.types";
 
 /**
  * 配置文件接口定义
@@ -18,6 +19,8 @@ export interface Config {
   openaiApiKey?: string;
   openaiModel?: string;
   openaiBaseUrl?: string;
+  // 队列配置
+  queue?: Partial<QueueConfig>;
 }
 
 // 缓存配置，避免重复读取

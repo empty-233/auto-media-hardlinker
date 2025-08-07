@@ -52,6 +52,11 @@ export {
   SystemValidator
 } from './system.validator';
 
+// 队列相关验证器
+export {
+  QueueValidator
+} from './queue.validator';
+
 // 验证中间件
 export {
   validateRequest,

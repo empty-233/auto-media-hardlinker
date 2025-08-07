@@ -13,7 +13,7 @@ export interface PaginatedResponse<T = any> {
   total: number;
   page: number;
   limit: number;
-  totalPages: number;
+  totalPages?: number;
 }
 
 // 错误详情类型

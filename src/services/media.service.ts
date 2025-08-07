@@ -52,7 +52,6 @@ export class MediaService {
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit),
       };
     } catch (error) {
       logger.error(`获取媒体列表失败`, error);
@@ -154,7 +153,6 @@ export class MediaService {
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit),
       };
     } catch (error) {
       logger.error(`获取${type}类型媒体失败`, error);

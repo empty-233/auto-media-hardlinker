@@ -116,3 +116,35 @@ model EpisodeInfo {
   /// 关联的文件信息（一对一关系）
   file File?
 }
+
+/// 任务状态枚举
+enum TaskStatus {
+  PENDING   /// 待处理
+  RUNNING   /// 处理中
+  COMPLETED /// 已完成
+  FAILED    /// 失败
+  CANCELED  /// 已取消
+}
+
+/// 媒体刮削任务队列
+model Queue {
+  id          Int        @id @default(autoincrement()) /// 唯一标识符
+  filePath    String /// 文件路径
+  fileName    String /// 文件名
+  isDirectory Boolean    @default(false) @map("is_directory") /// 是否为目录
+  status      TaskStatus @default(PENDING) /// 任务状态
+  priority    Int        @default(0) /// 任务优先级，数字越大优先级越高
+  retryCount  Int        @default(0) @map("retry_count") /// 重试次数
+  maxRetries  Int        @default(3) @map("max_retries") /// 最大重试次数
+  lastError   String? @map("last_error") /// 最后一次错误信息
+  result      String? /// 任务结果（JSON格式）
+  
+  createdAt   DateTime   @default(now()) @map("created_at") /// 创建时间
+  updatedAt   DateTime   @updatedAt @map("updated_at") /// 更新时间
+  startedAt   DateTime? @map("started_at") /// 开始处理时间
+  completedAt DateTime? @map("completed_at") /// 完成时间
+  nextRetryAt DateTime? @map("next_retry_at") /// 下次重试时间
+
+  @@index([status, priority, createdAt]) /// 队列排序索引
+  @@index([status, nextRetryAt]) /// 重试任务索引
+}

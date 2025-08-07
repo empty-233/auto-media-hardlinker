@@ -51,6 +51,19 @@ const router = createRouter({
         componentName: 'FileListView' // 组件名
       }
     },
+    // 队列管理路由
+    {
+      path: '/queue',
+      name: 'queue',
+      component: () => import('../views/queue/QueueManagement.vue'),
+      meta: {
+        title: '队列管理',
+        icon: 'List',
+        showInMenu: true,
+        keepAlive: true,
+        componentName: 'QueueManagement'
+      }
+    },
     // 日志管理路由
     {
       path: '/logs',

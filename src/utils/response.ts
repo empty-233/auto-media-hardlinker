@@ -45,6 +45,9 @@ export class ResponseUtil {
     message: string = ResponseMessages.SUCCESS,
     code: number = HttpStatus.OK
   ): void {
+    if (data.totalPages === undefined) {
+      data.totalPages = Math.ceil(data.total / data.limit);
+    }
     ResponseUtil.success(res, data, message, code);
   }
 

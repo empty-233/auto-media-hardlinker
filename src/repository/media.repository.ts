@@ -1,6 +1,5 @@
 import { Type, Prisma } from "@prisma/client";
 import prisma from "../client";
-import { getConfig } from "../config/config";
 import { logger } from "../utils/logger";
 import { downloadTMDBImage, formatDate } from "../utils/media";
 import {
@@ -8,8 +7,7 @@ import {
   IdentifiedMedia,
   FileDetails,
 } from "../types/media.types";
-
-const config = getConfig();
+import { NonRetryableError } from "../core/errors";
 
 export class MediaRepository implements IMediaRepository {
   // REFACTOR: 将 saveMediaAndFile 分解为更小的、职责单一的方法
@@ -116,6 +114,17 @@ export class MediaRepository implements IMediaRepository {
         data: updateData,
       });
     } else {
+      const fileWithSameLinkPath = await prisma.file.findFirst({
+        where: {
+          linkPath: fileDetails.linkPath,
+        },
+      });
+
+      if (fileWithSameLinkPath) {
+        throw new NonRetryableError(
+          `目标链接路径 "${fileDetails.linkPath}" 已被另一个文件 (ID: ${fileWithSameLinkPath.id}, Path: ${fileWithSameLinkPath.filePath}) 使用。请手动处理冲突。`
+        );
+      }
       logger.info(`创建新的文件记录: ${fileDetails.sourcePath}`);
       return prisma.file.create({
         data: {
@@ -188,7 +197,7 @@ export class MediaRepository implements IMediaRepository {
       if (episodeData) {
         const episodeTmdbId = episodeData.id;
         let episodeInfo = await prisma.episodeInfo.findFirst({
-          where: { tmdbId: episodeTmdbId, tvInfoId: tvInfo.id },
+          where: { tmdbId: episodeTmdbId },
         });
 
         const localStillUrl = await downloadTMDBImage(

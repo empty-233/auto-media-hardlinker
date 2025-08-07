@@ -13,7 +13,6 @@ export class SystemService {
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit),
       };
     } catch (error) {
       logger.error(`获取系统日志失败`, error);

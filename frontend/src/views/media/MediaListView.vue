@@ -4,6 +4,7 @@ import { useDebounceFn } from '@vueuse/core'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh, Picture, Document } from '@element-plus/icons-vue'
+import ResponsivePagination from '@/components/common/ResponsivePagination.vue'
 import { MediaService } from '@/api/media'
 import type { Media, MediaType, MediaPaginationParams } from '@/api/media/types'
 import { MediaType as MediaTypeEnum } from '@/api/media/types'
@@ -66,10 +67,6 @@ const handleTypeFilter = (tab: any) => {
   loadMediaList()
 }
 
-const handlePageChange = (page: number) => {
-  currentPage.value = page
-  loadMediaList()
-}
 
 const goToDetail = (id: number) => {
   router.push(`/media/detail/${id}`)
@@ -227,17 +224,12 @@ onMounted(() => {
     </div>
 
     <!-- 分页 -->
-    <div v-if="totalCount > 0" class="pagination-container">
-      <el-pagination
-        v-model:current-page="currentPage"
-        v-model:page-size="pageSize"
-        :total="totalCount"
-        :page-sizes="[10, 50, 100]"
-        layout="total, sizes, prev, pager, next, jumper"
-        @current-change="handlePageChange"
-        @size-change="loadMediaList"
-      />
-    </div>
+    <ResponsivePagination
+      v-model:current-page="currentPage"
+      v-model:page-size="pageSize"
+      :total="totalCount"
+      @change="loadMediaList"
+    />
   </div>
 </template>
 
@@ -441,15 +433,6 @@ onMounted(() => {
   width: 100%;
 }
 
-/* 分页 */
-.pagination-container {
-  display: flex;
-  justify-content: center;
-  padding: 24px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
 
 /* 响应式设计 */
 @media (max-width: 768px) {

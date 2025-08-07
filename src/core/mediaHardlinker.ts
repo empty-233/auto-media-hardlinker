@@ -6,19 +6,18 @@ import fs from "fs/promises";
 import crypto from "crypto";
 import { logger } from "../utils/logger";
 import {
-  IMediaIdentifier,
   FileDetails,
   IdentifiedMedia,
 } from "../types/media.types";
-import { LLMIdentifier } from "../strategies/llm.identifier";
-import { RegexIdentifier } from "../strategies/regex.identifier";
 import { MediaRepository } from "../repository/media.repository";
 import { createHardlink } from "../utils/hardlink";
+import { getQueueService } from "../queue/queueService";
+import { ScrapingTaskData } from "../types/queue.types";
 
 /**
  * @class MediaHardlinkerService
  * @description 核心服务类，用于管理整个媒体硬链接流程。
- * 包含文件监控的启动、停止以及处理文件事件的逻辑。
+ * 现在基于队列系统进行异步处理，避免UI卡顿和API限制问题。
  */
 export class MediaHardlinkerService {
   private config: Config;
@@ -50,6 +49,12 @@ export class MediaHardlinkerService {
       throw new Error(`监视器路径设置无效: ${this.config.monitorFilePath}`);
     }
 
+    // 启动队列服务
+    const queueService = getQueueService(this.config.queue);
+    if (!queueService.isRunning()) {
+      await queueService.start();
+    }
+
     const monitorOptions: FileMonitorOptions = {
       usePolling: true,
     };
@@ -68,7 +73,7 @@ export class MediaHardlinkerService {
    * @public
    * @method stop
    * @description 停止媒体硬链接服务。
-   * 此方法会安全地停止文件监控器。
+   * 此方法会安全地停止文件监控器和队列服务。
    * @returns {Promise<void>}
    */
   public async stop(): Promise<void> {
@@ -78,12 +83,19 @@ export class MediaHardlinkerService {
       this.stopMonitoring = null;
       this.fileMonitorInstance = null;
     }
+
+    // 停止队列服务
+    const queueService = getQueueService();
+    if (queueService.isRunning()) {
+      await queueService.stop();
+    }
   }
 
   /**
    * @private
    * @method handleFileEvent
    * @description 处理文件监控器触发的文件事件。
+   * 现在将任务加入队列而不是立即处理。
    * @param {string} eventType - 事件类型 ('add', 'addDir', 'change').
    * @param {{ path: string; filename: string; isDirectory: boolean }} fileInfo - 文件信息.
    * @returns {Promise<void>}
@@ -105,52 +117,43 @@ export class MediaHardlinkerService {
     );
 
     try {
-      await this.processMediaFile(fileInfo);
+      // 将任务加入队列而不是立即处理
+      await this.enqueueMediaFile(fileInfo);
     } catch (error) {
-      logger.error(`处理文件 ${fileInfo.filename} 时发生顶层错误`, error);
+      logger.error(`将文件 ${fileInfo.filename} 加入队列时发生错误`, error);
     }
   }
 
   /**
    * @private
-   * @method processMediaFile
-   * @description 完整处理单个媒体文件或目录的流程。
+   * @method enqueueMediaFile
+   * @description 将媒体文件处理任务加入队列。
    * @param {{ path: string; filename: string; isDirectory: boolean }} fileInfo - 文件信息.
    * @returns {Promise<void>}
    */
-  private async processMediaFile(fileInfo: {
+  private async enqueueMediaFile(fileInfo: {
     path: string;
     filename: string;
     isDirectory: boolean;
   }): Promise<void> {
-    // 1. 选择识别策略
-    const refreshConfig = getConfig();
-    const identifier: IMediaIdentifier = refreshConfig.useLlm
-      ? new LLMIdentifier()
-      : new RegexIdentifier();
-
-    // 2. 识别媒体
-    const media = await identifier.identify(
-      fileInfo.filename,
-      fileInfo.isDirectory,
-      fileInfo.path
-    );
-    if (!media) {
-      logger.warn(`无法识别媒体文件: ${fileInfo.filename}`);
+    // 对于非目录文件，检查是否为支持的视频文件
+    if (!fileInfo.isDirectory && !this.isValidVideoFile(fileInfo.filename)) {
+      logger.debug(`跳过非视频文件: ${fileInfo.filename}`);
       return;
     }
-    logger.info(`成功识别媒体: ${media.title}`);
 
-    // 3. 构建目标路径
-    const targetPath = this.buildTargetPath(media);
+    const taskData: ScrapingTaskData = {
+      filePath: fileInfo.path,
+      fileName: fileInfo.filename,
+      isDirectory: fileInfo.isDirectory,
+      priority: fileInfo.isDirectory ? 0 : 1, // 文件比目录优先级高
+      maxRetries: this.config.queue?.defaultMaxRetries
+    };
 
-    // 4. 处理目录和硬链接
-    if (fileInfo.isDirectory) {
-      await fs.mkdir(targetPath, { recursive: true });
-      logger.info(`创建或确认目录: ${targetPath}`);
-    } else {
-      await this.handleSingleFile(fileInfo, media, targetPath);
-    }
+    const queueService = getQueueService();
+    const taskId = await queueService.enqueueTask(taskData);
+    
+    logger.info(`已将任务加入队列: ${fileInfo.filename} (任务ID: ${taskId})`);
   }
 
   /**

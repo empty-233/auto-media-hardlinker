@@ -37,8 +37,6 @@ const fileList = ref<FileSystemItem[]>([])
 const currentPath = ref('')
 const parentPath = ref<string | null>(null)
 const searchKeyword = ref('')
-const currentPage = ref(1)
-const pageSize = 20
 const sortConfig = ref<{ prop: string; order: string }>({ prop: 'name', order: 'ascending' })
 const detailDialogVisible = ref(false)
 const selectedFile = ref<FileSystemItem | null>(null)
@@ -146,12 +144,6 @@ const filteredFileList = computed(() => {
   return result
 })
 
-const displayedFileList = computed(() => {
-  const start = (currentPage.value - 1) * pageSize
-  const end = start + pageSize
-  return filteredFileList.value.slice(start, end)
-})
-
 // 方法
 const loadDirectoryContents = async (dirPath?: string) => {
   try {
@@ -178,17 +170,12 @@ const loadDirectoryContents = async (dirPath?: string) => {
 }
 
 const refreshData = () => {
-  currentPage.value = 1
   loadDirectoryContents(currentPath.value || undefined)
 }
 
 const handleSearch = () => {
-  currentPage.value = 1
 }
 
-const handlePageChange = (page: number) => {
-  currentPage.value = page
-}
 
 const handleSortChange = ({ prop, order }: { prop: string; order: string }) => {
   sortConfig.value = { prop, order }
@@ -208,7 +195,6 @@ const handleDetailDialogRefresh = () => {
 
 const handleFilterChange = (type: 'all' | 'inDb' | 'notInDb' | 'directory') => {
   filterType.value = type
-  currentPage.value = 1
 }
 
 const navigateToDirectory = (dirPath: string) => {
@@ -427,7 +413,7 @@ watch(
     <div v-else-if="viewMode === 'grid'" class="grid-container">
       <div class="file-grid">
         <div
-          v-for="item in displayedFileList"
+          v-for="item in filteredFileList"
           :key="item.fullPath"
           class="file-card"
           :class="{ 'is-directory': item.isDirectory }"
@@ -475,7 +461,7 @@ watch(
     <!-- 列表视图 -->
     <div v-else class="table-container">
       <el-table
-        :data="displayedFileList"
+        :data="filteredFileList"
         style="width: 100%"
         stripe
         :default-sort="{ prop: 'modifiedTime', order: 'descending' }"
@@ -545,16 +531,6 @@ watch(
       </el-table>
     </div>
 
-    <!-- 分页 -->
-    <div v-if="filteredFileList.length > pageSize" class="pagination-container">
-      <el-pagination
-        v-model:current-page="currentPage"
-        :page-size="pageSize"
-        :total="filteredFileList.length"
-        layout="total, prev, pager, next, jumper"
-        @current-change="handlePageChange"
-      />
-    </div>
 
     <!-- 文件详情对话框 -->
     <FileDetailDialog 
@@ -855,16 +831,6 @@ watch(
   white-space: nowrap;
 }
 
-/* 分页 */
-.pagination-container {
-  display: flex;
-  justify-content: center;
-  padding: 24px;
-  background: white;
-  border-radius: 8px;
-  margin-top: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
 
 /* 加载和空状态 */
 .loading-container {
