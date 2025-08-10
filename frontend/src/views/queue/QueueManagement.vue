@@ -464,30 +464,74 @@ const formatTimeout = (time?: number) => {
     />
 
     <!-- 配置编辑对话框 -->
-    <el-dialog v-model="configDialogVisible" title="编辑队列配置" width="500px">
-      <el-form :model="configForm" :rules="configRules" ref="configFormRef" label-width="120px">
-        <el-form-item label="并发数" prop="concurrency">
-          <el-input-number v-model="configForm.concurrency" :min="1" :max="10" />
-        </el-form-item>
-        <el-form-item label="重试延迟(ms)" prop="retryDelay">
-          <el-input-number v-model="configForm.retryDelay" :min="100" :step="100" />
-        </el-form-item>
-        <el-form-item label="最大重试延迟(ms)" prop="maxRetryDelay">
-          <el-input-number v-model="configForm.maxRetryDelay" :min="1000" :step="1000" />
-        </el-form-item>
-        <el-form-item label="默认最大重试次数" prop="defaultMaxRetries">
-          <el-input-number v-model="configForm.defaultMaxRetries" :min="1" :max="10" />
-        </el-form-item>
-        <el-form-item label="处理超时(ms)" prop="processingTimeout">
-          <el-input-number v-model="configForm.processingTimeout" :min="10000" :step="10000" />
-        </el-form-item>
-        <el-form-item label="批量大小" prop="batchSize">
-          <el-input-number v-model="configForm.batchSize" :min="1" :max="100" />
-        </el-form-item>
+    <el-dialog v-model="configDialogVisible" title="编辑队列配置" width="clamp(320px, 90%, 800px)" class="config-dialog" top="5vh">
+      <el-form :model="configForm" :rules="configRules" ref="configFormRef" label-position="top">
+        <div class="config-section">
+          <h4 class="section-title">基础配置</h4>
+          <el-row :gutter="20">
+            <el-col :xs="24" :sm="12">
+              <el-form-item label="并发数" prop="concurrency">
+                <el-input-number v-model="configForm.concurrency" :min="1" :max="10" style="width: 100%" />
+                <p class="form-item-description">同时处理的任务数量</p>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="12">
+              <el-form-item label="批量大小" prop="batchSize">
+                <el-input-number v-model="configForm.batchSize" :min="1" :max="100" style="width: 100%" />
+                <p class="form-item-description">每次处理的文件数量</p>
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </div>
+
+        <div class="config-section">
+          <h4 class="section-title">重试配置</h4>
+          <el-row :gutter="20">
+            <el-col :xs="24" :sm="12">
+              <el-form-item label="重试延迟" prop="retryDelay">
+                <el-input-number v-model="configForm.retryDelay" :min="100" :step="100" style="width: 100%" />
+                <p class="form-item-description">任务失败后的初始等待时间 (ms)</p>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="12">
+              <el-form-item label="最大重试延迟" prop="maxRetryDelay">
+                <el-input-number v-model="configForm.maxRetryDelay" :min="1000" :step="1000" style="width: 100%" />
+                <p class="form-item-description">任务失败后最长的等待时间 (ms)</p>
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row>
+            <el-col :xs="24">
+              <el-form-item label="默认最大重试次数" prop="defaultMaxRetries">
+                <el-input-number v-model="configForm.defaultMaxRetries" :min="1" :max="10" style="width: 100%" />
+                <p class="form-item-description">失败后的最大重试次数</p>
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </div>
+
+        <div class="config-section">
+          <h4 class="section-title">超时配置</h4>
+          <el-row>
+            <el-col :xs="24">
+              <el-form-item label="处理超时" prop="processingTimeout">
+                <el-input-number
+                  v-model="configForm.processingTimeout"
+                  :min="10000"
+                  :step="10000"
+                  style="width: 100%"
+                />
+                <p class="form-item-description">单个任务的最大处理时间 (ms)</p>
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </div>
       </el-form>
       <template #footer>
-        <el-button @click="configDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="updateConfig" :loading="configLoading">保存</el-button>
+        <div class="dialog-footer">
+          <el-button @click="configDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="updateConfig" :loading="configLoading">保存</el-button>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -717,6 +761,32 @@ const formatTimeout = (time?: number) => {
 }
 
 
+.form-item-description {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.config-section {
+  margin-bottom: 12px;
+  padding: 16px;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  background-color: #fafafa;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+  color: #303133;
+}
+
+.dialog-footer {
+  text-align: right;
+}
+
 /* 响应式设计 */
 @media (max-width: 1200px) {
   .status-config-grid {
@@ -732,21 +802,32 @@ const formatTimeout = (time?: number) => {
   .header-section {
     flex-direction: column;
     gap: 16px;
+    padding: 16px;
   }
 
   .status-cards-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
   }
 
   .filter-section {
     flex-direction: column;
     align-items: stretch;
+    padding: 16px;
   }
 
   .filter-actions {
     margin-left: 0;
     margin-top: 16px;
     justify-content: flex-end;
+  }
+
+  .config-dialog .el-dialog__body {
+    padding: 12px;
+  }
+
+  .config-section {
+    padding: 12px;
   }
 }
 </style>

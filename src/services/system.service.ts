@@ -5,9 +5,23 @@ import fs from "fs";
 
 export class SystemService {
   // 获取系统日志
-  getLogs(page: number = 1, limit: number = 100, level?: LogLevel, keyword?: string) {
+  getLogs(
+    page: number = 1,
+    limit: number = 100,
+    level?: LogLevel,
+    keyword?: string,
+    sortBy?: string,
+    sortOrder?: "asc" | "desc"
+  ) {
     try {
-      const { logs, total } = logger.getLogs(page, limit, level, keyword);
+      const { logs, total } = logger.getLogs(
+        page,
+        limit,
+        level,
+        keyword,
+        sortBy,
+        sortOrder
+      );
       return {
         items: logs,
         total,

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 import { 
   ArrowLeft, 
   Picture, 
@@ -32,9 +31,13 @@ const loadMediaDetail = async () => {
       throw new Error('无效的媒体ID')
     }
     media.value = await MediaService.getMediaById(id)
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('加载媒体详情失败:', err)
-    error.value = err.message || '加载媒体详情失败，请稍后重试'
+    if (err instanceof Error) {
+      error.value = err.message
+    } else {
+      error.value = '加载媒体详情失败，请稍后重试'
+    }
   } finally {
     loading.value = false
   }
@@ -97,12 +100,28 @@ const formatFileSize = (sizeStr: string): string => {
 }
 
 const viewFile = (file: MediaFile) => {
-  // 跳转到文件管理页面，并传递文件ID作为查询参数
+  // 跳转到文件管理页面，并传递文件ID和路径作为查询参数
+  const pathParts = file.filePath.split(/[/\\]/)
+  pathParts.pop() // 移除文件名
+
+  // 移除第一级根目录
+  if (pathParts.length > 0) {
+    pathParts.shift()
+  }
+
+  const dirPath = pathParts.join('/')
+
+  const query: { path?: string; fileId: string } = {
+    fileId: file.id.toString(),
+  }
+
+  if (dirPath) {
+    query.path = dirPath
+  }
+
   router.push({
     path: '/files',
-    query: {
-      fileId: file.id.toString()
-    }
+    query,
   })
 }
 

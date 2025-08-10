@@ -167,10 +167,7 @@ export class TaskWorker implements ITaskWorker {
       }
 
       try {
-        const cleanedCount = await this.queueManager.cleanupTimeoutTasks(this.config.processingTimeout);
-        if (cleanedCount > 0) {
-          logger.info(`清理了 ${cleanedCount} 个超时任务`);
-        }
+        await this.queueManager.cleanupTimeoutTasks(this.config.processingTimeout);
       } catch (error) {
         logger.error('清理超时任务失败', error);
       }

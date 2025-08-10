@@ -62,10 +62,16 @@ export function validateRequest(config: ValidationConfig) {
           req.body = validatedData;
           break;
         case 'params':
-          req.params = validatedData as any;
+          Object.defineProperty(req, 'params', {
+            value: validatedData,
+            writable: true,
+          });
           break;
         case 'query':
-          req.query = validatedData as any;
+           Object.defineProperty(req, 'query', {
+            value: validatedData,
+            writable: true,
+          });
           break;
       }
 

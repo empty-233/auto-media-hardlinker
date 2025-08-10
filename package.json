@@ -15,28 +15,28 @@
   "keywords": [],
   "author": "",
   "license": "MIT",
-  "packageManager": "pnpm@10.6.4",
+  "packageManager": "pnpm@10.14.0",
   "dependencies": {
-    "@prisma/client": "6.5.0",
-    "axios": "^1.9.0",
+    "@prisma/client": "6.13.0",
+    "axios": "^1.11.0",
     "chokidar": "^4.0.3",
     "cors": "^2.8.5",
-    "express": "^4.21.2",
+    "express": "^5.1.0",
     "moviedb-promise": "^4.0.7",
-    "ollama": "^0.5.15",
-    "openai": "^5.11.0",
-    "pino": "^9.7.0",
-    "pino-pretty": "^13.0.0",
+    "ollama": "^0.5.17",
+    "openai": "^5.12.1",
+    "pino": "^9.8.0",
+    "pino-pretty": "^13.1.1",
     "sqlite3": "^5.1.7",
-    "zod": "^4.0.14"
+    "zod": "^4.0.15"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.17",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
-    "@types/node": "^24.0.8",
-    "prisma": "^6.5.0",
+    "@types/node": "^24.2.0",
+    "prisma": "^6.13.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.4.3"
+    "typescript": "^5.9.2"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

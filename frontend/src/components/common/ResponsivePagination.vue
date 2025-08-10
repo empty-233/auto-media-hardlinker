@@ -3,29 +3,6 @@ import { computed } from 'vue'
 import { useBreakpoints } from '@vueuse/core'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 
-// 定义组件的 props
-const props = defineProps({
-  total: {
-    type: Number,
-    required: true,
-  },
-  currentPage: {
-    type: Number,
-    required: true,
-  },
-  pageSize: {
-    type: Number,
-    required: true,
-  },
-  pageSizes: {
-    type: Array,
-    default: () => [10, 50, 100],
-  },
-})
-
-// 定义组件的 emits
-const emit = defineEmits(['update:currentPage', 'update:pageSize', 'change'])
-
 // 响应式断点
 const breakpoints = useBreakpoints({
   mobile: 768,
@@ -36,31 +13,14 @@ const isMobile = breakpoints.smaller('mobile')
 const paginationLayout = computed(() => {
   return isMobile.value ? 'total, prev, pager, next' : 'total, sizes, prev, pager, next, jumper'
 })
-
-// 当前页更新
-const onCurrentChange = (page: number) => {
-  emit('update:currentPage', page)
-  emit('change')
-}
-
-// 每页数量更新
-const onSizeChange = (size: number) => {
-  emit('update:pageSize', size)
-  emit('change')
-}
 </script>
 
 <template>
-  <div v-if="total > 0" class="pagination-container">
+  <div class="pagination-container">
     <el-config-provider :locale="zhCn">
       <el-pagination
-        :current-page="currentPage"
-        :page-size="pageSize"
-        :total="total"
-        :page-sizes="pageSizes"
         :layout="paginationLayout"
-        @current-change="onCurrentChange"
-        @size-change="onSizeChange"
+        v-bind="$attrs"
       />
     </el-config-provider>
   </div>

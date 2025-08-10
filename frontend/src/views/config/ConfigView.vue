@@ -214,7 +214,7 @@ const saveConfig = async () => {
     for (const key in configForm) {
       const k = key as keyof SystemConfig
       if (configForm[k] !== originalConfig.value[k]) {
-        // @ts-ignore
+        // @ts-expect-error: k is a valid key of updateParams
         updateParams[k] = configForm[k]
       }
     }
@@ -222,7 +222,7 @@ const saveConfig = async () => {
     // 更新配置
     await updateConfig(updateParams)
     ElMessage.success('配置保存成功')
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error !== 'cancel') {
       console.error('保存配置失败:', error)
       ElMessage.error('保存配置失败')
@@ -281,6 +281,7 @@ onMounted(() => {
         :model="configForm" 
         :rules="configRules"
         label-width="140px"
+        label-position="left"
         @submit.prevent
       >
         <el-form-item label="LLM 媒体刮削" prop="useLlm">
@@ -512,37 +513,61 @@ onMounted(() => {
   .config-view {
     padding: 16px;
   }
-  
+
   .header-section {
     flex-direction: column;
     gap: 16px;
+    padding: 16px;
   }
-  
+
   .page-title {
     font-size: 20px;
   }
-  
+
+  .config-card {
+    padding: 16px;
+  }
+
+  :deep(.el-form-item) {
+    flex-direction: column;
+  }
+
+  :deep(.el-form-item__label) {
+    width: 100% !important;
+    text-align: left !important;
+    line-height: normal !important;
+    margin-bottom: 8px;
+  }
+
+  :deep(.el-form-item__content) {
+    width: 100%;
+    margin-left: 0 !important;
+  }
+
   .switch-item {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
   }
-  
-  :deep(.el-form-item__label) {
-    width: 100% !important;
-    text-align: left !important;
+
+  .switch-info {
+    margin-right: 0;
   }
-  
+
   :deep(.el-input) {
     max-width: none;
   }
-  
+
   .action-buttons {
     flex-direction: column-reverse;
+    gap: 12px;
+    margin-top: 24px;
+    padding-top: 16px;
   }
-  
+
   .action-buttons .el-button {
     width: 100%;
+    margin-left: 0 !important;
   }
 }
 </style>

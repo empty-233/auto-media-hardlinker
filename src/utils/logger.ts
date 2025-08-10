@@ -212,25 +212,57 @@ class Logger {
     };
   }
 
-  public getLogs(page: number = 1, limit: number = 100, level?: LogLevel, keyword?: string): { logs: LogEntry[], total: number } {
+  public getLogs(
+    page: number = 1,
+    limit: number = 100,
+    level?: LogLevel,
+    keyword?: string,
+    sortBy: string = "timestamp",
+    sortOrder: "asc" | "desc" = "desc"
+  ): { logs: LogEntry[]; total: number } {
     let filteredLogs = this.logs;
-    
+
     if (level) {
-      filteredLogs = filteredLogs.filter(log => log.level === level);
+      filteredLogs = filteredLogs.filter((log) => log.level === level);
     }
     // 根据关键词过滤日志
     if (keyword) {
-      filteredLogs = filteredLogs.filter(log => log.message.includes(keyword));
+      filteredLogs = filteredLogs.filter((log) =>
+        log.message.includes(keyword)
+      );
     }
-    
+
+    // 排序
+    filteredLogs.sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      if (sortBy === "timestamp") {
+        aValue = a.timestamp.getTime();
+        bValue = b.timestamp.getTime();
+      } else if (sortBy === 'level') {
+        aValue = LOG_LEVEL_MAP[a.level];
+        bValue = LOG_LEVEL_MAP[b.level];
+      }
+      else {
+        aValue = a[sortBy as keyof LogEntry];
+        bValue = b[sortBy as keyof LogEntry];
+      }
+
+      if (aValue < bValue) {
+        return sortOrder === "asc" ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortOrder === "asc" ? 1 : -1;
+      }
+      return 0;
+    });
+
     const total = filteredLogs.length;
     const start = (page - 1) * limit;
     const end = start + limit;
 
-    // 返回最新的日志，按时间降序排列
-    const logs = filteredLogs
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-      .slice(start, end);
+    const logs = filteredLogs.slice(start, end);
 
     return { logs, total };
   }

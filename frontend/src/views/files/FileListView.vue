@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, onActivated } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import {
@@ -42,6 +42,7 @@ const detailDialogVisible = ref(false)
 const selectedFile = ref<FileSystemItem | null>(null)
 const viewMode = ref<'grid' | 'list'>('grid')
 const filterType = ref<'all' | 'inDb' | 'notInDb' | 'directory'>('all')
+const isLoaded = ref(false)
 
 // 面包屑导航
 const breadcrumbItems = computed(() => {
@@ -161,6 +162,17 @@ const loadDirectoryContents = async (dirPath?: string) => {
       delete query.path
     }
     router.replace({ query })
+
+    // 处理从其他页面跳转过来的文件ID
+    if (route.query.fileId) {
+      const fileId = parseInt(route.query.fileId as string)
+      const fileToView = fileList.value.find(
+        (f) => f.databaseRecord?.id === fileId && !f.isDirectory,
+      )
+      if (fileToView) {
+        viewFileDetail(fileToView)
+      }
+    }
   } catch (error) {
     console.error('加载目录内容失败:', error)
     ElMessage.error('加载目录内容失败，请稍后重试')
@@ -173,9 +185,7 @@ const refreshData = () => {
   loadDirectoryContents(currentPath.value || undefined)
 }
 
-const handleSearch = () => {
-}
-
+const handleSearch = () => {}
 
 const handleSortChange = ({ prop, order }: { prop: string; order: string }) => {
   sortConfig.value = { prop, order }
@@ -289,20 +299,34 @@ const getStatusTag = (item: FileSystemItem) => {
 }
 
 // 生命周期
-onMounted(() => {
-  const initialPath = route.query.path as string
-  loadDirectoryContents(initialPath)
-})
+onActivated(() => {
+  if (!isLoaded.value) {
+    // 首次加载
+    const initialPath = route.query.path as string
+    loadDirectoryContents(initialPath)
+    isLoaded.value = true
+  } else {
+    // 后续激活
+    if (route.query.fileId) {
+      const fileId = parseInt(route.query.fileId as string)
+      const newPath = ((route.query.path as string) || '').replace(/\\/g, '/')
+      const current = (currentPath.value || '').replace(/\\/g, '/')
 
-// 监听路由查询参数变化
-watch(
-  () => route.query.path,
-  (newPath) => {
-    if (newPath !== currentPath.value) {
-      loadDirectoryContents(newPath as string)
+      if (newPath !== current) {
+        loadDirectoryContents(newPath)
+      } else if (fileList.value.length > 0) {
+        const fileToView = fileList.value.find(
+          (f) => f.databaseRecord?.id === fileId && !f.isDirectory,
+        )
+        if (fileToView) {
+          viewFileDetail(fileToView)
+        }
+      } else {
+        loadDirectoryContents(newPath)
+      }
     }
-  },
-)
+  }
+})
 </script>
 
 <template>
@@ -531,11 +555,10 @@ watch(
       </el-table>
     </div>
 
-
     <!-- 文件详情对话框 -->
-    <FileDetailDialog 
-      v-model:visible="detailDialogVisible" 
-      :file-info="selectedFile" 
+    <FileDetailDialog
+      v-model:visible="detailDialogVisible"
+      :file-info="selectedFile"
       @refresh="handleDetailDialogRefresh"
     />
   </div>
@@ -830,7 +853,6 @@ watch(
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 
 /* 加载和空状态 */
 .loading-container {

@@ -27,30 +27,6 @@ const detailDialogVisible = ref(false)
 const selectedLog = ref<LogEntry | null>(null)
 
 // 计算属性
-const sortedLogList = computed(() => {
-  let result = [...logList.value]
-  // 排序
-  if (sortConfig.value.prop) {
-    result.sort((a, b) => {
-      let aValue = getValueByPath(a, sortConfig.value.prop)
-      let bValue = getValueByPath(b, sortConfig.value.prop)
-
-      // 特殊处理时间戳
-      if (sortConfig.value.prop === 'timestamp') {
-        aValue = new Date(aValue).getTime()
-        bValue = new Date(bValue).getTime()
-      }
-
-      if (sortConfig.value.order === 'ascending') {
-        return aValue > bValue ? 1 : -1
-      } else {
-        return aValue < bValue ? 1 : -1
-      }
-    })
-  }
-
-  return result
-})
 
 // 检查是否有激活的过滤器
 const hasActiveFilters = computed(() => {
@@ -68,6 +44,8 @@ const loadLogList = async () => {
       limit: pageSize.value,
       level: selectedLevel.value,
       keyword: searchKeyword.value.trim(),
+      sortBy: sortConfig.value.prop,
+      sortOrder: sortConfig.value.order === 'descending' ? 'desc' : 'asc',
     }
 
     const res = await LogService.getLogs(params)
@@ -118,7 +96,8 @@ const clearSearchFilter = () => {
 
 
 const handleSortChange = ({ prop, order }: { prop: string; order: string }) => {
-  sortConfig.value = { prop, order }
+  sortConfig.value = { prop, order };
+  loadLogList();
 }
 
 const showLogDetails = (log: LogEntry) => {
@@ -191,9 +170,6 @@ const formatDate = (dateString: string): string => {
   }
 }
 
-const getValueByPath = (obj: any, path: string): any => {
-  return path.split('.').reduce((o, p) => o?.[p], obj)
-}
 
 // 生命周期
 onMounted(() => {
@@ -273,7 +249,7 @@ onMounted(() => {
     <!-- 日志表格 -->
     <div v-else class="table-container">
       <el-table
-        :data="sortedLogList"
+        :data="logList"
         style="width: 100%"
         stripe
         :default-sort="{ prop: 'timestamp', order: 'descending' }"

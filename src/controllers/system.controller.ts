@@ -15,7 +15,16 @@ export class SystemController {
       const limit = parseInt(req.query.limit as string) || 100;
       const level = req.query.level as LogLevel;
       const keyword = req.query.keyword as string | undefined;
-      const logs = systemService.getLogs(page, limit, level, keyword);
+      const sortBy = req.query.sortBy as string | undefined;
+      const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
+      const logs = systemService.getLogs(
+        page,
+        limit,
+        level,
+        keyword,
+        sortBy,
+        sortOrder
+      );
       successWithPagination(res, logs, "获取系统日志成功");
     } catch (error) {
       logger.error(`获取系统日志失败`, error);

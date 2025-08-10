@@ -27,4 +27,6 @@ import type { BasePaginationParams } from '@/types/api'
 export interface GetLogsParams extends BasePaginationParams {
   level?: LogLevel | string
   keyword?: string
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
 }
