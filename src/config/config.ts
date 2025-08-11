@@ -112,3 +112,37 @@ export function getConfig(
 export function clearConfigCache() {
   cachedConfig = null;
 }
+
+/**
+ * 更新配置文件
+ * @param updateData 要更新的配置数据
+ * @param configPath 配置文件路径
+ */
+export function updateConfig(
+  updateData: Partial<Config>,
+  configPath: string = path.join(process.cwd(), "config/config.json")
+): Config {
+  try {
+    // 读取现有配置
+    const existingConfig = fs.existsSync(configPath)
+      ? JSON.parse(fs.readFileSync(configPath, "utf-8"))
+      : {};
+
+    // 合并新旧配置
+    const newConfig = { ...existingConfig, ...updateData };
+
+    // 将更新后的配置写回文件
+    fs.writeFileSync(configPath, JSON.stringify(newConfig, null, 4), "utf-8");
+
+    // 清除缓存，以便下次能获取最新配置
+    clearConfigCache();
+
+    // 重新获取并返回最新配置
+    return getConfig(false, configPath);
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`更新配置文件失败: ${error.message}`);
+    }
+    throw new Error("更新配置文件时出现未知错误");
+  }
+}

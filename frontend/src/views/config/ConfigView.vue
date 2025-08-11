@@ -21,7 +21,8 @@ const configForm = reactive<SystemConfig>({
   llmModel: '',
   openaiApiKey: '',
   openaiModel: '',
-  openaiBaseUrl: ''
+  openaiBaseUrl: '',
+  llmPrompt: ''
 })
 
 // 原始数据备份
@@ -32,17 +33,17 @@ const originalConfig = ref<SystemConfig>({
   llmModel: '',
   openaiApiKey: '',
   openaiModel: '',
-  openaiBaseUrl: ''
+  openaiBaseUrl: '',
+  llmPrompt: ''
 })
 
 // 表单验证规则
-const configRules: FormRules = {
+const configRules = reactive<FormRules<SystemConfig>>({
   llmHost: [
+    { required: true, message: 'Ollama 主机地址不能为空', trigger: 'blur' },
     {
       validator: (rule, value, callback) => {
-        if (configForm.useLlm && configForm.llmProvider === 'ollama' && !value) {
-          callback(new Error('Ollama 主机地址不能为空'))
-        } else if (value && !isValidUrl(value)) {
+        if (value && !isValidUrl(value)) {
           callback(new Error('请输入有效的URL地址'))
         } else {
           callback()
@@ -51,48 +52,14 @@ const configRules: FormRules = {
       trigger: 'blur'
     }
   ],
-  llmModel: [
-    {
-      validator: (rule, value, callback) => {
-        if (configForm.useLlm && configForm.llmProvider === 'ollama' && !value) {
-          callback(new Error('Ollama 模型名称不能为空'))
-        } else {
-          callback()
-        }
-      },
-      trigger: 'blur'
-    }
-  ],
-  openaiApiKey: [
-    {
-      validator: (rule, value, callback) => {
-        if (configForm.useLlm && configForm.llmProvider === 'openai' && !value) {
-          callback(new Error('OpenAI API Key 不能为空'))
-        } else {
-          callback()
-        }
-      },
-      trigger: 'blur'
-    }
-  ],
-  openaiModel: [
-    {
-      validator: (rule, value, callback) => {
-        if (configForm.useLlm && configForm.llmProvider === 'openai' && !value) {
-          callback(new Error('OpenAI 模型名称不能为空'))
-        } else {
-          callback()
-        }
-      },
-      trigger: 'blur'
-    }
-  ],
+  llmModel: [{ required: true, message: 'Ollama 模型名称不能为空', trigger: 'blur' }],
+  openaiApiKey: [{ required: true, message: 'OpenAI API Key 不能为空', trigger: 'blur' }],
+  openaiModel: [{ required: true, message: 'OpenAI 模型名称不能为空', trigger: 'blur' }],
   openaiBaseUrl: [
+    { required: true, message: 'OpenAI Base URL 不能为空', trigger: 'blur' },
     {
       validator: (rule, value, callback) => {
-        if (configForm.useLlm && configForm.llmProvider === 'openai' && !value) {
-          callback(new Error('OpenAI Base URL 不能为空'))
-        } else if (value && !isValidUrl(value)) {
+        if (value && !isValidUrl(value)) {
           callback(new Error('请输入有效的URL地址'))
         } else {
           callback()
@@ -100,8 +67,9 @@ const configRules: FormRules = {
       },
       trigger: 'blur'
     }
-  ]
-}
+  ],
+  llmPrompt: [{ required: true, message: 'LLM 刮削提示不能为空', trigger: 'blur' }]
+})
 
 // URL验证函数
 const isValidUrl = (url: string): boolean => {
@@ -374,6 +342,21 @@ onMounted(() => {
             </el-input>
           </el-form-item>
         </div>
+
+        <el-form-item label="LLM 刮削提示" prop="llmPrompt">
+          <el-input
+            v-model="configForm.llmPrompt"
+            type="textarea"
+            :rows="10"
+            placeholder="请输入 LLM 刮削提示词"
+            :disabled="!configForm.useLlm"
+            clearable
+          >
+            <template #prefix>
+              <el-icon><Document /></el-icon>
+            </template>
+          </el-input>
+        </el-form-item>
       </el-form>
 
       <div class="action-buttons">

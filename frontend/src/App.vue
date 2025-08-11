@@ -3,14 +3,18 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { RouterView, useRouter } from 'vue-router'
 import { ElContainer, ElHeader, ElAside, ElMain, ElButton, ElDrawer } from 'element-plus'
 import { Fold, Expand, Menu } from '@element-plus/icons-vue'
+import { storeToRefs } from 'pinia'
 import { SidebarMenu } from '@/components/Menu'
+import { useAppStore } from '@/stores/app'
+
+// app store
+const appStore = useAppStore()
+const { isMobile } = storeToRefs(appStore)
 
 // 菜单折叠状态
 const isCollapse = ref(false)
 // 移动端抽屉状态
 const drawerVisible = ref(false)
-// 是否为移动端
-const isMobile = ref(false)
 
 // 获取路由实例
 const router = useRouter()
@@ -43,7 +47,7 @@ const cachedComponents = computed(() => {
 
 // 检查屏幕尺寸
 const checkScreenSize = () => {
-  isMobile.value = window.innerWidth < 768
+  appStore.isMobile = window.innerWidth < 768
   // 在移动端时关闭侧边栏，在桌面端时关闭抽屉
   if (isMobile.value) {
     isCollapse.value = false

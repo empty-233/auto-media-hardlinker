@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useBreakpoints } from '@vueuse/core'
+import { storeToRefs } from 'pinia'
+import { useAppStore } from '@/stores/app'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 
-// 响应式断点
-const breakpoints = useBreakpoints({
-  mobile: 768,
-})
-const isMobile = breakpoints.smaller('mobile')
+// app store
+const appStore = useAppStore()
+const { isMobile } = storeToRefs(appStore)
 
 // 动态分页布局
 const paginationLayout = computed(() => {

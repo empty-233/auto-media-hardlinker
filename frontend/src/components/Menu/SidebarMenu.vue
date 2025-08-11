@@ -21,9 +21,11 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMenu } from 'element-plus'
+import { storeToRefs } from 'pinia'
 import MenuItem from './MenuItem.vue'
 import { generateMenuFromRoutes, findActiveMenu } from '@/utils/menu'
 import type { MenuItem as MenuItemType } from '@/types/menu'
+import { useAppStore } from '@/stores/app'
 
 interface Props {
   /** 是否折叠菜单 */
@@ -56,13 +58,9 @@ const route = useRoute()
 const vueRouter = useRouter()
 const menuList = ref<MenuItemType[]>([])
 
-// 响应式判断是否为移动端
-const isMobile = ref(false)
-
-// 检查屏幕尺寸
-const checkScreenSize = () => {
-  isMobile.value = window.innerWidth < 768
-}
+// app store
+const appStore = useAppStore()
+const { isMobile } = storeToRefs(appStore)
 
 // 当前激活的菜单
 const activeMenu = computed(() => {
@@ -80,13 +78,6 @@ onMounted(() => {
   // 从路由配置生成菜单，使用原始路由配置避免重复
   menuList.value = generateMenuFromRoutes(vueRouter.options.routes)
 
-  // 初始化屏幕尺寸检查
-  checkScreenSize()
-  window.addEventListener('resize', checkScreenSize)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('resize', checkScreenSize)
 })
 </script>
 

@@ -1,9 +1,8 @@
 import { Ollama } from "ollama";
 import OpenAI from "openai";
-import fs from "fs";
-import path from "path";
 import { MovieDb, MovieResult, TvResult } from "moviedb-promise";
 import { getConfig } from "../config/config";
+import { getPrompt } from "../config/prompt";
 import { IMediaIdentifier, IdentifiedMedia } from "../types/media.types";
 import { logger } from "../utils/logger";
 import { getMediaName, getMediaReleaseDate } from "../utils/media";
@@ -12,8 +11,6 @@ import { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 // --- 初始化 ---
 const config = getConfig();
 const moviedb = new MovieDb(config.tmdbApi!);
-const promptFilePath = path.join(__dirname, "..", "..", "config", "prompt.md");
-const PROMPT = fs.readFileSync(promptFilePath, "utf8");
 
 /**
  * @interface ExtractedInfo
@@ -255,7 +252,7 @@ export class LLMIdentifier implements IMediaIdentifier {
     const response = await this.llmClient.chat({
       model: this.llmModel,
       messages: [
-        { role: "user", content: `${PROMPT}\n\n文件名: "${fileName}"` },
+        { role: "user", content: `${getPrompt()}\n\n文件名: "${fileName}"` },
       ],
     });
 

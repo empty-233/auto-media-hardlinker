@@ -9,6 +9,7 @@ export interface SystemConfig {
   openaiApiKey: string
   openaiModel: string
   openaiBaseUrl: string
+  llmPrompt: string
 }
 
 /**
