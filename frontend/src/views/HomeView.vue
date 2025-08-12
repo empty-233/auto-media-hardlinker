@@ -231,8 +231,12 @@ onMounted(() => {
   margin-bottom: 40px;
   padding: 40px 20px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  color: var(--vt-c-white);
   border-radius: 8px;
+}
+
+html.dark .welcome-section {
+  background: linear-gradient(135deg, #2c3e50 0%, #4ca1af 100%);
 }
 
 .welcome-section h1 {
@@ -254,7 +258,7 @@ onMounted(() => {
 }
 
 .skeleton-stat-card {
-  background: white;
+  background: var(--color-background);
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -278,7 +282,7 @@ onMounted(() => {
 }
 
 .skeleton-media-card {
-  background: white;
+  background: var(--color-background);
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   overflow: hidden;
@@ -301,7 +305,7 @@ onMounted(() => {
 }
 
 .stat-card {
-  background: white;
+  background: var(--color-background);
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -317,13 +321,13 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f0f0f0;
+  background: var(--color-background-soft);
   border-radius: 50%;
 }
 
 .stat-content h3 {
   margin: 0 0 5px 0;
-  color: #666;
+  color: var(--color-text);
   font-size: 0.9rem;
 }
 
@@ -331,13 +335,13 @@ onMounted(() => {
   margin: 0;
   font-size: 1.5rem;
   font-weight: 600;
-  color: #333;
+  color: var(--color-heading);
 }
 
 .stat-subtitle {
   margin: 5px 0 0 0;
   font-size: 0.8rem;
-  color: #888;
+  color: var(--color-text);
 }
 
 /* 最近添加的媒体 */
@@ -347,7 +351,7 @@ onMounted(() => {
 
 .recent-media-section h2 {
   margin-bottom: 20px;
-  color: #333;
+  color: var(--color-heading);
 }
 
 .media-grid {
@@ -357,7 +361,7 @@ onMounted(() => {
 }
 
 .media-card {
-  background: white;
+  background: var(--color-background);
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   overflow: hidden;
@@ -374,7 +378,7 @@ onMounted(() => {
   width: 100%;
   height: 120px;
   overflow: hidden;
-  background: #f5f5f5;
+  background: var(--color-background-soft);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -388,7 +392,7 @@ onMounted(() => {
 
 .poster-placeholder {
   font-size: 3rem;
-  color: #ccc;
+  color: var(--color-border);
 }
 
 .media-info {
@@ -398,7 +402,7 @@ onMounted(() => {
 .media-info h3 {
   margin: 0 0 8px 0;
   font-size: 1rem;
-  color: #333;
+  color: var(--color-heading);
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -410,25 +414,25 @@ onMounted(() => {
 .media-type {
   margin: 0 0 5px 0;
   font-size: 0.8rem;
-  color: #667eea;
+  color: var(--el-color-primary);
   font-weight: 500;
 }
 
 .media-files {
   margin: 0 0 5px 0;
   font-size: 0.8rem;
-  color: #888;
+  color: var(--color-text);
 }
 
 .media-date {
   margin: 0;
   font-size: 0.8rem;
-  color: #999;
+  color: var(--color-text);
 }
 
 .feature-section h2 {
   margin-bottom: 20px;
-  color: #333;
+  color: var(--color-heading);
 }
 
 .feature-grid {
@@ -438,7 +442,7 @@ onMounted(() => {
 }
 
 .feature-card {
-  background: white;
+  background: var(--color-background);
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -446,13 +450,13 @@ onMounted(() => {
 
 .feature-card h3 {
   margin: 0 0 10px 0;
-  color: #333;
+  color: var(--color-heading);
   font-size: 1.1rem;
 }
 
 .feature-card p {
   margin: 0;
-  color: #666;
+  color: var(--color-text);
   line-height: 1.5;
 }
 </style>

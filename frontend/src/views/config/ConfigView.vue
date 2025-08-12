@@ -22,7 +22,8 @@ const configForm = reactive<SystemConfig>({
   openaiApiKey: '',
   openaiModel: '',
   openaiBaseUrl: '',
-  llmPrompt: ''
+  llmPrompt: '',
+  persistentLogging: true
 })
 
 // 原始数据备份
@@ -34,7 +35,8 @@ const originalConfig = ref<SystemConfig>({
   openaiApiKey: '',
   openaiModel: '',
   openaiBaseUrl: '',
-  llmPrompt: ''
+  llmPrompt: '',
+  persistentLogging: true
 })
 
 // 表单验证规则
@@ -358,8 +360,53 @@ onMounted(() => {
           </el-input>
         </el-form-item>
       </el-form>
+    </el-card>
 
-      <div class="action-buttons">
+    <el-card class="config-card">
+      <template #header>
+        <div class="card-header">
+          <h2>日志设置</h2>
+          <p class="description">配置系统日志的记录和存储方式。</p>
+        </div>
+      </template>
+
+      <el-form 
+        ref="configFormRef" 
+        :model="configForm" 
+        label-width="140px"
+        label-position="left"
+      >
+        <el-form-item label="持久化日志" prop="persistentLogging">
+          <div class="switch-item">
+            <div class="switch-info">
+              <span class="switch-label">启用后，系统会将日志保存到文件中，禁用则只在控制台输出。</span>
+            </div>
+            <el-switch
+              v-model="configForm.persistentLogging"
+              size="large"
+            />
+          </div>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
+    <el-card class="config-card action-card">
+      <template #header>
+        <div class="card-header">
+          <h2>保存设置</h2>
+          <p class="description">确认配置无误后，点击保存更改使配置生效。</p>
+        </div>
+      </template>
+
+      <div class="operation-content">
+        <div class="operation-info">
+          <el-icon class="info-icon"><Document /></el-icon>
+          <div class="info-text">
+            <p class="info-title">配置提醒</p>
+            <p class="info-description">配置更改后需要保存才能生效，重置将恢复到上次保存的状态。</p>
+          </div>
+        </div>
+        <div class="action-buttons">
         <el-button @click="resetForm">重置</el-button>
         <el-button 
           type="primary" 
@@ -369,6 +416,7 @@ onMounted(() => {
           <el-icon><Document /></el-icon>
           保存更改
         </el-button>
+        </div>
       </div>
     </el-card>
   </div>
@@ -378,7 +426,7 @@ onMounted(() => {
 .config-view {
   padding: 24px;
   min-height: 100%;
-  background-color: #f5f7fa;
+  background-color: var(--color-background-soft);
 }
 
 /* 头部区域 */
@@ -387,7 +435,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 16px;
-  background: white;
+  background: var(--color-background);
   padding: 24px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -401,30 +449,35 @@ onMounted(() => {
   margin: 0 0 8px 0;
   font-size: 24px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-heading);
 }
 
 .page-description {
   margin: 0;
-  color: #909399;
+  color: var(--color-text);
   font-size: 14px;
 }
 
 .config-card {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   border-radius: 8px;
+  margin-bottom: 24px;
+}
+
+.config-card:last-child {
+  margin-bottom: 0;
 }
 
 .card-header h2 {
   margin: 0 0 8px 0;
-  color: #303133;
+  color: var(--color-heading);
   font-size: 20px;
   font-weight: 600;
 }
 
 .description {
   margin: 0;
-  color: #909399;
+  color: var(--color-text);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -441,7 +494,7 @@ onMounted(() => {
 }
 
 .switch-label {
-  color: #606266;
+  color: var(--color-text);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -450,13 +503,50 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  margin-top: 32px;
-  padding-top: 24px;
-  border-top: 1px solid #f0f0f0;
+}
+
+.operation-content {
+  padding: 16px 0;
+}
+
+.operation-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 16px;
+  background-color: var(--color-background-soft);
+  border-radius: 8px;
+  border-left: 4px solid var(--el-color-primary);
+}
+
+.info-icon {
+  color: var(--el-color-primary);
+  font-size: 20px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.info-text {
+  flex: 1;
+}
+
+.info-title {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-heading);
+}
+
+.info-description {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text);
+  line-height: 1.5;
 }
 
 :deep(.el-form-item__label) {
-  color: #303133;
+  color: var(--color-heading);
   font-weight: 500;
 }
 
@@ -469,11 +559,11 @@ onMounted(() => {
 }
 
 :deep(.el-input.is-disabled .el-input__wrapper) {
-  background-color: #f5f7fa;
+  background-color: var(--color-background-mute);
 }
 
 :deep(.el-switch.is-checked .el-switch__core) {
-  background-color: #409eff;
+  background-color: var(--el-color-primary);
 }
 
 :deep(.el-button) {
@@ -482,13 +572,13 @@ onMounted(() => {
 }
 
 :deep(.el-button--primary) {
-  background-color: #409eff;
-  border-color: #409eff;
+  background-color: var(--el-color-primary);
+  border-color: var(--el-color-primary);
 }
 
 :deep(.el-button--primary:hover) {
-  background-color: #66b1ff;
-  border-color: #66b1ff;
+  background-color: var(--el-color-primary-light-3);
+  border-color: var(--el-color-primary-light-3);
 }
 
 /* 响应式设计 */
@@ -509,6 +599,18 @@ onMounted(() => {
 
   .config-card {
     padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .operation-info {
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+    padding: 12px;
+  }
+
+  .info-icon {
+    align-self: flex-start;
   }
 
   :deep(.el-form-item) {

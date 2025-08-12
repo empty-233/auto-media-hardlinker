@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { QueueConfig } from "../types/queue.types";
+import { logger } from "../utils/logger";
 
 /**
  * 配置文件接口定义
@@ -19,6 +20,8 @@ export interface Config {
   openaiApiKey?: string;
   openaiModel?: string;
   openaiBaseUrl?: string;
+  // 日志配置
+  persistentLogging: boolean;
   // 队列配置
   queue?: Partial<QueueConfig>;
 }
@@ -86,6 +89,11 @@ export function getConfig(
       }
     }
 
+    // 验证持久化日志配置
+    if (config.persistentLogging !== undefined && typeof config.persistentLogging !== "boolean") {
+      throw new Error("配置文件中的 persistentLogging 字段必须是布尔值 (true/false)");
+    }
+
     // 检测路径是否存在
     if (!fs.existsSync(config.monitorFilePath)) {
       throw new Error(`该路径不存在: ${config.monitorFilePath}`);
@@ -136,6 +144,19 @@ export function updateConfig(
 
     // 清除缓存，以便下次能获取最新配置
     clearConfigCache();
+
+    // 如果更新了日志相关配置，触发logger重新初始化
+    if (updateData.persistentLogging !== undefined) {
+      try {
+        // 直接调用logger的reinitialize方法
+        if (logger && typeof logger.reinitialize === 'function') {
+          logger.reinitialize();
+        }
+      } catch (_error) {
+        // logger重新初始化失败，记录警告但不影响配置更新
+        console.warn('Logger重新初始化失败:', _error instanceof Error ? _error.message : String(_error));
+      }
+    }
 
     // 重新获取并返回最新配置
     return getConfig(false, configPath);

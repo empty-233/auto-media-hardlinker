@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import pino from 'pino';
+import { getConfig } from '../config/config';
 
 enum LogLevel {
   INFO = 'INFO',
@@ -21,41 +22,52 @@ class Logger {
   private logPath: string;
   private logFile: string;
   private logs: LogEntry[] = [];
-  private pinoLogger: pino.Logger;
+  private pinoLogger?: pino.Logger;
+  private pinoFileStream?: pino.DestinationStream;
   private consoleLogger?: pino.Logger;
   private isDevelopment: boolean;
   private logLevel: LogLevel;
-  private maxBufferSize: number; // 最大内存日志缓冲
+  private maxBufferSize: number;
+  private persistentLogging: boolean;
 
   constructor(logPath: string = path.join(__dirname, '../../logs')) {
     this.logPath = logPath;
     this.logFile = path.join(logPath, `media-hardlinker-${new Date().toISOString().split('T')[0]}.log`);
-    
-    // 判断是否是开发环境
     this.isDevelopment = process.env.NODE_ENV === 'development';
-    
-    // 从环境变量获取日志级别，默认为 INFO
     this.logLevel = (process.env.LOG_LEVEL as LogLevel) || LogLevel.INFO;
-    this.maxBufferSize = 1000; // 限制内存日志数量为1000条
+    this.maxBufferSize = 1000;
     
-    // 确保日志目录存在
-    if (!fs.existsSync(this.logPath)) {
-      fs.mkdirSync(this.logPath, { recursive: true });
+    // 从配置文件读取持久化日志设置
+    try {
+      const config = getConfig();
+      this.persistentLogging = config.persistentLogging;
+    } catch (error) {
+      // 配置读取失败，记录错误并使用默认值
+      console.warn('Logger: 读取配置文件失败，使用默认持久化日志设置:', error instanceof Error ? error.message : String(error));
+      this.persistentLogging = true; // 默认启用持久化日志
+    }
+    
+    this.initializeLoggers();
+  }
+
+  private initializeLoggers(): void {
+    // 初始化文件日志
+    if (this.persistentLogging) {
+      if (!fs.existsSync(this.logPath)) {
+        fs.mkdirSync(this.logPath, { recursive: true });
+      }
+      // 使用 pino.destination 提高性能并方便管理
+      this.pinoFileStream = pino.destination({ dest: this.logFile, append: true, sync: false });
+      this.pinoLogger = pino({
+        level: this.getPinoLevel(this.logLevel),
+        timestamp: pino.stdTimeFunctions.isoTime,
+        formatters: {
+          level: (label) => ({ level: label.toUpperCase() })
+        }
+      }, this.pinoFileStream);
     }
 
-    // 配置文件日志
-    const fileStream = fs.createWriteStream(this.logFile, { flags: 'a' });
-    this.pinoLogger = pino({
-      level: this.getPinoLevel(this.logLevel),
-      timestamp: pino.stdTimeFunctions.isoTime,
-      formatters: {
-        level: (label) => {
-          return { level: label.toUpperCase() };
-        }
-      }
-    }, fileStream);
-
-    // 只在开发环境配置控制台日志
+    // 初始化控制台日志
     if (this.isDevelopment) {
       this.consoleLogger = pino({
         level: this.getPinoLevel(this.logLevel),
@@ -89,114 +101,116 @@ class Logger {
     return messageLevelValue >= currentLevelValue;
   }
 
-  private log(level: LogLevel, message: string, error?: unknown): LogEntry {
-    // 检查是否应该记录此级别的日志
+  private log(level: LogLevel, message: string, error?: unknown): void {
     if (!this.shouldLog(level)) {
-      return {
-        id: this.logs.length + 1,
-        timestamp: new Date(),
-        level,
-        message,
-      };
+      return;
     }
 
     const timestamp = new Date();
-    let detailedMessage = message;
-    if (error instanceof Error) {
-      detailedMessage = `${message}\n${error.stack}`;
-    } else if (error) {
-      detailedMessage = `${message}\n${String(error)}`;
-    }
+    
+    // 内存日志只记录原始 message
     const logEntry: LogEntry = {
       id: this.logs.length + 1,
       timestamp,
       level,
-      message: detailedMessage,
+      message: message,
     };
 
     // 添加到内存日志
     this.logs.push(logEntry);
-    // 超过缓冲则移除最旧日志
     if (this.logs.length > this.maxBufferSize) {
       this.logs.shift();
     }
 
-    const pinoError = error ? { err: error } : undefined;
+    // 写入文件日志
+    this.writeToFile(level, message, error);
+    
+    // 写入控制台日志
+    this.writeToConsole(level, message, error);
+  }
 
+  private writeToFile(level: LogLevel, message: string, error?: unknown): void {
+    if (!this.persistentLogging || !this.pinoLogger) return;
+
+    const obj = error ? { err: error } : undefined;
     switch (level) {
       case LogLevel.INFO:
-        this.pinoLogger.info(message);
-        this.consoleLogger?.info(message);
+        this.pinoLogger.info(obj, message);
         break;
       case LogLevel.WARNING:
-        this.pinoLogger.warn(message);
-        this.consoleLogger?.warn(message);
+        this.pinoLogger.warn(obj, message);
         break;
       case LogLevel.ERROR:
-        if (pinoError) {
-          this.pinoLogger.error(pinoError, message);
-          this.consoleLogger?.error(pinoError, message);
-        } else {
-          this.pinoLogger.error(message);
-          this.consoleLogger?.error(message);
-        }
+        this.pinoLogger.error(obj, message);
         break;
       case LogLevel.DEBUG:
-        this.pinoLogger.debug(message);
-        this.consoleLogger?.debug(message);
+        this.pinoLogger.debug(obj, message);
         break;
     }
-
-    return logEntry;
   }
 
-  public info(message: string): LogEntry {
-    return this.log(LogLevel.INFO, message);
+  private writeToConsole(level: LogLevel, message: string, error?: unknown): void {
+    if (!this.consoleLogger) return;
+
+    const obj = error ? { err: error } : undefined;
+    switch (level) {
+      case LogLevel.INFO:
+        this.consoleLogger.info(obj, message);
+        break;
+      case LogLevel.WARNING:
+        this.consoleLogger.warn(obj, message);
+        break;
+      case LogLevel.ERROR:
+        this.consoleLogger.error(obj, message);
+        break;
+      case LogLevel.DEBUG:
+        this.consoleLogger.debug(obj, message);
+        break;
+    }
   }
 
-  public warn(message: string): LogEntry {
-    return this.log(LogLevel.WARNING, message);
+  public info(message: string): void {
+    this.log(LogLevel.INFO, message);
   }
 
-  public error(message: string, error?: unknown): LogEntry {
-    return this.log(LogLevel.ERROR, message, error);
+  public warn(message: string): void {
+    this.log(LogLevel.WARNING, message);
   }
 
-  public debug(message: string): LogEntry {
-    return this.log(LogLevel.DEBUG, message);
+  public error(message: string, error?: unknown): void {
+    this.log(LogLevel.ERROR, message, error);
   }
 
-  // 新增：直接使用 pino 记录日志（不保存到内存）
-  public pinoInfo(message: string, obj?: any): void {
+  public debug(message: string): void {
+    this.log(LogLevel.DEBUG, message);
+  }
+
+  public pinoInfo(message: string, _obj?: any): void {
     if (!this.shouldLog(LogLevel.INFO)) return;
-    
-    this.pinoLogger.info(obj, message);
-    this.consoleLogger?.info(obj, message);
+    this.writeToFile(LogLevel.INFO, message);
+    this.writeToConsole(LogLevel.INFO, message);
   }
 
-  public pinoWarn(message: string, obj?: any): void {
+  public pinoWarn(message: string, _obj?: any): void {
     if (!this.shouldLog(LogLevel.WARNING)) return;
-    
-    this.pinoLogger.warn(obj, message);
-    this.consoleLogger?.warn(obj, message);
+    this.writeToFile(LogLevel.WARNING, message);
+    this.writeToConsole(LogLevel.WARNING, message);
   }
 
   public pinoError(message: string, obj?: any): void {
     if (!this.shouldLog(LogLevel.ERROR)) return;
-    
-    this.pinoLogger.error(obj, message);
-    this.consoleLogger?.error(obj, message);
+    this.writeToFile(LogLevel.ERROR, message, obj);
+    this.writeToConsole(LogLevel.ERROR, message, obj);
   }
 
-  public pinoDebug(message: string, obj?: any): void {
+  public pinoDebug(message: string, _obj?: any): void {
     if (!this.shouldLog(LogLevel.DEBUG)) return;
-    
-    this.pinoLogger.debug(obj, message);
-    this.consoleLogger?.debug(obj, message);
+    this.writeToFile(LogLevel.DEBUG, message);
+    this.writeToConsole(LogLevel.DEBUG, message);
   }
 
   // 获取原始 pino logger 实例
-  public getPinoLogger(): pino.Logger {
+  public getPinoLogger(): pino.Logger | undefined {
     return this.pinoLogger;
   }
 
@@ -205,11 +219,33 @@ class Logger {
   }
 
   // 获取环境信息
-  public getEnvInfo(): { isDevelopment: boolean; logLevel: LogLevel } {
+  public getEnvInfo(): { isDevelopment: boolean; logLevel: LogLevel; persistentLogging: boolean } {
     return {
       isDevelopment: this.isDevelopment,
       logLevel: this.logLevel,
+      persistentLogging: this.persistentLogging,
     };
+  }
+
+  // 重新初始化Logger（供config模块调用）
+  public reinitialize(): void {
+    try {
+      const config = getConfig(false); // 不使用缓存，获取最新配置
+      this.persistentLogging = config.persistentLogging;
+      
+      // 关闭现有的文件流
+      if (this.pinoFileStream) {
+        (this.pinoFileStream as any).end();
+        this.pinoFileStream = undefined;
+      }
+      this.pinoLogger = undefined;
+      
+      // 重新初始化日志器
+      this.initializeLoggers();
+    } catch (_error) {
+      // 配置读取失败，记录错误并保持当前设置
+      console.warn('Logger: reinitialize时读取配置失败，保持当前设置:', _error instanceof Error ? _error.message : String(_error));
+    }
   }
 
   public getLogs(
@@ -275,5 +311,7 @@ export interface LogEntry {
   message: string;
 }
 
+// 全局logger实例
 export const logger = new Logger();
+
 export { LogLevel };

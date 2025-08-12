@@ -21,6 +21,7 @@ export const SystemValidator = {
     openaiModel: z.string().min(1, { message: 'openaiModel不能为空' }).optional(),
     openaiBaseUrl: z.string().url({ message: 'openaiBaseUrl必须是有效的URL' }).optional(),
     llmPrompt: z.string().min(1, { message: 'llmPrompt不能为空' }).optional(),
+    persistentLogging: CommonValidators.boolean.optional(),
   }).refine(data => {
     // 如果启用了LLM且提供商是ollama，则其相关字段必须存在
     if (data.useLlm && data.llmProvider === 'ollama') {

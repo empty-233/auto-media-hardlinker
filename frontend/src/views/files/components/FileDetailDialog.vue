@@ -911,7 +911,7 @@ const getPosterUrl = (posterPath?: string): string => {
 .media-info-section {
   flex: 1;
   min-width: 350px;
-  border-left: 1px solid #ebeef5;
+  border-left: 1px solid var(--color-border);
   padding-left: 24px;
 }
 
@@ -919,8 +919,8 @@ const getPosterUrl = (posterPath?: string): string => {
   margin: 0 0 20px 0;
   font-size: 16px;
   font-weight: 600;
-  color: #303133;
-  border-bottom: 1px solid #ebeef5;
+  color: var(--color-heading);
+  border-bottom: 1px solid var(--color-border);
   padding-bottom: 8px;
 }
 
@@ -935,7 +935,7 @@ const getPosterUrl = (posterPath?: string): string => {
   width: 70px;
   flex-shrink: 0;
   font-size: 13px;
-  color: #909399;
+  color: var(--color-text);
   line-height: 20px;
 }
 
@@ -954,13 +954,13 @@ const getPosterUrl = (posterPath?: string): string => {
 .file-name-text {
   flex: 1;
   padding: 6px 8px;
-  background-color: #fafafa;
-  border: 1px solid #e4e7ed;
+  background-color: var(--color-background-soft);
+  border: 1px solid var(--color-border);
   border-radius: 4px;
   font-size: 13px;
   line-height: 1.4;
   word-break: break-all;
-  color: #303133;
+  color: var(--color-heading);
   min-height: 20px;
 }
 
@@ -983,32 +983,32 @@ const getPosterUrl = (posterPath?: string): string => {
 }
 .edit-actions-tip {
   font-size: 12px;
-  color: #909399;
+  color: var(--color-text);
   margin-right: 12px;
 }
 
 .file-path {
   padding: 6px 8px;
-  background-color: #fafafa;
-  border: 1px solid #e4e7ed;
+  background-color: var(--color-background-soft);
+  border: 1px solid var(--color-border);
   border-radius: 4px;
   font-size: 12px;
   line-height: 1.4;
-  color: #606266;
+  color: var(--color-text);
   word-break: break-all;
   font-family: 'Courier New', monospace;
 }
 
 .file-size {
   font-size: 13px;
-  color: #303133;
+  color: var(--color-heading);
   font-weight: 500;
   line-height: 32px;
 }
 
 .file-date {
   font-size: 13px;
-  color: #606266;
+  color: var(--color-text);
   line-height: 32px;
 }
 
@@ -1034,9 +1034,9 @@ const getPosterUrl = (posterPath?: string): string => {
 .tmdb-results {
   flex: 1;
   overflow-y: auto;
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--color-border);
   border-radius: 6px;
-  background-color: #fff;
+  background-color: var(--color-background);
 }
 
 .tmdb-result-item {
@@ -1045,7 +1045,7 @@ const getPosterUrl = (posterPath?: string): string => {
   padding: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .tmdb-result-item:last-child {
@@ -1053,11 +1053,11 @@ const getPosterUrl = (posterPath?: string): string => {
 }
 
 .tmdb-result-item:hover {
-  background-color: #f5f7fa;
+  background-color: var(--color-background-soft);
 }
 
 .tmdb-result-item.selected {
-  background-color: #ecf5ff;
+  background-color: var(--el-color-primary-light-9);
 }
 
 .result-poster {
@@ -1066,7 +1066,7 @@ const getPosterUrl = (posterPath?: string): string => {
   margin-right: 16px;
   flex-shrink: 0;
   position: relative;
-  background-color: #f0f2f5;
+  background-color: var(--color-background-mute);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -1085,7 +1085,7 @@ const getPosterUrl = (posterPath?: string): string => {
   align-items: center;
   justify-content: center;
   font-size: 14px;
-  color: #909399;
+  color: var(--color-text);
   text-align: center;
   font-weight: bold;
 }
@@ -1098,14 +1098,14 @@ const getPosterUrl = (posterPath?: string): string => {
 .result-title {
   font-size: 15px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-heading);
   margin-bottom: 6px;
   line-height: 1.4;
 }
 
 .result-original-title {
   font-size: 13px;
-  color: #909399;
+  color: var(--color-text);
   margin-bottom: 8px;
   line-height: 1.4;
 }
@@ -1115,11 +1115,11 @@ const getPosterUrl = (posterPath?: string): string => {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #606266;
+  color: var(--color-text);
 }
 
 .result-date {
-  color: #909399;
+  color: var(--color-text);
   font-size: 14px;
 }
 
@@ -1146,7 +1146,7 @@ const getPosterUrl = (posterPath?: string): string => {
 .current-media {
   margin-top: 24px;
   padding: 16px;
-  background-color: #f5f7fa;
+  background-color: var(--color-background-soft);
   border-radius: 6px;
 }
 
@@ -1154,25 +1154,25 @@ const getPosterUrl = (posterPath?: string): string => {
   margin: 0 0 12px 0;
   font-size: 14px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-heading);
 }
 
 .media-title {
   font-size: 14px;
   font-weight: 600;
-  color: #409eff;
+  color: var(--el-color-primary);
   margin-bottom: 4px;
 }
 
 .media-original-title {
   font-size: 12px;
-  color: #909399;
+  color: var(--color-text);
   margin-bottom: 8px;
 }
 
 .episode-info {
   font-size: 12px;
-  color: #67c23a;
+  color: var(--el-color-success);
   font-weight: 500;
 }
 
@@ -1191,7 +1191,7 @@ const getPosterUrl = (posterPath?: string): string => {
 
   .media-info-section {
     border-left: none;
-    border-top: 1px solid #ebeef5;
+    border-top: 1px solid var(--color-border);
     padding-left: 0;
     padding-top: 16px;
   }
@@ -1233,7 +1233,7 @@ const getPosterUrl = (posterPath?: string): string => {
   align-items: center;
   margin-bottom: 24px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .step-breadcrumb .el-breadcrumb-item {
@@ -1245,12 +1245,12 @@ const getPosterUrl = (posterPath?: string): string => {
 }
 
 .step-breadcrumb .el-breadcrumb-item.active {
-  color: #409eff;
+  color: var(--el-color-primary);
   font-weight: 600;
 }
 
 .step-breadcrumb .el-breadcrumb-item.clickable:hover {
-  color: #409eff;
+  color: var(--el-color-primary);
 }
 
 .step-content {
@@ -1265,7 +1265,7 @@ const getPosterUrl = (posterPath?: string): string => {
   display: flex;
   gap: 16px;
   padding: 16px;
-  background-color: #f8f9fa;
+  background-color: var(--color-background-soft);
   border-radius: 8px;
   margin-bottom: 24px;
 }
@@ -1276,7 +1276,7 @@ const getPosterUrl = (posterPath?: string): string => {
   flex-shrink: 0;
   border-radius: 6px;
   overflow: hidden;
-  background-color: #f0f2f5;
+  background-color: var(--color-background-mute);
 }
 
 .media-poster .poster-image {
@@ -1289,13 +1289,13 @@ const getPosterUrl = (posterPath?: string): string => {
   margin: 0 0 8px 0;
   font-size: 16px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-heading);
 }
 
 .media-details p {
   margin: 0 0 8px 0;
   font-size: 14px;
-  color: #606266;
+  color: var(--color-text);
 }
 
 .media-meta {
@@ -1311,13 +1311,13 @@ const getPosterUrl = (posterPath?: string): string => {
 
 .media-description {
   font-size: 13px;
-  color: #909399;
+  color: var(--color-text);
   line-height: 1.5;
 }
 
 .media-overview {
   font-size: 13px;
-  color: #606266;
+  color: var(--color-text);
   line-height: 1.4;
   margin-top: 8px;
   display: -webkit-box;
@@ -1341,15 +1341,15 @@ const getPosterUrl = (posterPath?: string): string => {
   align-items: center;
   gap: 16px;
   padding: 16px;
-  border: 1px solid #e4e7ed;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .season-item:hover {
-  border-color: #409eff;
-  background-color: #f0f8ff;
+  border-color: var(--el-color-primary);
+  background-color: var(--el-color-primary-light-9);
 }
 
 .season-poster {
@@ -1358,7 +1358,7 @@ const getPosterUrl = (posterPath?: string): string => {
   flex-shrink: 0;
   border-radius: 4px;
   overflow: hidden;
-  background-color: #f0f2f5;
+  background-color: var(--color-background-mute);
 }
 
 .season-poster .poster-image {
@@ -1375,7 +1375,7 @@ const getPosterUrl = (posterPath?: string): string => {
   justify-content: center;
   font-size: 14px;
   font-weight: bold;
-  color: #909399;
+  color: var(--color-text);
 }
 
 .season-info {
@@ -1385,19 +1385,19 @@ const getPosterUrl = (posterPath?: string): string => {
 .season-title {
   font-size: 15px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-heading);
   margin-bottom: 4px;
 }
 
 .season-episodes {
   font-size: 13px;
-  color: #909399;
+  color: var(--color-text);
   margin-bottom: 8px;
 }
 
 .season-overview {
   font-size: 12px;
-  color: #606266;
+  color: var(--color-text);
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -1424,15 +1424,15 @@ const getPosterUrl = (posterPath?: string): string => {
   align-items: center;
   gap: 16px;
   padding: 16px;
-  border: 1px solid #e4e7ed;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .episode-item:hover {
-  border-color: #409eff;
-  background-color: #f0f8ff;
+  border-color: var(--el-color-primary);
+  background-color: var(--el-color-primary-light-9);
 }
 
 .episode-poster {
@@ -1441,7 +1441,7 @@ const getPosterUrl = (posterPath?: string): string => {
   flex-shrink: 0;
   border-radius: 4px;
   overflow: hidden;
-  background-color: #f0f2f5;
+  background-color: var(--color-background-mute);
 }
 
 .episode-poster .still-image {
@@ -1458,7 +1458,7 @@ const getPosterUrl = (posterPath?: string): string => {
   justify-content: center;
   font-size: 14px;
   font-weight: bold;
-  color: #909399;
+  color: var(--color-text);
 }
 
 .episode-info {
@@ -1468,13 +1468,13 @@ const getPosterUrl = (posterPath?: string): string => {
 .episode-title {
   font-size: 15px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-heading);
   margin-bottom: 8px;
 }
 
 .episode-overview {
   font-size: 12px;
-  color: #606266;
+  color: var(--color-text);
   line-height: 1.4;
   margin-bottom: 8px;
   display: -webkit-box;
@@ -1486,7 +1486,7 @@ const getPosterUrl = (posterPath?: string): string => {
 
 .episode-date {
   font-size: 12px;
-  color: #909399;
+  color: var(--color-text);
 }
 
 .episode-action {
@@ -1504,17 +1504,17 @@ const getPosterUrl = (posterPath?: string): string => {
   margin: 0 0 16px 0;
   font-size: 16px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-heading);
   text-align: center;
   padding: 12px;
-  background-color: #f0f8ff;
+  background-color: var(--el-color-primary-light-9);
   border-radius: 6px;
 }
 
 /* 搜索结果增强 */
 .result-overview {
   font-size: 12px;
-  color: #606266;
+  color: var(--color-text);
   line-height: 1.4;
   margin-bottom: 8px;
   display: -webkit-box;

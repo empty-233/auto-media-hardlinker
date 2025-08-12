@@ -356,7 +356,7 @@ onMounted(() => {
 .log-list-view {
   padding: 24px;
   min-height: 100%;
-  background-color: #f5f7fa;
+  background-color: var(--color-background-soft);
 }
 
 /* 头部区域 */
@@ -365,7 +365,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 16px;
-  background: white;
+  background: var(--color-background);
   padding: 24px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -379,12 +379,12 @@ onMounted(() => {
   margin: 0 0 8px 0;
   font-size: 24px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-heading);
 }
 
 .page-description {
   margin: 0;
-  color: #909399;
+  color: var(--color-text);
   font-size: 14px;
 }
 
@@ -400,7 +400,7 @@ onMounted(() => {
 
 /* 过滤器区域 */
 .filter-section {
-  background: white;
+  background: var(--color-background);
   padding: 20px 24px;
   border-radius: 8px;
   margin-bottom: 16px;
@@ -419,7 +419,7 @@ onMounted(() => {
 
 .filter-label {
   font-size: 14px;
-  color: #606266;
+  color: var(--color-text);
   min-width: 60px;
 }
 
@@ -433,7 +433,7 @@ onMounted(() => {
 
 /* 过滤器状态 */
 .filter-status {
-  background: white;
+  background: var(--color-background);
   padding: 16px 24px;
   border-radius: 8px;
   margin-bottom: 16px;
@@ -445,14 +445,14 @@ onMounted(() => {
 }
 
 .status-text {
-  color: #606266;
+  color: var(--color-text);
   font-size: 14px;
   font-weight: 500;
 }
 
 /* 表格容器 */
 .table-container {
-  background: white;
+  background: var(--color-background);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
@@ -470,14 +470,14 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #606266;
+  color: var(--color-text);
   font-size: 12px;
   font-family: monospace;
 }
 
 .time-icon {
   font-size: 14px;
-  color: #909399;
+  color: var(--color-text);
 }
 
 /* 日志消息 */
@@ -489,7 +489,7 @@ onMounted(() => {
 
 .message-content {
   flex: 1;
-  color: #303133;
+  color: var(--color-heading);
   line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -506,20 +506,20 @@ onMounted(() => {
 .details-btn {
   padding: 0;
   font-size: 12px;
-  color: #409eff;
+  color: var(--el-color-primary);
 }
 
 
 /* 加载和空状态 */
 .loading-container {
-  background: white;
+  background: var(--color-background);
   border-radius: 8px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .empty-state {
-  background: white;
+  background: var(--color-background);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   padding: 60px 24px;
@@ -538,25 +538,25 @@ onMounted(() => {
 
 .detail-label {
   font-weight: 500;
-  color: #303133;
+  color: var(--color-heading);
   min-width: 80px;
   flex-shrink: 0;
 }
 
 .detail-content {
   flex: 1;
-  color: #606266;
+  color: var(--color-text);
   line-height: 1.6;
   word-break: break-word;
 }
 
 .detail-json {
   flex: 1;
-  background: #f5f7fa;
+  background: var(--color-background-mute);
   padding: 12px;
   border-radius: 4px;
   font-size: 12px;
-  color: #606266;
+  color: var(--color-text);
   line-height: 1.4;
   overflow-x: auto;
   white-space: pre-wrap;

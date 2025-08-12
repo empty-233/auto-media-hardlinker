@@ -237,7 +237,7 @@ onMounted(() => {
 .media-list-view {
   padding: 24px;
   min-height: 100%;
-  background-color: #f5f7fa;
+  background-color: var(--color-background-soft);
 }
 
 /* 头部区域 */
@@ -246,7 +246,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 24px;
-  background: white;
+  background: var(--color-background);
   padding: 24px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -260,12 +260,12 @@ onMounted(() => {
   margin: 0 0 8px 0;
   font-size: 24px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-heading);
 }
 
 .page-description {
   margin: 0;
-  color: #909399;
+  color: var(--color-text);
   font-size: 14px;
 }
 
@@ -296,7 +296,7 @@ onMounted(() => {
 
 /* 加载状态 */
 .loading-container {
-  background: white;
+  background: var(--color-background);
   padding: 24px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -304,7 +304,7 @@ onMounted(() => {
 
 /* 空状态 */
 .empty-state {
-  background: white;
+  background: var(--color-background);
   padding: 60px 24px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -320,7 +320,7 @@ onMounted(() => {
 
 /* 媒体卡片 */
 .media-card {
-  background: white;
+  background: var(--color-background);
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
@@ -354,7 +354,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f5f7fa;
+  background-color: var(--color-background-soft);
 }
 
 .media-type-tag {
@@ -373,7 +373,7 @@ onMounted(() => {
   margin: 0 0 8px 0;
   font-size: 16px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-heading);
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -385,7 +385,7 @@ onMounted(() => {
 .original-title {
   margin: 0 0 8px 0;
   font-size: 13px;
-  color: #909399;
+  color: var(--color-text);
   line-height: 1.3;
   display: -webkit-box;
   -webkit-line-clamp: 1;
@@ -397,13 +397,13 @@ onMounted(() => {
 .release-date {
   margin: 0 0 8px 0;
   font-size: 13px;
-  color: #606266;
+  color: var(--color-text);
 }
 
 .description {
   margin: 0 0 12px 0;
   font-size: 13px;
-  color: #606266;
+  color: var(--color-text);
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -417,7 +417,7 @@ onMounted(() => {
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  color: #909399;
+  color: var(--color-text);
 }
 
 .stats-icon {

@@ -50,6 +50,7 @@ export class SystemService {
         openaiApiKey,
         openaiModel,
         openaiBaseUrl,
+        persistentLogging,
       } = config;
       const llmPrompt = getPrompt();
       logger.info("获取系统配置成功");
@@ -62,6 +63,7 @@ export class SystemService {
         openaiModel,
         openaiBaseUrl,
         llmPrompt,
+        persistentLogging,
       };
     } catch (error) {
       logger.error(`获取系统配置失败`, error);

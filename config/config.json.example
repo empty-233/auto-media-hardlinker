@@ -3,6 +3,8 @@
     "monitorFilePath": "./file",
     //目标目录位置
     "targetFilePath": "./file",
+    //是否持久化保存日志到文件(true/false)
+    "persistentLogging": false,
     //tmdb api https://www.themoviedb.org/settings/api
     "tmdbApi": "your_tmdb_api_key",
     //tmdb 语言

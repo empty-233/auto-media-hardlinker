@@ -37,7 +37,6 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { ElSubMenu, ElMenuItem, ElIcon } from 'element-plus'
 import type { MenuItem as MenuItemType } from '@/types/menu'
 
 interface Props {

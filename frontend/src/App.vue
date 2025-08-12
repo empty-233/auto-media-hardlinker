@@ -1,15 +1,21 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { RouterView, useRouter } from 'vue-router'
-import { ElContainer, ElHeader, ElAside, ElMain, ElButton, ElDrawer } from 'element-plus'
-import { Fold, Expand, Menu } from '@element-plus/icons-vue'
+import { Fold, Expand, Menu, Sunny, Moon, Monitor } from '@element-plus/icons-vue'
 import { storeToRefs } from 'pinia'
+import { useColorMode } from '@vueuse/core'
 import { SidebarMenu } from '@/components/Menu'
 import { useAppStore } from '@/stores/app'
 
 // app store
 const appStore = useAppStore()
 const { isMobile } = storeToRefs(appStore)
+
+// 深色模式
+const { store: theme } = useColorMode({
+  storageKey: 'theme',
+  disableTransition: false,
+})
 
 // 菜单折叠状态
 const isCollapse = ref(false)
@@ -22,24 +28,24 @@ const router = useRouter()
 // 动态生成需要缓存的组件名列表
 const cachedComponents = computed(() => {
   const components: string[] = []
-  
+
   // 递归遍历路由配置
   const collectCachedComponents = (routes: any[]) => {
-    routes.forEach(route => {
+    routes.forEach((route) => {
       // 如果路由配置了 keepAlive: true 且有组件名，则添加到缓存列表
       if (route.meta?.keepAlive === true && route.meta?.componentName) {
         if (!components.includes(route.meta.componentName)) {
           components.push(route.meta.componentName)
         }
       }
-      
+
       // 递归处理子路由
       if (route.children && route.children.length > 0) {
         collectCachedComponents(route.children)
       }
     })
   }
-  
+
   collectCachedComponents(router.getRoutes())
   console.log('Cached components:', components) // 调试用，可以在开发时查看缓存的组件
   return components
@@ -118,6 +124,46 @@ onUnmounted(() => {
           <!-- 移动端菜单按钮 -->
           <el-button v-else :icon="Menu" @click="toggleDrawer" text class="mobile-menu-btn" />
           <div class="header-title">Auto Media Hardlinker</div>
+          <div class="header-actions">
+            <!-- 桌面端显示 RadioGroup -->
+            <el-radio-group v-if="!isMobile" v-model="theme">
+              <el-radio-button value="light">
+                <el-icon><Sunny /></el-icon>
+              </el-radio-button>
+              <el-radio-button value="dark">
+                <el-icon><Moon /></el-icon>
+              </el-radio-button>
+              <el-radio-button value="auto">
+                <el-icon><Monitor /></el-icon>
+              </el-radio-button>
+            </el-radio-group>
+            <!-- 移动端显示 Dropdown -->
+            <el-dropdown v-else trigger="click">
+              <el-button text>
+                <el-icon>
+                  <Sunny v-if="theme === 'light'" />
+                  <Moon v-else-if="theme === 'dark'" />
+                  <Monitor v-else />
+                </el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item @click="theme = 'light'">
+                    <el-icon><Sunny /></el-icon>
+                    亮色
+                  </el-dropdown-item>
+                  <el-dropdown-item @click="theme = 'dark'">
+                    <el-icon><Moon /></el-icon>
+                    暗色
+                  </el-dropdown-item>
+                  <el-dropdown-item @click="theme = 'auto'">
+                    <el-icon><Monitor /></el-icon>
+                    自动
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
         </div>
       </el-header>
 
@@ -150,9 +196,10 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   height: 60px;
-  color: #3da1f3;
+  color: var(--el-color-primary);
   /* border-bottom: 1px solid #434a58; */
-  background-color: white;
+  background-color: var(--color-background);
+  transition: var(--color-transition);
 }
 
 .logo-title {
@@ -174,7 +221,8 @@ onUnmounted(() => {
 }
 
 .app-header {
-  background-color: #fff;
+  background-color: var(--color-background);
+  transition: var(--color-transition);
   /* border-bottom: 1px solid #e4e7ed; */
   padding: 0;
   display: flex;
@@ -189,26 +237,33 @@ onUnmounted(() => {
   padding: 0 20px;
 }
 
+.header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
 .collapse-btn,
 .mobile-menu-btn {
   margin-right: 20px;
   font-size: 18px;
-  color: #606266;
+  color: var(--color-text);
 }
 
 .collapse-btn:hover,
 .mobile-menu-btn:hover {
-  color: #409eff;
+  color: var(--el-color-primary);
 }
 
 .header-title {
   font-size: 18px;
   font-weight: 500;
-  color: #303133;
+  color: var(--color-heading);
 }
 
 .app-main {
-  background-color: #f5f5f5;
+  background-color: var(--color-background-soft);
+  transition: var(--color-transition);
   padding: 20px;
   height: calc(100vh - 60px);
   overflow-y: auto;
@@ -223,7 +278,8 @@ onUnmounted(() => {
 
 .drawer-content {
   height: 100%;
-  background-color: #304156;
+  background-color: var(--color-background);
+  transition: var(--color-transition);
   display: flex;
   flex-direction: column;
 }

@@ -30,7 +30,7 @@ const paginationLayout = computed(() => {
   display: flex;
   justify-content: center;
   padding: 24px;
-  background: white;
+  background-color: var(--color-background);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }

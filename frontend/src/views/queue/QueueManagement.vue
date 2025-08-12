@@ -541,7 +541,7 @@ const formatTimeout = (time?: number) => {
 .queue-management-view {
   padding: 24px;
   min-height: 100%;
-  background-color: #f5f7fa;
+  background-color: var(--color-background-soft);
 }
 
 /* 头部区域 */
@@ -550,7 +550,7 @@ const formatTimeout = (time?: number) => {
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 16px;
-  background: white;
+  background: var(--color-background);
   padding: 24px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -564,12 +564,12 @@ const formatTimeout = (time?: number) => {
   margin: 0 0 8px 0;
   font-size: 24px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-heading);
 }
 
 .page-description {
   margin: 0;
-  color: #909399;
+  color: var(--color-text);
   font-size: 14px;
 }
 
@@ -589,7 +589,7 @@ const formatTimeout = (time?: number) => {
 
 /* 状态卡片 */
 .status-cards-container {
-  background: white;
+  background: var(--color-background);
   padding: 20px 24px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -612,7 +612,7 @@ const formatTimeout = (time?: number) => {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-heading);
 }
 
 .status-indicator {
@@ -620,13 +620,13 @@ const formatTimeout = (time?: number) => {
   padding: 2px 8px;
   border-radius: 12px;
   font-weight: 500;
-  background-color: #f0f2f5;
-  color: #909399;
+  background-color: var(--color-background-mute);
+  color: var(--color-text);
 }
 
 .status-indicator.active {
-  background-color: #e6f7f2;
-  color: #00a854;
+  background-color: var(--el-color-success-light-9);
+  color: var(--el-color-success);
 }
 
 .status-cards-grid {
@@ -642,22 +642,22 @@ const formatTimeout = (time?: number) => {
 .status-value {
   font-size: 28px;
   font-weight: bold;
-  color: #303133;
+  color: var(--color-heading);
   margin-bottom: 4px;
 }
 
 .status-value.failed {
-  color: #f56c6c;
+  color: var(--el-color-danger);
 }
 
 .status-label {
-  color: #909399;
+  color: var(--color-text);
   font-size: 14px;
 }
 
 /* 配置面板 */
 .config-panel {
-  background: white;
+  background: var(--color-background);
   padding: 20px 24px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -676,7 +676,7 @@ const formatTimeout = (time?: number) => {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-heading);
 }
 
 .config-grid {
@@ -694,19 +694,19 @@ const formatTimeout = (time?: number) => {
 
 .config-label {
   font-size: 14px;
-  color: #909399;
+  color: var(--color-text);
 }
 
 .config-value {
   font-size: 16px;
   font-weight: 500;
-  color: #606266;
+  color: var(--color-text);
 }
 
 .auto-refresh-control {
   margin-top: auto;
   padding-top: 16px;
-  border-top: 1px solid #f0f2f5;
+  border-top: 1px solid var(--color-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -720,7 +720,7 @@ const formatTimeout = (time?: number) => {
 
 /* 过滤器区域 */
 .filter-section {
-  background: white;
+  background: var(--color-background);
   padding: 20px 24px;
   border-radius: 8px;
   margin-bottom: 16px;
@@ -739,7 +739,7 @@ const formatTimeout = (time?: number) => {
 
 .filter-label {
   font-size: 14px;
-  color: #606266;
+  color: var(--color-text);
 }
 
 .filter-actions {
@@ -750,20 +750,20 @@ const formatTimeout = (time?: number) => {
 
 /* 表格容器 */
 .table-container {
-  background: white;
+  background: var(--color-background);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
 }
 
 .error-text {
-  color: #f56c6c;
+  color: var(--el-color-danger);
 }
 
 
 .form-item-description {
   font-size: 12px;
-  color: #909399;
+  color: var(--color-text);
   margin-top: 4px;
   line-height: 1.4;
 }
@@ -771,16 +771,16 @@ const formatTimeout = (time?: number) => {
 .config-section {
   margin-bottom: 12px;
   padding: 16px;
-  border: 1px solid #e4e7ed;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  background-color: #fafafa;
+  background-color: var(--color-background-soft);
 }
 
 .section-title {
   font-size: 16px;
   font-weight: 600;
   margin: 0 0 16px 0;
-  color: #303133;
+  color: var(--color-heading);
 }
 
 .dialog-footer {

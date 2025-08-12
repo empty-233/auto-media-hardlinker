@@ -312,7 +312,7 @@ onMounted(() => {
 .media-detail-view {
   padding: 24px;
   min-height: 100%;
-  background-color: #f5f7fa;
+  background-color: var(--color-background-soft);
 }
 
 /* 头部区域 */
@@ -321,13 +321,13 @@ onMounted(() => {
 }
 
 .back-button {
-  background: white;
-  border: 1px solid #dcdfe6;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
 }
 
 /* 加载状态 */
 .loading-container {
-  background: white;
+  background: var(--color-background);
   padding: 24px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -342,7 +342,7 @@ onMounted(() => {
 
 /* 媒体信息卡片 */
 .media-info-card {
-  background: white;
+  background: var(--color-background);
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
@@ -371,7 +371,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f5f7fa;
+  background-color: var(--color-background-soft);
   border-radius: 8px;
 }
 
@@ -392,14 +392,14 @@ onMounted(() => {
   margin: 0;
   font-size: 28px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-heading);
   line-height: 1.3;
 }
 
 .original-title {
   margin: 0;
   font-size: 16px;
-  color: #909399;
+  color: var(--color-text);
   font-style: italic;
 }
 
@@ -412,20 +412,20 @@ onMounted(() => {
 
 .release-date {
   font-size: 14px;
-  color: #606266;
+  color: var(--color-text);
 }
 
 .description-section h3 {
   margin: 0 0 12px 0;
   font-size: 16px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-heading);
 }
 
 .description {
   margin: 0;
   font-size: 14px;
-  color: #606266;
+  color: var(--color-text);
   line-height: 1.6;
 }
 
@@ -440,7 +440,7 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   font-size: 14px;
-  color: #606266;
+  color: var(--color-text);
 }
 
 /* 区块标题 */
@@ -451,12 +451,12 @@ onMounted(() => {
   margin: 0 0 16px 0;
   font-size: 18px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-heading);
 }
 
 /* 文件列表 */
 .files-section {
-  background: white;
+  background: var(--color-background);
   padding: 24px;
   border-radius: 12px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
@@ -473,9 +473,9 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 16px;
-  background: #f8f9fa;
+  background: var(--color-background-soft);
   border-radius: 8px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--color-border);
 }
 
 .file-info {
@@ -486,7 +486,7 @@ onMounted(() => {
 .file-name {
   font-size: 14px;
   font-weight: 500;
-  color: #303133;
+  color: var(--color-heading);
   margin-bottom: 4px;
   word-break: break-all;
 }
@@ -495,7 +495,7 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   font-size: 12px;
-  color: #909399;
+  color: var(--color-text);
   flex-wrap: wrap;
 }
 
@@ -514,7 +514,7 @@ onMounted(() => {
 
 /* 剧集信息 */
 .episodes-section {
-  background: white;
+  background: var(--color-background);
   padding: 24px;
   border-radius: 12px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
@@ -528,10 +528,10 @@ onMounted(() => {
 
 .episode-card {
   display: flex;
-  background: #f8f9fa;
+  background: var(--color-background-soft);
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--color-border);
   transition: all 0.2s ease;
 }
 
@@ -557,7 +557,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #e9ecef;
+  background-color: var(--color-background-mute);
 }
 
 .episode-info {
@@ -569,14 +569,14 @@ onMounted(() => {
 .episode-number {
   font-size: 12px;
   font-weight: 600;
-  color: #409eff;
+  color: var(--el-color-primary);
   margin-bottom: 2px;
 }
 
 .episode-title {
   font-size: 13px;
   font-weight: 500;
-  color: #303133;
+  color: var(--color-heading);
   margin-bottom: 4px;
   line-height: 1.3;
   display: -webkit-box;
@@ -588,13 +588,13 @@ onMounted(() => {
 
 .episode-date {
   font-size: 11px;
-  color: #909399;
+  color: var(--color-text);
   margin-bottom: 4px;
 }
 
 .episode-description {
   font-size: 11px;
-  color: #606266;
+  color: var(--color-text);
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;

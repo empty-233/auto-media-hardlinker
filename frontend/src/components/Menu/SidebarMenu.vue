@@ -7,9 +7,6 @@
     :mode="mode"
     class="sidebar-menu"
     :class="{ 'mobile-menu': isMobile && isDrawer }"
-    background-color="white"
-    text-color="#606266"
-    active-text-color="#409eff"
     @select="handleMenuItemClick"
     v-bind="$attrs"
   >
@@ -20,7 +17,6 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMenu } from 'element-plus'
 import { storeToRefs } from 'pinia'
 import MenuItem from './MenuItem.vue'
 import { generateMenuFromRoutes, findActiveMenu } from '@/utils/menu'
@@ -107,11 +103,11 @@ onMounted(() => {
 }
 
 .sidebar-menu :deep(.el-menu-item:hover) {
-  background-color: #dadada;
+  background-color: var(--color-background-mute);
 }
 
 .sidebar-menu :deep(.el-sub-menu .el-sub-menu__title:hover) {
-  background-color: #dadada;
+  background-color: var(--color-background-mute);
 }
 
 /* 移动端菜单样式 */

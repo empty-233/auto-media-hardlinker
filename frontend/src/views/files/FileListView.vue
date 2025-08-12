@@ -250,21 +250,21 @@ const getFileIcon = (item: FileSystemItem) => {
 }
 
 const getFileIconColor = (item: FileSystemItem): string => {
-  if (item.isDirectory) return '#F56C6C'
+  if (item.isDirectory) return 'var(--el-color-danger)'
 
   const ext = item.extension?.toLowerCase()
-  if (!ext) return '#909399'
+  if (!ext) return 'var(--el-color-info)'
 
   if (['.mp4', '.mkv', '.avi', '.wmv', '.flv', '.mov', '.webm'].includes(ext)) {
-    return '#E6A23C'
+    return 'var(--el-color-warning)'
   }
   if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.webp'].includes(ext)) {
-    return '#67C23A'
+    return 'var(--el-color-success)'
   }
   if (['.mp3', '.wav', '.flac', '.aac', '.ogg'].includes(ext)) {
-    return '#409EFF'
+    return 'var(--el-color-primary)'
   }
-  return '#909399'
+  return 'var(--el-color-info)'
 }
 
 const formatFileSize = (size?: number): string => {
@@ -568,7 +568,7 @@ onActivated(() => {
 .file-list-view {
   padding: 24px;
   min-height: 100%;
-  background-color: #f5f7fa;
+  background-color: var(--color-background-soft);
 }
 
 /* 头部区域 */
@@ -577,7 +577,7 @@ onActivated(() => {
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 16px;
-  background: white;
+  background: var(--color-background);
   padding: 24px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -591,7 +591,7 @@ onActivated(() => {
   margin: 0 0 12px 0;
   font-size: 24px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-heading);
 }
 
 .statistics {
@@ -619,7 +619,7 @@ onActivated(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: white;
+  background: var(--color-background);
   padding: 16px 24px;
   border-radius: 8px;
   margin-bottom: 16px;
@@ -639,7 +639,7 @@ onActivated(() => {
 
 /* 导航区域 */
 .navigation-section {
-  background: white;
+  background: var(--color-background);
   padding: 16px 24px;
   border-radius: 8px;
   margin-bottom: 16px;
@@ -662,7 +662,7 @@ onActivated(() => {
 }
 
 .breadcrumb-item:hover {
-  color: #409eff;
+  color: var(--el-color-primary);
 }
 
 .breadcrumb :deep(.el-breadcrumb__inner) {
@@ -673,7 +673,7 @@ onActivated(() => {
 
 /* 网格视图 */
 .grid-container {
-  background: white;
+  background: var(--color-background);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   padding: 24px;
@@ -686,30 +686,30 @@ onActivated(() => {
 }
 
 .file-card {
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 20px;
   cursor: pointer;
   transition: all 0.3s ease;
-  background: #fafafa;
+  background: var(--color-background-soft);
   position: relative;
 }
 
 .file-card:hover {
-  border-color: #409eff;
+  border-color: var(--el-color-primary);
   box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
   transform: translateY(-2px);
 }
 
 .file-card.is-directory {
-  border-color: #e4e7ed;
-  background: #f9fafc;
+  border-color: var(--color-border);
+  background: var(--color-background-mute);
 }
 
 .file-card.is-directory:hover {
-  border-color: #f56c6c;
+  border-color: var(--el-color-danger);
   box-shadow: 0 4px 12px rgba(245, 108, 108, 0.15);
-  background: #fdf2f2;
+  background: var(--el-color-danger-light-9);
 }
 
 .file-icon-container {
@@ -737,7 +737,7 @@ onActivated(() => {
 
 .file-name {
   font-weight: 500;
-  color: #303133;
+  color: var(--color-heading);
   margin-bottom: 8px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -751,7 +751,7 @@ onActivated(() => {
   align-items: center;
   margin-bottom: 8px;
   font-size: 12px;
-  color: #909399;
+  color: var(--color-text);
 }
 
 .file-size {
@@ -768,7 +768,7 @@ onActivated(() => {
 
 /* 表格容器 */
 .table-container {
-  background: white;
+  background: var(--color-background);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
@@ -779,7 +779,7 @@ onActivated(() => {
 }
 
 .table-container :deep(.clickable-row:hover) {
-  background-color: #f5f7fa;
+  background-color: var(--color-background-soft);
 }
 
 /* 文件项 */
@@ -797,7 +797,7 @@ onActivated(() => {
 }
 
 .file-item.is-directory:hover {
-  background-color: #f5f7fa;
+  background-color: var(--color-background-soft);
 }
 
 .file-icon {
@@ -812,7 +812,7 @@ onActivated(() => {
 
 .file-name {
   font-weight: 500;
-  color: #303133;
+  color: var(--color-heading);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -820,7 +820,7 @@ onActivated(() => {
 
 .file-path {
   font-size: 12px;
-  color: #909399;
+  color: var(--color-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -829,7 +829,7 @@ onActivated(() => {
 
 .file-size {
   font-family: monospace;
-  color: #606266;
+  color: var(--color-text);
 }
 
 .media-info,
@@ -842,13 +842,13 @@ onActivated(() => {
 .no-media,
 .no-episode,
 .no-link {
-  color: #c0c4cc;
+  color: var(--el-color-info);
   font-style: italic;
 }
 
 .link-path {
   font-size: 12px;
-  color: #606266;
+  color: var(--color-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -856,14 +856,14 @@ onActivated(() => {
 
 /* 加载和空状态 */
 .loading-container {
-  background: white;
+  background: var(--color-background);
   border-radius: 8px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .empty-state {
-  background: white;
+  background: var(--color-background);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   padding: 60px 24px;
