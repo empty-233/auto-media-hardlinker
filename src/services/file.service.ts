@@ -240,6 +240,48 @@ export class FileService {
     }
   }
 
+  // 检查指定的媒体和剧集是否已有其他文件关联
+  async checkMediaFileLink(mediaId: number, episodeInfoId?: number) {
+    try {
+      const whereCondition: any = {
+        mediaId: mediaId,
+      };
+
+      // 如果提供了剧集ID，则也要匹配剧集ID
+      if (episodeInfoId !== undefined) {
+        whereCondition.episodeInfoId = episodeInfoId;
+      }
+
+      const existingFile = await prisma.file.findFirst({
+        where: whereCondition,
+        select: {
+          id: true,
+          filePath: true,
+          linkPath: true,
+          createdAt: true,
+          Media: {
+            select: {
+              title: true,
+              type: true,
+            },
+          },
+          episodeInfo: {
+            select: {
+              seasonNumber: true,
+              episodeNumber: true,
+              title: true,
+            },
+          },
+        },
+      });
+
+      return existingFile;
+    } catch (error) {
+      logger.error(`检查媒体文件关联失败 (MediaID: ${mediaId}, EpisodeInfoID: ${episodeInfoId})`, error);
+      throw error;
+    }
+  }
+
   // 取消文件的媒体关联
   async unlinkMediaFromFile(fileId: number) {
     try {

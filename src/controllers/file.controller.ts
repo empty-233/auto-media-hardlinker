@@ -123,10 +123,19 @@ export class FileController {
         episodeNumberInt
       );
 
+      // 检查媒体/剧集关联冲突（用于更友好的错误提示）
+      await this.checkLinkConflicts(
+        processedMedia, 
+        fileId, 
+        episodeTmdbId, 
+        seasonNumberInt, 
+        episodeNumberInt
+      );
+
       let result;
       
       if (isNaN(fileId)) {
-        // 新文件关联场景
+        // 新文件关联场景 - 使用现有的完整流程
         result = await this.handleNewFileLink(
           { path: filePath, filename }, 
           processedMedia
@@ -144,16 +153,72 @@ export class FileController {
       }
 
       success(res, result, "关联媒体成功");
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`关联媒体失败`, error);
       
       // 更细致的错误处理
       const errorMessage = error instanceof Error ? error.message : "关联媒体失败";
-      if (errorMessage.includes("不存在")) {
-        notFound(res, errorMessage);
+      if (errorMessage.includes("不存在") || 
+          errorMessage.includes("已被") || 
+          error.name === "NonRetryableError") {
+        badRequest(res, errorMessage);
       } else {
         internalError(res, errorMessage);
       }
+    }
+  }
+
+  /**
+   * 检查关联冲突
+   * @param processedMedia 处理后的媒体信息
+   * @param fileId 当前文件ID (新文件时为NaN)
+   * @param episodeTmdbId 剧集TMDB ID
+   * @param seasonNumber 季号
+   * @param episodeNumber 集号
+   * @throws 如果发现冲突则抛出错误
+   */
+  private async checkLinkConflicts(
+    processedMedia: any,
+    fileId: number,
+    episodeTmdbId: number,
+    seasonNumber: number | null,
+    episodeNumber: number | null
+  ) {
+    // 获取或创建媒体记录来获取 mediaId
+    if (!processedMedia.tmdbId) {
+      return; // 没有 TMDB ID，无需检查
+    }
+
+    const mediaRecord = await this.mediaRepository.findOrCreateMediaRecord(processedMedia);
+    
+    // 对于电视剧，还需要查找剧集信息来获取 episodeInfoId
+    let episodeInfoId: number | undefined;
+    if (processedMedia.type === "tv" && seasonNumber !== null && episodeNumber !== null) {
+      const episodeInfo = await this.findEpisodeInfo(
+        episodeTmdbId, 
+        seasonNumber, 
+        episodeNumber
+      );
+      episodeInfoId = episodeInfo.id;
+    }
+
+    // 检查媒体和剧集是否已有其他文件关联
+    const existingFile = await this.fileService.checkMediaFileLink(
+      mediaRecord.id, 
+      episodeInfoId
+    );
+    
+    // 如果是新文件关联场景，或者是更新文件但发现媒体已被其他文件关联
+    if (existingFile && (isNaN(fileId) || existingFile.id !== fileId)) {
+      let errorMessage = `媒体 "${existingFile.Media?.title}" 已被文件关联: ${existingFile.filePath}`;
+      
+      // 如果是电视剧，添加剧集信息
+      if (existingFile.episodeInfo) {
+        errorMessage = `剧集 "${existingFile.Media?.title}" S${existingFile.episodeInfo.seasonNumber}E${existingFile.episodeInfo.episodeNumber} 已被文件关联: ${existingFile.filePath}`;
+      }
+      
+      logger.warn(errorMessage);
+      throw new Error(errorMessage);
     }
   }
 

@@ -43,7 +43,6 @@ router.post(
 // 关联媒体文件
 router.post(
   "/:id/link-media",
-  ValidationMiddleware.params(FileParamValidators.fileId),
   ValidationMiddleware.body(FileValidators.linkMedia),
   fileController.linkMedia
 );
