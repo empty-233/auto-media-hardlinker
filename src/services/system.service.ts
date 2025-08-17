@@ -95,4 +95,3 @@ export class SystemService {
   }
 }
 
-export const systemService = new SystemService();

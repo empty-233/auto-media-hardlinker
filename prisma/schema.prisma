@@ -148,3 +148,12 @@ model Queue {
   @@index([status, priority, createdAt]) /// 队列排序索引
   @@index([status, nextRetryAt]) /// 重试任务索引
 }
+
+/// 用户表，存储单用户信息
+model User {
+  id        Int      @id @default(autoincrement()) /// 用户ID
+  username  String   @unique /// 用户名
+  password  String /// 密码哈希
+  createdAt DateTime @default(now()) @map("created_at") /// 创建时间
+  updatedAt DateTime @updatedAt @map("updated_at") /// 更新时间
+}

@@ -255,7 +255,7 @@ onMounted(() => {
         :default-sort="{ prop: 'timestamp', order: 'descending' }"
         @sort-change="handleSortChange"
       >
-        <el-table-column prop="level" label="级别" width="80" sortable>
+        <el-table-column prop="level" label="级别" width="100" sortable>
           <template #default="{ row }">
             <el-tag :type="getLogLevelTagType(row.level)" size="small" class="log-level-tag">
               {{ getLogLevelText(row.level) }}

@@ -1,35 +1,39 @@
 import { Router } from "express";
 import { z } from "zod";
 import { MediaController } from "../controllers";
-import { 
+import { MediaService } from "../services";
+import {
   ValidationMiddleware,
   MediaQueryValidators,
   ParamValidators,
   CommonValidators
 } from "../validators";
 
+const mediaService = new MediaService();
+const mediaController = new MediaController(mediaService);
+
 const router = Router();
 
 // 获取所有媒体列表
 router.get(
-  "/", 
+  "/",
   ValidationMiddleware.query(MediaQueryValidators.getMediaList),
-  MediaController.getAllMedia
+  mediaController.getAllMedia
 );
 
 // 获取单个媒体详情
 router.get(
-  "/:id", 
+  "/:id",
   ValidationMiddleware.params(ParamValidators.id),
-  MediaController.getMediaById
+  mediaController.getMediaById
 );
 
 // 按类型获取媒体
 router.get(
-  "/type/:type", 
+  "/type/:type",
   ValidationMiddleware.params(z.object({ type: CommonValidators.mediaType })),
   ValidationMiddleware.query(MediaQueryValidators.getMediaList),
-  MediaController.getMediaByType
+  mediaController.getMediaByType
 );
 
 export default router;

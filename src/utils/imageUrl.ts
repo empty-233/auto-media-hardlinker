@@ -1,8 +1,10 @@
+import { env } from "../config/env";
+
 /**
  * 图片URL处理工具
  */
 export class ImageUrlHelper {
-  private static baseUrl: string = process.env.IMAGE_BASE_URL || "http://localhost:3000";
+  private static baseUrl: string = env.IMAGE_BASE_URL;
 
   /**
    * 拼接完整的图片URL

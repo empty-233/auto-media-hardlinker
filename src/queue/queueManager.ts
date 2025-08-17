@@ -6,6 +6,7 @@ import {
   TaskQueryOptions,
   IQueueManager,
   TaskResult,
+  QueueConfig,
 } from "../types/queue.types";
 import { TaskStatus, Queue } from "@prisma/client";
 
@@ -13,6 +14,12 @@ import { TaskStatus, Queue } from "@prisma/client";
  * 队列管理器 - 负责任务的入队、出队和状态管理
  */
 export class QueueManager implements IQueueManager {
+  private config: QueueConfig;
+
+  constructor(config: QueueConfig) {
+    this.config = config;
+  }
+  
   /**
    * 将任务加入队列
    */
@@ -24,7 +31,7 @@ export class QueueManager implements IQueueManager {
           fileName: taskData.fileName,
           isDirectory: taskData.isDirectory,
           priority: taskData.priority || 0,
-          maxRetries: taskData.maxRetries || 3,
+          maxRetries: taskData.maxRetries || this.config.defaultMaxRetries,
           status: TaskStatus.PENDING,
         },
       });
@@ -41,31 +48,54 @@ export class QueueManager implements IQueueManager {
    * 批量将任务加入队列
    */
   async enqueueTasks(tasksData: ScrapingTaskData[]): Promise<number[]> {
+    if (tasksData.length === 0) {
+      return [];
+    }
+
     try {
-      const tasks = await prisma.queue.createMany({
-        data: tasksData.map((taskData) => ({
-          filePath: taskData.filePath,
-          fileName: taskData.fileName,
-          isDirectory: taskData.isDirectory,
-          priority: taskData.priority || 0,
-          maxRetries: taskData.maxRetries || 3,
-          status: TaskStatus.PENDING,
-        })),
-      });
+      const allTaskIds: number[] = [];
+      const batchSize = this.config.batchSize;
 
-      logger.info(`批量任务已加入队列: ${tasks.count} 个任务`);
+      // 分批处理任务以避免单次操作过大
+      for (let i = 0; i < tasksData.length; i += batchSize) {
+        const batch = tasksData.slice(i, i + batchSize);
+        
+        // 使用事务确保数据一致性
+        const batchTaskIds = await prisma.$transaction(async (tx) => {
+          // 创建任务
+          await tx.queue.createMany({
+            data: batch.map((taskData) => ({
+              filePath: taskData.filePath,
+              fileName: taskData.fileName,
+              isDirectory: taskData.isDirectory,
+              priority: taskData.priority || 0,
+              maxRetries: taskData.maxRetries || this.config.defaultMaxRetries,
+              status: TaskStatus.PENDING,
+            })),
+          });
 
-      // 获取刚创建的任务ID列表
-      const createdTasks = await prisma.queue.findMany({
-        select: { id: true },
-        where: {
-          filePath: { in: tasksData.map((t) => t.filePath) },
-        },
-        orderBy: { id: "desc" },
-        take: tasks.count,
-      });
+          // 获取刚创建的任务ID列表
+          const createdTasks = await tx.queue.findMany({
+            select: { id: true },
+            where: {
+              AND: [
+                { filePath: { in: batch.map((t) => t.filePath) } },
+                { status: TaskStatus.PENDING },
+                { startedAt: null }, // 新创建的任务不会有 startedAt
+              ]
+            },
+            orderBy: { id: "desc" },
+            take: batch.length,
+          });
 
-      return createdTasks.map((task) => task.id);
+          return createdTasks.map((task) => task.id);
+        });
+
+        allTaskIds.push(...batchTaskIds);
+      }
+
+      logger.info(`批量任务已加入队列: ${allTaskIds.length} 个任务`);
+      return allTaskIds;
     } catch (error) {
       logger.error(`批量任务入队失败`, error);
       throw error;
@@ -113,7 +143,7 @@ export class QueueManager implements IQueueManager {
             retryCount:
               task.status === TaskStatus.FAILED
                 ? { increment: 1 }
-                : task.retryCount,
+                : task.retryCount, // PENDING 任务保持原有重试计数
           },
         });
 
@@ -210,11 +240,18 @@ export class QueueManager implements IQueueManager {
   }
 
   /**
+   * 更新配置
+   */
+  updateConfig(newConfig: QueueConfig): void {
+    this.config = newConfig;
+  }
+
+  /**
    * 计算下次重试时间（指数退避策略）
    */
   private calculateNextRetryTime(retryCount: number): Date {
-    const baseDelay = 1000; // 1秒基础延迟
-    const maxDelay = 300000; // 5分钟最大延迟
+    const baseDelay = this.config.retryDelay; // 使用配置中的基础延迟
+    const maxDelay = this.config.maxRetryDelay; // 使用配置中的最大延迟
     const delay = Math.min(baseDelay * Math.pow(2, retryCount - 1), maxDelay);
     return new Date(Date.now() + delay);
   }
@@ -441,9 +478,10 @@ export class QueueManager implements IQueueManager {
   /**
    * 清理超时的运行中任务
    */
-  async cleanupTimeoutTasks(timeoutMs: number = 300000): Promise<number> {
+  async cleanupTimeoutTasks(timeoutMs?: number): Promise<number> {
     try {
-      const timeoutDate = new Date(Date.now() - timeoutMs);
+      const actualTimeout = timeoutMs ?? this.config.processingTimeout;
+      const timeoutDate = new Date(Date.now() - actualTimeout);
 
       const result = await prisma.queue.updateMany({
         where: {

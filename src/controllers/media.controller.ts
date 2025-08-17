@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { Type } from "@prisma/client";
-import { mediaService } from "../services";
+import { MediaService } from "../services";
 import { logger } from "../utils/logger";
 import {
   success,
@@ -10,12 +10,14 @@ import {
 } from "../utils/response";
 
 export class MediaController {
+  constructor(private mediaService: MediaService) {}
+
   // 获取所有媒体列表
-  static async getAllMedia(req: Request, res: Response) {
+  getAllMedia = async (req: Request, res: Response) => {
     try {
       // 使用验证中间件验证后的数据
       const { page, limit, keyword } = req.query as any;
-      const mediaData = await mediaService.getAllMedia(page, limit, keyword);
+      const mediaData = await this.mediaService.getAllMedia(page, limit, keyword);
       successWithPagination(res, mediaData, "获取媒体列表成功");
     } catch (error) {
       logger.error(`获取媒体列表失败`, error);
@@ -24,11 +26,11 @@ export class MediaController {
   }
 
   // 获取单个媒体详情
-  static async getMediaById(req: Request, res: Response) {
+  getMediaById = async (req: Request, res: Response) => {
     try {
       // 使用验证中间件验证后的数据
       const { id } = req.params as any;
-      const media = await mediaService.getMediaById(id);
+      const media = await this.mediaService.getMediaById(id);
       
       if (!media) {
         notFound(res, "媒体不存在");
@@ -43,13 +45,13 @@ export class MediaController {
   }
 
   // 按类型获取媒体
-  static async getMediaByType(req: Request, res: Response) {
+  getMediaByType = async (req: Request, res: Response) => {
     try {
       // 使用验证中间件验证后的数据
       const { type } = req.params as any;
       const { page, limit, keyword } = req.query as any;
 
-      const mediaData = await mediaService.getMediaByType(
+      const mediaData = await this.mediaService.getMediaByType(
         type as Type,
         page,
         limit,
@@ -62,5 +64,3 @@ export class MediaController {
     }
   }
 }
-
-export default MediaController;

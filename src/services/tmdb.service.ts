@@ -19,11 +19,19 @@ const config = getConfig();
  * 封装了与 The Movie Database (TMDB) API 的所有交互。
  */
 export class TMDBService {
+  private static instance: TMDBService;
   private moviedb: MovieDb;
 
-  constructor() {
+  private constructor() {
     this.moviedb = new MovieDb(config.tmdbApi);
     logger.info("TMDB服务已初始化");
+  }
+
+  public static getInstance(): TMDBService {
+    if (!TMDBService.instance) {
+      TMDBService.instance = new TMDBService();
+    }
+    return TMDBService.instance;
   }
 
   /**
@@ -124,5 +132,3 @@ export class TMDBService {
     return this.moviedb.seasonInfo(params);
   }
 }
-
-export const tmdbService = new TMDBService();

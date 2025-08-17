@@ -170,8 +170,8 @@ export const TMDBValidators = {
     with_genres: z.string().optional(),
     without_genres: z.string().optional(),
     year: CommonValidators.year.optional(),
-    'primary_release_date.gte': z.string().date().optional(),
-    'primary_release_date.lte': z.string().date().optional(),
+    'primary_release_date.gte': z.iso.date().optional(),
+    'primary_release_date.lte': z.iso.date().optional(),
     'vote_average.gte': z.coerce.number().min(0).max(10).optional(),
     'vote_average.lte': z.coerce.number().min(0).max(10).optional(),
     'vote_count.gte': z.coerce.number().int().min(0).optional()

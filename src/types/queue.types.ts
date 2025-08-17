@@ -21,6 +21,7 @@ export interface TaskResult {
   error?: string;
   processingTime?: number;
   isNonRetryable?: boolean;
+  isTimeout?: boolean;
 }
 
 
@@ -68,9 +69,9 @@ export interface TaskQueryOptions {
  */
 export interface ITaskWorker {
   start(): Promise<void>;
-  stop(): Promise<void>;
+  stop(waitForTasks?: boolean): Promise<void>;
   isRunning(): boolean;
-  updateConfig(newConfig: Partial<QueueConfig>): Promise<void>;
+  updateConfig(newConfig: Partial<QueueConfig>, forceRestart?: boolean): Promise<void>;
 }
 
 /**

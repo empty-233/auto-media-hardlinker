@@ -15,7 +15,7 @@ export class TaskWorker implements ITaskWorker {
   private stopRequested: boolean = false;
 
   constructor(config: QueueConfig) {
-    this.queueManager = new QueueManager();
+    this.queueManager = new QueueManager(config);
     this.taskProcessor = new TaskProcessor();
     this.config = config;
   }
@@ -45,17 +45,23 @@ export class TaskWorker implements ITaskWorker {
 
   /**
    * 停止工作进程
+   * @param waitForTasks 是否等待正在处理的任务完成，默认为true
    */
-  async stop(): Promise<void> {
+  async stop(waitForTasks: boolean = true): Promise<void> {
     if (!this.running) {
       return;
     }
 
-    logger.info('正在停止工作进程...');
+    logger.info(`正在停止工作进程... (等待任务完成: ${waitForTasks})`);
     this.stopRequested = true;
 
-    // 等待所有正在处理的任务完成
-    await Promise.all(this.processingPromises);
+    if (waitForTasks) {
+      // 等待所有正在处理的任务完成
+      await Promise.all(this.processingPromises);
+    } else {
+      // 强制停止，不等待任务完成
+      logger.warn('强制停止工作进程，正在处理的任务将被中断');
+    }
 
     this.running = false;
     this.processingPromises = [];
@@ -71,19 +77,46 @@ export class TaskWorker implements ITaskWorker {
 
   /**
    * 更新配置（热更新）
+   * @param newConfig 新的配置
+   * @param forceRestart 是否强制重启队列，默认为false
    */
-  async updateConfig(newConfig: Partial<QueueConfig>): Promise<void> {
+  async updateConfig(newConfig: Partial<QueueConfig>, forceRestart: boolean = false): Promise<void> {
     const oldConfig = { ...this.config };
     this.config = { ...this.config, ...newConfig };
 
-    logger.info(`TaskWorker 配置已更新: 老配置=${JSON.stringify(oldConfig)}, 新配置=${JSON.stringify(this.config)}`);
+    // 更新 QueueManager 的配置
+    this.queueManager.updateConfig(this.config);
 
-    // 如果并发数发生变化且工作进程正在运行，需要重启工作进程
-    if (this.running && oldConfig.concurrency !== this.config.concurrency) {
-      logger.info(`并发数变化，重启工作进程: ${oldConfig.concurrency} -> ${this.config.concurrency}`);
+    logger.info(`TaskWorker 配置已更新: 旧配置=${JSON.stringify(oldConfig)}, 新配置=${JSON.stringify(this.config)}`);
+
+    // 根据参数决定是否重启队列
+    if (forceRestart && this.running) {
+      logger.info(`配置变更，强制重启队列服务 (forceRestart=true)`);
+      await this.forceRestart();
+    } else if (!forceRestart && this.running) {
+      logger.info(`配置已更新，队列等待运行完成后重启 (forceRestart=false)`);
       await this.stop();
       await this.start();
     }
+  }
+
+  /**
+   * 强制重启队列服务 - 立即停止所有任务并重新启动
+   */
+  async forceRestart(): Promise<void> {
+    if (!this.running) {
+      return;
+    }
+
+    logger.info('强制重启队列服务 - 立即停止所有任务...');
+    
+    // 强制停止，不等待任务完成
+    await this.stop(false);
+    
+    // 立即重新启动
+    await this.start();
+    
+    logger.info('队列服务已强制重启');
   }
 
   /**
@@ -116,6 +149,10 @@ export class TaskWorker implements ITaskWorker {
           if (result.isNonRetryable) {
             await this.queueManager.failTaskPermanently(task.id, result.error || '处理失败');
             logger.error(`工作协程 ${workerId} 任务永久失败: ${task.fileName} (ID: ${task.id}), 错误: ${result.error}`);
+          } else if (result.isTimeout) {
+            // 超时任务可能需要更长的重试间隔
+            await this.queueManager.failTask(task.id, result.error || '处理超时');
+            logger.warn(`工作协程 ${workerId} 任务超时: ${task.fileName} (ID: ${task.id}), 错误: ${result.error}`);
           } else {
             await this.queueManager.failTask(task.id, result.error || '处理失败');
             logger.error(`工作协程 ${workerId} 任务失败: ${task.fileName} (ID: ${task.id}), 错误: ${result.error}`);
@@ -136,9 +173,13 @@ export class TaskWorker implements ITaskWorker {
    * 带超时控制的任务处理
    */
   private async processTaskWithTimeout(task: any): Promise<any> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const timeoutId = setTimeout(() => {
-        reject(new Error(`任务处理超时 (${this.config.processingTimeout}ms)`));
+        resolve({
+          success: false,
+          error: `任务处理超时 (${this.config.processingTimeout}ms)`,
+          isTimeout: true
+        });
       }, this.config.processingTimeout);
 
       this.taskProcessor.processTask(task)

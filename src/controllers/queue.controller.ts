@@ -12,13 +12,9 @@ import * as fs from "fs";
 import * as path from "path";
 import { clearConfigCache } from "../config/config";
 
-/**
- * 队列管理控制器
- */
+// 队列管理控制器
 export class QueueController {
-  /**
-   * 获取队列统计信息
-   */
+  // 获取队列统计信息
   static async getStats(req: Request, res: Response) {
     try {
       const queueService = getQueueService();
@@ -32,9 +28,7 @@ export class QueueController {
     }
   }
 
-  /**
-   * 获取任务列表
-   */
+  // 获取任务列表
   static async getTasks(req: Request, res: Response) {
     try {
       const { page, limit, status, sortBy, sortOrder } = req.query as any;
@@ -64,9 +58,7 @@ export class QueueController {
     }
   }
 
-  /**
-   * 重试指定任务
-   */
+  // 重试指定任务
   static async retryTask(req: Request, res: Response) {
     try {
       const { taskId } = req.params;
@@ -90,9 +82,7 @@ export class QueueController {
     }
   }
 
-  /**
-   * 取消指定任务
-   */
+  // 取消指定任务
   static async cancelTask(req: Request, res: Response) {
     try {
       const { taskId } = req.params;
@@ -116,9 +106,7 @@ export class QueueController {
     }
   }
 
-  /**
-   * 重试所有失败的任务
-   */
+  // 重试所有失败的任务
   static async retryAllFailedTasks(req: Request, res: Response) {
     try {
       const queueService = getQueueService();
@@ -132,9 +120,7 @@ export class QueueController {
     }
   }
 
-  /**
-   * 清除所有失败的任务
-   */
+  // 清除所有失败的任务
   static async clearFailedTasks(req: Request, res: Response) {
     try {
       const queueService = getQueueService();
@@ -148,9 +134,7 @@ export class QueueController {
     }
   }
 
-  /**
-   * 获取队列配置
-   */
+  // 获取队列配置
   static async getConfig(req: Request, res: Response) {
     try {
       const queueService = getQueueService();
@@ -164,17 +148,18 @@ export class QueueController {
     }
   }
 
-  /**
-   * 更新队列配置
-   */
+  // 更新队列配置
   static async updateConfig(req: Request, res: Response) {
     try {
       // 获取验证后的配置数据（已通过验证中间件验证）
-      const validatedConfig = req.body;
+      const requestData = req.body;
+      const { _forceRestart, ...validatedConfig } = requestData;
 
       // 更新队列服务配置
       const queueService = getQueueService();
-      await queueService.updateConfig(validatedConfig);
+      
+      // 传递 forceRestart 参数到 updateConfig，让服务自己处理重启逻辑
+      await queueService.updateConfig(validatedConfig, !!_forceRestart);
 
       // 同时更新本地config.json文件
       try {
@@ -186,7 +171,7 @@ export class QueueController {
           existingConfig.queue = {};
         }
 
-        // 更新队列相关配置
+        // 更新队列相关配置（排除_forceRestart）
         Object.keys(validatedConfig).forEach((key) => {
           existingConfig.queue[key] = validatedConfig[key];
         });
@@ -208,17 +193,16 @@ export class QueueController {
         logger.warn(`更新本地配置文件失败，但队列配置已生效: ${configError}`);
       }
 
-      logger.info("更新队列配置成功");
-      success(res, queueService.getConfig(), "配置已更新");
+      const message = _forceRestart ? "配置已更新，队列已强制重启" : "配置已更新";
+      logger.info(`更新队列配置成功 (强制重启: ${!!_forceRestart})`);
+      success(res, queueService.getConfig(), message);
     } catch (error) {
       logger.error("更新队列配置失败", error);
       internalError(res, "更新配置失败，请稍后重试");
     }
   }
 
-  /**
-   * 检查队列服务状态
-   */
+  // 检查队列服务状态
   static async getStatus(req: Request, res: Response) {
     try {
       const queueService = getQueueService();

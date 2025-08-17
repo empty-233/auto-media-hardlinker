@@ -15,11 +15,11 @@ export const SystemValidator = {
   updateConfig: z.object({
     useLlm: CommonValidators.boolean.optional(),
     llmProvider: z.enum(['ollama', 'openai'], { message: 'LLM提供商必须是 "ollama" 或 "openai"' }).optional(),
-    llmHost: z.string().url({ message: 'llmHost必须是有效的URL' }).optional(),
+    llmHost: z.url({ message: 'llmHost必须是有效的URL' }).optional(),
     llmModel: z.string().min(1, { message: 'llmModel不能为空' }).optional(),
     openaiApiKey: z.string().min(1, { message: 'openaiApiKey不能为空' }).optional(),
     openaiModel: z.string().min(1, { message: 'openaiModel不能为空' }).optional(),
-    openaiBaseUrl: z.string().url({ message: 'openaiBaseUrl必须是有效的URL' }).optional(),
+    openaiBaseUrl: z.url({ message: 'openaiBaseUrl必须是有效的URL' }).optional(),
     llmPrompt: z.string().min(1, { message: 'llmPrompt不能为空' }).optional(),
     persistentLogging: CommonValidators.boolean.optional(),
   }).refine(data => {

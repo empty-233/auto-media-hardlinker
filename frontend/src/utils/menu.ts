@@ -8,9 +8,19 @@ export function generateMenuFromRoutes(routes: readonly RouteRecordRaw[]): MenuI
   const menuItems: MenuItem[] = []
 
   routes.forEach(route => {
-    const menuItem = routeToMenuItem(route)
-    if (menuItem) {
-      menuItems.push(menuItem)
+    // 如果路由有children，则处理其子路由
+    if (route.children && route.children.length > 0) {
+      route.children.forEach(child => {
+        const menuItem = routeToMenuItem(child, route.path)
+        if (menuItem) {
+          menuItems.push(menuItem)
+        }
+      })
+    } else {
+      const menuItem = routeToMenuItem(route)
+      if (menuItem) {
+        menuItems.push(menuItem)
+      }
     }
   })
 
@@ -20,7 +30,7 @@ export function generateMenuFromRoutes(routes: readonly RouteRecordRaw[]): MenuI
 /**
  * 将单个路由转换为菜单项
  */
-function routeToMenuItem(route: RouteRecordRaw): MenuItem | null {
+function routeToMenuItem(route: RouteRecordRaw, parentPath?: string): MenuItem | null {
   const { meta, path, name, children, redirect } = route
   
   // 只处理需要在菜单中显示的路由
@@ -28,10 +38,24 @@ function routeToMenuItem(route: RouteRecordRaw): MenuItem | null {
     return null
   }
 
+  // 构建完整路径，确保格式一致性
+  let fullPath = path
+  if (parentPath && parentPath !== '/' && !path.startsWith('/')) {
+    fullPath = `${parentPath}/${path}`.replace('//', '/')
+  } else if (parentPath && parentPath === '/' && path === '') {
+    // 首页特殊处理：父路径是'/'，子路径是''，结果应该是'/'
+    fullPath = '/'
+  }
+  
+  // 确保路径以 / 开头（除了空路径）
+  if (fullPath && !fullPath.startsWith('/')) {
+    fullPath = `/${fullPath}`
+  }
+
   const menuItem: MenuItem = {
-    id: name as string || path,
+    id: name as string || fullPath,
     title: meta.title as string,
-    path: redirect ? undefined : path, // 如果有重定向，则不设置path
+    path: redirect ? undefined : fullPath, // 如果有重定向，则不设置path
     icon: meta.icon as string
   }
 
@@ -40,12 +64,8 @@ function routeToMenuItem(route: RouteRecordRaw): MenuItem | null {
     const childMenuItems: MenuItem[] = []
     
     children.forEach((child: RouteRecordRaw) => {
-      const childMenuItem = routeToMenuItem(child)
+      const childMenuItem = routeToMenuItem(child, fullPath)
       if (childMenuItem) {
-        // 为子路由补全完整路径
-        if (childMenuItem.path && !childMenuItem.path.startsWith('/')) {
-          childMenuItem.path = `${path}/${childMenuItem.path}`
-        }
         childMenuItems.push(childMenuItem)
       }
     })
@@ -68,23 +88,33 @@ export function findActiveMenu(menus: MenuItem[], currentPath: string, currentRo
   }
   
   for (const menu of menus) {
-    // 检查当前菜单项是否匹配
+    if (!menu.path) continue
+    
+    // 精确匹配
     if (menu.path === currentPath) {
-      return menu.path || menu.id
+      return menu.path
+    }
+    
+    // 子路径匹配（处理嵌套路由）
+    if (currentPath.startsWith(menu.path + '/')) {
+      return menu.path
     }
     
     // 检查子菜单
     if (menu.children) {
       for (const child of menu.children) {
+        if (!child.path) continue
+        
+        // 精确匹配
         if (child.path === currentPath) {
-          return child.path || child.id
+          return child.path
+        }
+        
+        // 子路径匹配
+        if (currentPath.startsWith(child.path + '/')) {
+          return child.path
         }
       }
-    }
-    
-    // 检查是否是子路径（用于处理嵌套路由的情况）
-    if (menu.path && currentPath.startsWith(menu.path + '/')) {
-      return menu.path
     }
   }
   

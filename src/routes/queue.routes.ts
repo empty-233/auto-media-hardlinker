@@ -25,22 +25,22 @@ router.put("/config",
   QueueController.updateConfig
 );
 
-// 重试指定任务
-router.post("/tasks/:taskId/retry", 
-  ValidationMiddleware.params(QueueValidator.taskIdParam),
-  QueueController.retryTask
-);
-
-// 取消指定任务
-router.delete("/tasks/:taskId", 
-  ValidationMiddleware.params(QueueValidator.taskIdParam),
-  QueueController.cancelTask
-);
-
 // 重试所有失败的任务
 router.post("/tasks/retry-all-failed", QueueController.retryAllFailedTasks);
 
 // 清除所有失败的任务
 router.delete("/tasks/failed", QueueController.clearFailedTasks);
+
+// 重试指定任务
+router.post("/tasks/:taskId/retry",
+  ValidationMiddleware.params(QueueValidator.taskIdParam),
+  QueueController.retryTask
+);
+
+// 取消指定任务
+router.delete("/tasks/:taskId",
+  ValidationMiddleware.params(QueueValidator.taskIdParam),
+  QueueController.cancelTask
+);
 
 export default router;

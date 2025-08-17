@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { systemService } from "../services";
+import { SystemService } from "../services";
 import { logger, LogLevel } from "../utils/logger";
 import {
   success,
@@ -8,8 +8,10 @@ import {
 } from "../utils/response";
 
 export class SystemController {
+  constructor(private systemService: SystemService) {}
+
   // 获取系统日志
-  static async getLogs(req: Request, res: Response) {
+  getLogs = async (req: Request, res: Response) => {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 100;
@@ -17,7 +19,7 @@ export class SystemController {
       const keyword = req.query.keyword as string | undefined;
       const sortBy = req.query.sortBy as string | undefined;
       const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
-      const logs = systemService.getLogs(
+      const logs = this.systemService.getLogs(
         page,
         limit,
         level,
@@ -33,9 +35,9 @@ export class SystemController {
   }
 
   // 获取系统配置
-  static async getConfig(req: Request, res: Response) {
+  getConfig = async (req: Request, res: Response) => {
     try {
-      const config = systemService.getConfig();
+      const config = this.systemService.getConfig();
       success(res, config, "获取系统配置成功");
     } catch (error) {
       logger.error(`获取系统配置失败`, error);
@@ -44,9 +46,9 @@ export class SystemController {
   }
 
   // 更新系统配置
-  static async updateConfig(req: Request, res: Response) {
+  updateConfig = async (req: Request, res: Response) => {
     try {
-      const updatedConfig = systemService.updateConfig(req.body);
+      const updatedConfig = this.systemService.updateConfig(req.body);
       success(res, updatedConfig, "更新系统配置成功");
     } catch (error) {
       logger.error(`更新系统配置失败`, error);
@@ -54,5 +56,3 @@ export class SystemController {
     }
   }
 }
-
-export default SystemController;

@@ -30,7 +30,7 @@ export async function createHardlink(
       await fs.promises.access(targetPath, fs.constants.F_OK);
       logger.warn(`目标文件已存在，跳过创建硬链接: ${targetPath}`);
       return; // 文件已存在，直接返回
-    } catch (error) {
+    } catch {
       // 文件不存在，这是预期的，可以继续
     }
 

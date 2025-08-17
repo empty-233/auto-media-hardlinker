@@ -142,8 +142,8 @@ export const DashboardQueryValidators = {
    */
   logs: CommonValidators.pagination.extend({
     level: z.enum(['debug', 'info', 'warn', 'error']).optional(),
-    startDate: z.string().datetime().optional(),
-    endDate: z.string().datetime().optional(),
+    startDate: z.iso.datetime().optional(),
+    endDate: z.iso.datetime().optional(),
     search: z.string().max(100).optional()
   })
 };

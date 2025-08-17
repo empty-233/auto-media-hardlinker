@@ -127,7 +127,7 @@ export const CommonValidators = {
    * // 简单格式: "2024-08-01"
    * dateString: CommonValidators.dateString
    */
-  dateString: z.string().datetime('日期格式必须是ISO 8601格式').or(z.string().date('日期格式必须是YYYY-MM-DD格式')).optional(),
+  dateString: z.iso.datetime('日期格式必须是ISO 8601格式').or(z.iso.date('日期格式必须是YYYY-MM-DD格式')).optional(),
 
   /**
    * URL验证
@@ -138,7 +138,7 @@ export const CommonValidators = {
    * // 空值: null
    * url: CommonValidators.url
    */
-  url: z.string().url('必须是有效的URL').nullable(),
+  url: z.url('必须是有效的URL').nullable(),
 
   /**
    * 图片路径验证

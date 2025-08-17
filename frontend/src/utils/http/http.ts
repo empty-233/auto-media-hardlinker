@@ -81,6 +81,13 @@ class HttpClient {
       (response: AxiosResponse<ApiResponse>) => {
         console.log(`[HTTP Response] ${response.config.method?.toUpperCase()} ${response.config.url}`, response.data)
 
+        // 处理JWT自动刷新
+        const newToken = response.headers['x-new-token']
+        if (newToken) {
+          localStorage.setItem('auth_token', newToken)
+          console.log('Token自动刷新成功')
+        }
+
         const { data } = response
         
         // 处理业务逻辑错误
@@ -103,7 +110,7 @@ class HttpClient {
    * 获取认证token
    */
   private getToken(): string | null {
-    return localStorage.getItem('token') || sessionStorage.getItem('token')
+    return localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token')
   }
 
   /**
@@ -123,6 +130,10 @@ class HttpClient {
       const { status, data } = response
       
       switch (status) {
+        case HttpStatus.BAD_REQUEST:
+          // 400错误通常是业务逻辑错误（如密码错误），显示具体错误信息
+          ElMessage.error(data?.message || '请求参数错误')
+          break
         case HttpStatus.UNAUTHORIZED:
           ElMessage.error('登录已过期，请重新登录')
           // 清除token并跳转到登录页
@@ -160,8 +171,8 @@ class HttpClient {
    * 清除认证信息
    */
   private clearAuth(): void {
-    localStorage.removeItem('token')
-    sessionStorage.removeItem('token')
+    localStorage.removeItem('auth_token')
+    sessionStorage.removeItem('auth_token')
     localStorage.removeItem('userInfo')
   }
 

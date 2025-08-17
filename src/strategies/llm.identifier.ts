@@ -261,13 +261,22 @@ export class LLMIdentifier implements IMediaIdentifier {
         logger.error(`LLM响应内容为空: ${fileName}`);
         return null;
     }
+    logger.debug(`LLM输出的内容: ${content}`);
     try {
       // 尝试从Markdown代码块中提取JSON。
-      const jsonRegex = /```(?:json)?\n?([\s\S]*?)\n?```/;
-      const match = content.match(jsonRegex);
-      if (match && match[1]) {
-        return JSON.parse(match[1]);
+      const markdownJsonRegex = /```(?:json)?\n?([\s\S]*?)\n?```/;
+      const markdownMatch = content.match(markdownJsonRegex);
+      if (markdownMatch && markdownMatch[1]) {
+        return JSON.parse(markdownMatch[1]);
       }
+
+      // 尝试从单反引号中提取JSON。
+      const backtickJsonRegex = /`([\s\S]*)`/;
+      const backtickMatch = content.match(backtickJsonRegex);
+      if (backtickMatch && backtickMatch[1]) {
+        return JSON.parse(backtickMatch[1]);
+      }
+
       // 如果没有代码块，尝试直接解析整个响应。
       return JSON.parse(content);
     } catch (error) {

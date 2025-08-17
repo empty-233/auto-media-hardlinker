@@ -3,8 +3,9 @@ import app from "./app";
 import prisma from "./client";
 import { logger } from "./utils/logger";
 import { MediaHardlinkerService } from "./core/mediaHardlinker";
+import { env } from "./config/env";
 
-const port = process.env.PORT || 3000;
+const port = env.PORT;
 
 let server: Server;
 const hardlinkerService = new MediaHardlinkerService();

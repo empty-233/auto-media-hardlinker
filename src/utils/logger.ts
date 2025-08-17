@@ -2,13 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import pino from 'pino';
 import { getConfig } from '../config/config';
-
-enum LogLevel {
-  INFO = 'INFO',
-  WARNING = 'WARNING',
-  ERROR = 'ERROR',
-  DEBUG = 'DEBUG',
-}
+import { env, LogLevel, isDevelopment } from '../config/env';
 
 // 日志级别映射
 const LOG_LEVEL_MAP = {
@@ -33,8 +27,8 @@ class Logger {
   constructor(logPath: string = path.join(__dirname, '../../logs')) {
     this.logPath = logPath;
     this.logFile = path.join(logPath, `media-hardlinker-${new Date().toISOString().split('T')[0]}.log`);
-    this.isDevelopment = process.env.NODE_ENV === 'development';
-    this.logLevel = (process.env.LOG_LEVEL as LogLevel) || LogLevel.INFO;
+    this.isDevelopment = isDevelopment();
+    this.logLevel = env.LOG_LEVEL;
     this.maxBufferSize = 1000;
     
     // 从配置文件读取持久化日志设置

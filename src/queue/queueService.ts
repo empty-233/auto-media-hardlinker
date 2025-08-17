@@ -20,7 +20,7 @@ export class QueueService {
 
   constructor(config: Partial<QueueConfig> = {}) {
     this.config = { ...DEFAULT_QUEUE_CONFIG, ...config };
-    this.queueManager = new QueueManager();
+    this.queueManager = new QueueManager(this.config);
     this.taskWorker = new TaskWorker(this.config);
   }
 
@@ -40,11 +40,12 @@ export class QueueService {
 
   /**
    * 停止队列服务
+   * @param waitForTasks 是否等待正在处理的任务完成，默认为true
    */
-  async stop(): Promise<void> {
+  async stop(waitForTasks: boolean = true): Promise<void> {
     try {
-      logger.info('停止队列服务...');
-      await this.taskWorker.stop();
+      logger.info(`停止队列服务... (等待任务完成: ${waitForTasks})`);
+      await this.taskWorker.stop(waitForTasks);
       logger.info('队列服务已停止');
     } catch (error) {
       logger.error('停止队列服务失败', error);
@@ -125,13 +126,16 @@ export class QueueService {
 
   /**
    * 更新队列配置
+   * @param newConfig 新的配置
+   * @param forceRestart 是否强制重启队列，默认为false
    */
-  async updateConfig(newConfig: Partial<QueueConfig>): Promise<void> {
+  async updateConfig(newConfig: Partial<QueueConfig>, forceRestart: boolean = false): Promise<void> {
     this.config = { ...this.config, ...newConfig };
-    logger.info(`队列配置已更新: ${JSON.stringify(this.config)}`);
+    logger.info(`队列配置已更新: ${JSON.stringify(this.config)} (forceRestart=${forceRestart})`);
     
-    // 同时更新 TaskWorker 的配置
-    await this.taskWorker.updateConfig(newConfig);
+    // 同时更新 QueueManager 和 TaskWorker 的配置
+    this.queueManager.updateConfig(this.config);
+    await this.taskWorker.updateConfig(newConfig, forceRestart);
   }
 
   /**

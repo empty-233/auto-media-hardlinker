@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormRules, type FormInstance } from 'element-plus'
-import { Refresh, Edit, RefreshLeft, Delete } from '@element-plus/icons-vue'
+import { Refresh, Edit, RefreshLeft, Delete, WarningFilled } from '@element-plus/icons-vue'
 import ResponsivePagination from '@/components/common/ResponsivePagination.vue'
 import {
   QueueService,
@@ -118,9 +118,9 @@ const startAutoRefresh = () => {
   if (refreshTimer) {
     clearInterval(refreshTimer)
   }
-  refreshTimer = setInterval(() => {
+  refreshTimer = window.setInterval(() => {
     refreshData()
-  }, refreshInterval.value) as any
+  }, refreshInterval.value)
 }
 
 const stopAutoRefresh = () => {
@@ -154,12 +154,62 @@ const updateConfig = async () => {
   const valid = await configFormRef.value.validate().catch(() => false)
   if (!valid) return
 
+  // 检查是否有正在运行的任务
+  const hasRunningTasks = (stats.value?.running || 0) > 0
+  let forceStop = false
+  
+  if (hasRunningTasks) {
+    try {
+      await ElMessageBox.confirm(
+        `当前有 ${stats.value?.running} 个任务正在处理中。<br/><br/>更新配置需要重启队列服务，请选择处理方式：<br/>• <strong>等待完成</strong>：等待当前任务处理完成后重启（可能需要较长时间）<br/>• <strong>强制重启</strong>：立即停止所有任务并重启（任务将重新排队）`,
+        '确认更新配置',
+        {
+          dangerouslyUseHTMLString: true,
+          confirmButtonText: '等待任务完成',
+          cancelButtonText: '立即强制重启',
+          distinguishCancelAndClose: true,
+          type: 'warning',
+          customClass: 'config-update-confirm',
+          closeOnClickModal: false,
+          closeOnPressEscape: false
+        }
+      )
+      // 用户选择等待任务完成
+      forceStop = false
+    } catch (action) {
+      if (action === 'cancel') {
+        // 用户选择强制重启
+        forceStop = true
+      } else {
+        // 用户关闭对话框，取消操作
+        return
+      }
+    }
+  }
+
   configLoading.value = true
   try {
-    const newConfig = await QueueService.updateConfig(configForm)
+    // 如果需要强制停止，在请求中添加标记
+    const updateData = { ...configForm } as Record<string, unknown>
+    if (forceStop) {
+      updateData._forceRestart = true
+    }
+    
+    const newConfig = await QueueService.updateConfig(updateData as Partial<typeof configForm>)
     config.value = newConfig
-    ElMessage.success('配置更新成功')
+    
+    if (hasRunningTasks) {
+      ElMessage.success(forceStop ? '配置已更新，队列已强制重启' : '配置已更新，队列将在任务完成后重启')
+    } else {
+      ElMessage.success('配置更新成功')
+    }
+    
     configDialogVisible.value = false
+    
+    // 延迟刷新数据以反映新状态
+    setTimeout(() => {
+      refreshData()
+    }, 1000)
   } catch (error) {
     console.error('更新配置失败:', error)
     ElMessage.error('更新配置失败')
@@ -336,7 +386,16 @@ const formatTimeout = (time?: number) => {
       <div class="config-panel">
         <div class="config-header">
           <h3>队列配置</h3>
-          <el-button size="small" @click="showConfigDialog" :icon="Edit" text type="primary">编辑</el-button>
+          <div class="config-actions">
+            <el-tooltip 
+              v-if="(stats?.running || 0) > 0" 
+              content="当前有任务正在运行，更新配置将需要重启队列" 
+              placement="top"
+            >
+              <el-icon class="warning-icon"><WarningFilled /></el-icon>
+            </el-tooltip>
+            <el-button size="small" @click="showConfigDialog" :icon="Edit" text type="primary">编辑</el-button>
+          </div>
         </div>
         <div class="config-grid">
           <div class="config-item">
@@ -677,6 +736,17 @@ const formatTimeout = (time?: number) => {
   font-size: 18px;
   font-weight: 600;
   color: var(--color-heading);
+}
+
+.config-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.warning-icon {
+  color: var(--el-color-warning);
+  font-size: 16px;
 }
 
 .config-grid {

@@ -1,11 +1,12 @@
 import { PrismaClient } from "@prisma/client";
 import { logger } from "../utils/logger";
-import { tmdbService } from "./tmdb.service";
+import { TMDBService } from "./tmdb.service";
 import { formatDate, downloadTMDBImage } from "../utils/media";
 
 const prisma = new PrismaClient();
 
 export class EpisodeService {
+  constructor(private tmdbService: TMDBService) {}
   /**
    * 从TMDB同步并存储一部电视剧指定季的所有集的信息（使用事务，包含图片下载）
    * @param tmdbId 电视剧的TMDB ID
@@ -16,7 +17,7 @@ export class EpisodeService {
     logger.info(`开始从TMDB同步剧集, TMDB ID: ${tmdbId}, 季: ${seasonNumber}`);
 
     // 1. 获取指定季的信息 (在事务外执行，避免网络请求长时间占用数据库连接)
-    const seasonInfo = await tmdbService.getSeasonInfo(tmdbId, seasonNumber);
+    const seasonInfo = await this.tmdbService.getSeasonInfo(tmdbId, seasonNumber);
     if (!seasonInfo || !seasonInfo.episodes) {
       logger.warn(`无法获取TMDB ID ${tmdbId} 的第 ${seasonNumber} 季信息。`);
       return [];
@@ -164,4 +165,3 @@ export class EpisodeService {
   }
 }
 
-export const episodeService = new EpisodeService();

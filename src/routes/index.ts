@@ -1,5 +1,6 @@
 import { Router } from "express";
-import dashboardRoutes from "./dashboard.route";
+import authRoutes from "./auth.routes";
+import dashboardRoutes from "./dashboard.routes";
 import mediaRoutes from "./media.routes";
 import fileRoutes from "./file.routes";
 import episodeRoutes from "./episode.routes";
@@ -10,6 +11,7 @@ import queueRoutes from "./queue.routes";
 const router = Router();
 
 // 挂载各个路由
+router.use("/auth", authRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/media", mediaRoutes);
 router.use("/files", fileRoutes);

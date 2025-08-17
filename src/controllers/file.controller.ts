@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { fileService, episodeService } from "../services";
+import { FileService, EpisodeService } from "../services";
 import { logger } from "../utils/logger";
 import {
   success,
@@ -13,20 +13,20 @@ import { MediaHardlinkerService } from "../core/mediaHardlinker";
 import { MediaRepository } from "../repository/media.repository";
 import { deleteHardlink } from "../utils/hardlink";
 
-const mediaHardlinkerService = new MediaHardlinkerService();
-const mediaRepository = new MediaRepository();
-
 export class FileController {
-  /**
-   * 获取目录内容
-   * @param req Express请求对象 
-   * @param res Express响应对象
-   */
-  static async getDirectoryContents(req: Request, res: Response) {
+  constructor(
+    private fileService: FileService,
+    private episodeService: EpisodeService,
+    private mediaHardlinkerService: MediaHardlinkerService,
+    private mediaRepository: MediaRepository
+  ) {}
+
+  // 获取目录内容
+  getDirectoryContents = async (req: Request, res: Response) => {
     try {
       // dirPath 是可选的，不传或传空字符串默认为根目录
       const { dirPath } = req.query as any;
-      const result = await fileService.getDirectoryContents(dirPath);
+      const result = await this.fileService.getDirectoryContents(dirPath);
       success(res, result, "获取目录内容成功");
     } catch (error) {
       logger.error(`获取目录内容失败`, error);
@@ -34,12 +34,8 @@ export class FileController {
     }
   }
 
-  /**
-   * 获取单个文件详情
-   * @param req Express请求对象
-   * @param res Express响应对象
-   */
-  static async getFileById(req: Request, res: Response) {
+  // 获取单个文件详情
+  getFileById = async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const fileId = parseInt(id);
@@ -49,7 +45,7 @@ export class FileController {
         return;
       }
 
-      const file = await fileService.getFileById(fileId);
+      const file = await this.fileService.getFileById(fileId);
 
       if (!file) {
         notFound(res, "文件不存在");
@@ -63,12 +59,8 @@ export class FileController {
     }
   }
 
-  /**
-   * 重命名文件
-   * @param req Express请求对象 
-   * @param res Express响应对象
-   */
-  static async renameFile(req: Request, res: Response) {
+  // 重命名文件
+  renameFile = async (req: Request, res: Response) => {
     try {
       const { filePath, newName } = req.body;
 
@@ -102,7 +94,7 @@ export class FileController {
       await fs.rename(oldPath, newPath);
 
       // 如果文件在数据库中，更新数据库记录
-      await fileService.updateFilePathAfterRename(oldPath, newPath);
+      await this.fileService.updateFilePathAfterRename(oldPath, newPath);
 
       logger.info(`文件重命名成功: ${oldPath} -> ${newPath}`);
       success(res, { success: true, newPath }, "文件重命名成功");
@@ -112,11 +104,9 @@ export class FileController {
     }
   }
 
-  /**
-   * 关联媒体文件到文件记录
-   * 支持新文件关联和已有文件的关联更新
-   */
-  static async linkMedia(req: Request, res: Response) {
+  // 关联媒体文件到文件记录
+  // 支持新文件关联和已有文件的关联更新
+  linkMedia = async (req: Request, res: Response) => {
     try {
       // 使用验证中间件验证后的数据，不再需要手动验证
       const { id } = req.params;
@@ -127,7 +117,7 @@ export class FileController {
       const episodeNumberInt = episodeNumber !== null ? parseInt(episodeNumber) : null;
 
       // 处理媒体信息
-      const processedMedia = await FileController.processMediaInfo(
+      const processedMedia = await this.processMediaInfo(
         mediaInfo, 
         seasonNumberInt, 
         episodeNumberInt
@@ -137,13 +127,13 @@ export class FileController {
       
       if (isNaN(fileId)) {
         // 新文件关联场景
-        result = await FileController.handleNewFileLink(
+        result = await this.handleNewFileLink(
           { path: filePath, filename }, 
           processedMedia
         );
       } else {
         // 更新已有文件关联场景
-        result = await FileController.handleExistingFileLink(
+        result = await this.handleExistingFileLink(
           fileId,
           { path: filePath, filename },
           processedMedia,
@@ -174,11 +164,11 @@ export class FileController {
    * @param episodeNumberInt 集号
    * @returns 处理后的媒体信息
    */
-  private static async processMediaInfo(
+  private processMediaInfo = async (
     mediaInfo: any, 
     seasonNumberInt: number | null, 
     episodeNumberInt: number | null
-  ) {
+  ) => {
     const media = { ...mediaInfo };
     
     // 为电视剧添加季集信息
@@ -191,7 +181,7 @@ export class FileController {
     if (media.type === "tv" && seasonNumberInt !== null && episodeNumberInt !== null) {
       logger.info(`检测到电视剧关联，触发 ${media.title} 的剧集同步...`);
       
-      const episodeSyncResult = await episodeService.syncEpisodesFromTmdb(
+      const episodeSyncResult = await this.episodeService.syncEpisodesFromTmdb(
         parseInt(media.tmdbId),
         seasonNumberInt
       );
@@ -200,8 +190,8 @@ export class FileController {
 
     // 保存媒体记录
     if (media.tmdbId) {
-      const mediaRecord = await mediaRepository.findOrCreateMediaRecord(media);
-      await mediaRepository.saveShowOrMovieInfo(mediaRecord.id, media);
+      const mediaRecord = await this.mediaRepository.findOrCreateMediaRecord(media);
+      await this.mediaRepository.saveShowOrMovieInfo(mediaRecord.id, media);
     }
 
     return media;
@@ -213,12 +203,12 @@ export class FileController {
    * @param media 处理后的媒体信息
    * @returns 文件处理结果
    */
-  private static async handleNewFileLink(
+  private handleNewFileLink = async (
     fileInfo: { path: string; filename: string }, 
     media: any
-  ) {
-    const targetPath = mediaHardlinkerService.buildTargetPath(media);
-    return await mediaHardlinkerService.handleSingleFile(
+  ) => {
+    const targetPath = this.mediaHardlinkerService.buildTargetPath(media);
+    return await this.mediaHardlinkerService.handleSingleFile(
       fileInfo,
       media,
       targetPath,
@@ -236,16 +226,16 @@ export class FileController {
    * @param episodeNumberInt 集号
    * @returns 文件关联结果
    */
-  private static async handleExistingFileLink(
+  private handleExistingFileLink = async (
     fileId: number,
     fileInfo: { path: string; filename: string },
     media: any,
     episodeTmdbId: number,
     seasonNumberInt: number | null,
     episodeNumberInt: number | null
-  ) {
+  ) => {
     // 获取并验证已有文件信息
-    const existingFileInfo = await fileService.getFileById(fileId);
+    const existingFileInfo = await this.fileService.getFileById(fileId);
     if (!existingFileInfo?.linkPath || existingFileInfo.mediaId == null) {
       throw new Error("文件不存在或未关联媒体");
     }
@@ -255,8 +245,8 @@ export class FileController {
     logger.info(`删除旧的硬链接: ${existingFileInfo.linkPath}`);
 
     // 创建新的硬链接
-    const targetPath = mediaHardlinkerService.buildTargetPath(media);
-    const mediaFileLinkInfo = await mediaHardlinkerService.handleSingleFile(
+    const targetPath = this.mediaHardlinkerService.buildTargetPath(media);
+    const mediaFileLinkInfo = await this.mediaHardlinkerService.handleSingleFile(
       fileInfo,
       media,
       targetPath,
@@ -264,7 +254,7 @@ export class FileController {
     );
 
     // 查找剧集信息
-    const episodeInfo = await FileController.findEpisodeInfo(
+    const episodeInfo = await this.findEpisodeInfo(
       episodeTmdbId, 
       seasonNumberInt, 
       episodeNumberInt
@@ -272,7 +262,7 @@ export class FileController {
 
     // 更新文件记录
     if (mediaFileLinkInfo) {
-      await mediaRepository.upsertFileRecord(
+      await this.mediaRepository.upsertFileRecord(
         existingFileInfo.mediaId,
         mediaFileLinkInfo,
         episodeInfo.id
@@ -280,7 +270,7 @@ export class FileController {
     }
 
     // 关联文件到媒体
-    return await fileService.linkMediaToFile(
+    return await this.fileService.linkMediaToFile(
       fileId,
       existingFileInfo.mediaId,
       episodeInfo.id,
@@ -297,16 +287,16 @@ export class FileController {
    * @returns 剧集信息
    * @throws 如果是电视剧但缺少季集信息，或者找不到剧集时抛出错误
    */
-  private static async findEpisodeInfo(
+  private findEpisodeInfo = async (
     episodeTmdbId: number,
     seasonNumber: number | null,
     episodeNumber: number | null
-  ) {
+  ) => {
     if (seasonNumber === null || episodeNumber === null) {
       throw new Error("电视剧文件必须提供季和集的信息");
     }
 
-    const episodeInfo = await episodeService.findEpisode(
+    const episodeInfo = await this.episodeService.findEpisode(
       episodeTmdbId, 
       seasonNumber, 
       episodeNumber
@@ -320,12 +310,8 @@ export class FileController {
     return episodeInfo;
   }
 
-  /**
-   * 取消关联媒体文件
-   * @param req Express请求对象
-   * @param res Express响应对象
-   */
-  static async unlinkMedia(req: Request, res: Response) {
+  // 取消关联媒体文件
+  unlinkMedia = async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const fileId = parseInt(id);
@@ -335,7 +321,7 @@ export class FileController {
         return;
       }
 
-      const result = await fileService.unlinkMediaFromFile(fileId);
+      const result = await this.fileService.unlinkMediaFromFile(fileId);
 
       if (!result) {
         notFound(res, "文件不存在");
@@ -349,5 +335,3 @@ export class FileController {
     }
   }
 }
-
-export default FileController;

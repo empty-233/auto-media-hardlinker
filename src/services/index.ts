@@ -1,5 +1,7 @@
-export { dashboardService } from './dashboard.service';
-export { mediaService } from './media.service';
-export { fileService } from './file.service';
-export { episodeService } from './episode.service';
-export { systemService } from './system.service';
+export { AuthService } from './auth.service';
+export { DashboardService } from './dashboard.service';
+export { MediaService } from './media.service';
+export { FileService } from './file.service';
+export { EpisodeService } from './episode.service';
+export { SystemService } from './system.service';
+export { TMDBService } from './tmdb.service';

@@ -10,6 +10,7 @@ import {
 import { NonRetryableError } from "../core/errors";
 
 export class MediaRepository implements IMediaRepository {
+  constructor() {}
   // REFACTOR: 将 saveMediaAndFile 分解为更小的、职责单一的方法
   public async saveMediaAndFile(
     media: IdentifiedMedia,
