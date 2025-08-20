@@ -15,6 +15,7 @@ const switchLoading = ref(false)
 
 // 表单数据
 const configForm = reactive<SystemConfig>({
+  tmdbApi: '',
   useLlm: false,
   llmProvider: 'ollama',
   llmHost: '',
@@ -28,6 +29,7 @@ const configForm = reactive<SystemConfig>({
 
 // 原始数据备份
 const originalConfig = ref<SystemConfig>({
+  tmdbApi: '',
   useLlm: false,
   llmProvider: 'ollama',
   llmHost: '',
@@ -41,6 +43,10 @@ const originalConfig = ref<SystemConfig>({
 
 // 表单验证规则
 const configRules = reactive<FormRules<SystemConfig>>({
+  tmdbApi: [
+    { required: true, message: 'TMDB API Key 不能为空', trigger: 'blur' },
+    { min: 20, message: 'TMDB API Key 长度不能少于20位', trigger: 'blur' }
+  ],
   llmHost: [
     { required: true, message: 'Ollama 主机地址不能为空', trigger: 'blur' },
     {
@@ -237,6 +243,46 @@ onMounted(() => {
         <p class="page-description">配置系统运行参数和服务设置</p>
       </div>
     </div>
+
+    <el-card class="config-card">
+      <template #header>
+        <div class="card-header">
+          <h2>TMDB 设置</h2>
+          <p class="description">配置 The Movie Database (TMDB) API，用于获取媒体信息数据。</p>
+        </div>
+      </template>
+
+      <el-form 
+        ref="configFormRef" 
+        :model="configForm" 
+        :rules="configRules"
+        label-width="140px"
+        label-position="left"
+        @submit.prevent
+      >
+        <el-form-item label="TMDB API Key" prop="tmdbApi">
+          <el-input
+            v-model="configForm.tmdbApi"
+            placeholder="请输入您的 TMDB API Key"
+            show-password
+            clearable
+          >
+            <template #prefix>
+              <el-icon><Document /></el-icon>
+            </template>
+          </el-input>
+          <div class="form-item-help">
+            <span class="help-text">
+              获取API Key：访问 
+              <el-link href="https://www.themoviedb.org/settings/api" target="_blank" type="primary">
+                TMDB API 设置页面
+              </el-link>
+              申请免费的API密钥
+            </span>
+          </div>
+        </el-form-item>
+      </el-form>
+    </el-card>
 
     <el-card class="config-card">
       <template #header>
@@ -581,6 +627,15 @@ onMounted(() => {
   border-color: var(--el-color-primary-light-3);
 }
 
+.form-item-help {
+  margin-left: 8px;
+}
+
+.help-text {
+  font-size: 12px;
+  color: var(--el-color-info);
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .config-view {
@@ -653,6 +708,10 @@ onMounted(() => {
   .action-buttons .el-button {
     width: 100%;
     margin-left: 0 !important;
+  }
+
+  .form-item-help {
+    margin-left: 0px;
   }
 }
 </style>

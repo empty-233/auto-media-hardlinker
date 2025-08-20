@@ -2,6 +2,7 @@
  * 系统配置接口
  */
 export interface SystemConfig {
+  tmdbApi: string
   useLlm: boolean
   llmProvider: 'ollama' | 'openai'
   llmHost: string

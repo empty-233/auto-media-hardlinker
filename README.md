@@ -98,6 +98,54 @@ cp .env.example .env
 
 编辑 `config.json` 和 `.env` 文件，填写必要信息（详细配置说明请参考部署指南和开发指南）。
 
+下面是 `config.json` 的一个配置示例：
+
+```json
+{
+    //监听目录位置
+    "monitorFilePath": "./media",
+    //目标目录位置
+    "targetFilePath": "./file",
+    //是否持久化保存日志到文件(true/false)
+    "persistentLogging": false,
+    //tmdb api https://www.themoviedb.org/settings/api
+    "tmdbApi": "your_tmdb_api_key",
+    //tmdb 语言
+    "language": "zh-CN",
+    //是否使用LLM进行刮削(true/false)
+    "useLlm": true,
+    // LLM提供商，支持 "ollama" 或 "openai"
+    "llmProvider": "ollama",
+    // Ollama服务主机地址 (llmProvider为 "ollama" 时必填)
+    "llmHost": "http://localhost:11434",
+    // Ollama模型名称 (llmProvider为 "ollama" 时必填)
+    "llmModel": "qwen2.5",
+    // OpenAI API密钥 (llmProvider为 "openai" 时必填)
+    "openaiApiKey": "your_openai_api_key",
+    // OpenAI模型名称 (llmProvider为 "openai" 时必填)
+    "openaiModel": "gpt-4-turbo",
+    // OpenAI API基础URL (可选，用于代理)
+    "openaiBaseUrl": "https://api.openai.com/v1",
+    //支持的视频文件扩展名
+    "videoExtensions": [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".ts"],
+    //队列配置
+    "queue": {
+        // 并发工作进程数
+        "concurrency": 1,
+        // 重试基础延迟（毫秒）
+        "retryDelay": 1000,
+        // 最大重试延迟（毫秒）
+        "maxRetryDelay": 300000,
+        // 默认最大重试次数
+        "defaultMaxRetries": 3,
+        // 任务处理超时时间（毫秒）
+        "processingTimeout": 300000,
+        // 批量处理大小
+        "batchSize": 10
+    }
+}
+```
+
 ### Windows 环境中文支持
 
 如果在 Windows 终端中遇到乱码问题，请根据您使用的终端执行以下命令来设置UTF-8编码：

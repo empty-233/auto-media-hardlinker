@@ -47,6 +47,9 @@ importers:
       pino-pretty:
         specifier: ^13.1.1
         version: 13.1.1
+      prisma:
+        specifier: ^6.13.0
+        version: 6.13.0(typescript@5.9.2)
       sqlite3:
         specifier: ^5.1.7
         version: 5.1.7
@@ -69,9 +72,6 @@ importers:
       '@types/node':
         specifier: ^24.2.0
         version: 24.2.0
-      prisma:
-        specifier: ^6.13.0
-        version: 6.13.0(typescript@5.9.2)
       ts-node:
         specifier: ^10.9.2
         version: 10.9.2(@types/node@24.2.0)(typescript@5.9.2)

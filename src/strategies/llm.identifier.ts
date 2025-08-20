@@ -1,16 +1,12 @@
 import { Ollama } from "ollama";
 import OpenAI from "openai";
 import { MovieDb, MovieResult, TvResult } from "moviedb-promise";
-import { getConfig } from "../config/config";
+import { getConfig, Config } from "../config/config";
 import { getPrompt } from "../config/prompt";
 import { IMediaIdentifier, IdentifiedMedia } from "../types/media.types";
 import { logger } from "../utils/logger";
 import { getMediaName, getMediaReleaseDate } from "../utils/media";
 import { ChatCompletionMessageParam } from "openai/resources/chat/completions";
-
-// --- 初始化 ---
-const config = getConfig();
-const moviedb = new MovieDb(config.tmdbApi!);
 
 /**
  * @interface ExtractedInfo
@@ -42,7 +38,7 @@ interface LlmClient {
 class OllamaClient implements LlmClient {
   private ollama: Ollama;
 
-  constructor() {
+  constructor(config: Config) {
     this.ollama = new Ollama({ host: config.llmHost });
   }
 
@@ -73,7 +69,7 @@ class OllamaClient implements LlmClient {
 class OpenAiClient implements LlmClient {
   private openai: OpenAI;
 
-  constructor() {
+  constructor(config: Config) {
     this.openai = new OpenAI({
       apiKey: config.openaiApiKey,
       baseURL: config.openaiBaseUrl,
@@ -103,30 +99,46 @@ class OpenAiClient implements LlmClient {
  * @description 使用LLM（大型语言模型）进行媒体文件识别的核心实现。
  */
 export class LLMIdentifier implements IMediaIdentifier {
-  private llmClient: LlmClient;
-  private llmModel: string;
-
   /**
-   * 构造函数，根据配置文件初始化LLM客户端。
+   * 构造函数，执行基本的配置验证。
    */
   constructor() {
-    // 如果配置文件中未启用LLM，则不应该使用此类。
+    // 获取当前配置进行基础验证
+    const config = getConfig();
+    
     if (!config.useLlm) {
-      throw new Error("LLM识别器不应在 useLlm 为 false 时被初始化。");
+      throw new Error("LLM识别器不应在 useLlm 为 false 时被初始化");
     }
 
-    // 根据配置的提供商（ollama或openai）创建相应的客户端实例。
+    if (!config.llmProvider) {
+      throw new Error("未配置LLM提供商");
+    }
+    
+    if (config.llmProvider === "ollama" && (!config.llmHost || !config.llmModel)) {
+      throw new Error("Ollama配置不完整，需要 llmHost 和 llmModel");
+    }
+    
+    if (config.llmProvider === "openai" && (!config.openaiApiKey || !config.openaiModel)) {
+      throw new Error("OpenAI配置不完整，需要 openaiApiKey 和 openaiModel");
+    }
+  }
+
+  /**
+   * 创建LLM客户端实例
+   */
+  private createLlmClient(config: Config): { client: LlmClient; model: string } {
     switch (config.llmProvider) {
       case "ollama":
-        this.llmClient = new OllamaClient();
-        this.llmModel = config.llmModel!;
-        break;
+        return {
+          client: new OllamaClient(config),
+          model: config.llmModel!
+        };
       case "openai":
-        this.llmClient = new OpenAiClient();
-        this.llmModel = config.openaiModel!;
-        break;
+        return {
+          client: new OpenAiClient(config),
+          model: config.openaiModel!
+        };
       default:
-        // 如果提供了无效的提供商，则抛出错误。
         throw new Error(`无效的LLM提供商: ${config.llmProvider}`);
     }
   }
@@ -143,14 +155,18 @@ export class LLMIdentifier implements IMediaIdentifier {
     try {
       logger.info(`使用LLM策略识别: ${fileName}`);
 
-      // 1. 使用LLM从文件名中提取基础信息（标题、季、集等）。
-      const extractedInfo = await this.extractWithLLM(fileName);
+      // 获取最新配置
+      const config = getConfig();
+      const moviedb = new MovieDb(config.tmdbApi!);
+
+      // 1. 使用LLM从文件名中提取基础信息
+      const extractedInfo = await this.extractWithLLM(fileName, config);
       if (!extractedInfo || !extractedInfo.title) {
         logger.warn(`LLM无法从 "${fileName}" 提取有效标题。`);
         return null;
       }
 
-      // 2. 使用提取的标题在TMDB中同时搜索电视剧和电影。
+      // 2. 使用提取的标题在TMDB中同时搜索电视剧和电影
       const [tvResponse, movieResponse] = await Promise.all([
         moviedb.searchTv({ query: extractedInfo.title, language: config.language }),
         moviedb.searchMovie({ query: extractedInfo.title, language: config.language }),
@@ -159,18 +175,18 @@ export class LLMIdentifier implements IMediaIdentifier {
       const tvResults = tvResponse.results || [];
       const movieResults = movieResponse.results || [];
 
-      // 如果两类结果都为空，则无法继续。
       if (tvResults.length === 0 && movieResults.length === 0) {
         logger.warn(`在TMDB中未找到 "${extractedInfo.title}" 的任何结果。`);
         return null;
       }
 
-      // 3. 使用LLM从搜索结果中决定最佳匹配项。
+      // 3. 使用LLM从搜索结果中决定最佳匹配项
       const { mediaType, selectedIndex } = await this.determineBestMatch(
         extractedInfo,
         fileName,
         tvResults,
-        movieResults
+        movieResults,
+        config
       );
 
       if (mediaType === null) {
@@ -188,11 +204,13 @@ export class LLMIdentifier implements IMediaIdentifier {
           return null;
       }
 
-      // 4. 获取匹配项的详细信息并格式化为标准输出。
+      // 4. 获取匹配项的详细信息并格式化为标准输出
       return this.formatResult(
         mediaType,
         selectedItem,
-        extractedInfo
+        extractedInfo,
+        moviedb,
+        config
       );
 
     } catch (error: any) {
@@ -208,7 +226,9 @@ export class LLMIdentifier implements IMediaIdentifier {
   private async formatResult(
     mediaType: "tv" | "movie",
     selectedItem: TvResult | MovieResult,
-    extractedInfo: ExtractedInfo
+    extractedInfo: ExtractedInfo,
+    moviedb: MovieDb,
+    config: Config
   ): Promise<IdentifiedMedia | null> {
       if (!selectedItem.id) return null;
 
@@ -248,9 +268,10 @@ export class LLMIdentifier implements IMediaIdentifier {
    * @method extractWithLLM
    * @description 调用LLM从文件名中提取结构化信息。
    */
-  private async extractWithLLM(fileName: string): Promise<ExtractedInfo | null> {
-    const response = await this.llmClient.chat({
-      model: this.llmModel,
+  private async extractWithLLM(fileName: string, config: Config): Promise<ExtractedInfo | null> {
+    const { client, model } = this.createLlmClient(config);
+    const response = await client.chat({
+      model: model,
       messages: [
         { role: "user", content: `${getPrompt()}\n\n文件名: "${fileName}"` },
       ],
@@ -293,7 +314,8 @@ export class LLMIdentifier implements IMediaIdentifier {
     mediaInfo: ExtractedInfo,
     fileName: string,
     tvResults: TvResult[],
-    movieResults: MovieResult[]
+    movieResults: MovieResult[],
+    config: Config
   ): Promise<{ mediaType: "tv" | "movie" | null; selectedIndex: number }> {
     // 如果只有一个类别有结果，直接返回该类别的第一项。
     if (tvResults.length > 0 && movieResults.length === 0) {
@@ -312,8 +334,9 @@ ${tvResults.slice(0, 3).map((s, i) => `TV${i + 1}: ${s.name} (${s.first_air_date
 ${movieResults.slice(0, 3).map((m, i) => `MOV${i + 1}: ${m.title} (${m.release_date?.substring(0, 4) || 'N/A'})`).join("\n")}
 请只回答"类型:编号"，如"tv:1"或"movie:2"，不需要任何解释。`;
 
-    const response = await this.llmClient.chat({
-      model: this.llmModel,
+    const { client, model } = this.createLlmClient(config);
+    const response = await client.chat({
+      model: model,
       messages: [{ role: "user", content: prompt }],
       temperature: 0, // 使用低温以获得更确定的结果。
     });

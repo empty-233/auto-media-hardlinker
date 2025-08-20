@@ -43,6 +43,7 @@ export class SystemService {
       const config = getConfig(false); // 不使用缓存，确保获取最新配置
       // 仅返回前端需要的配置信息
       const {
+        tmdbApi,
         useLlm,
         llmProvider,
         llmHost,
@@ -55,6 +56,7 @@ export class SystemService {
       const llmPrompt = getPrompt();
       logger.info("获取系统配置成功");
       return {
+        tmdbApi,
         useLlm,
         llmProvider,
         llmHost,

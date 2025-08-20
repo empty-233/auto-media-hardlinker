@@ -20,6 +20,7 @@ class Logger {
   private pinoFileStream?: pino.DestinationStream;
   private consoleLogger?: pino.Logger;
   private isDevelopment: boolean;
+  private enableConsoleOutput: boolean;
   private logLevel: LogLevel;
   private maxBufferSize: number;
   private persistentLogging: boolean;
@@ -28,6 +29,7 @@ class Logger {
     this.logPath = logPath;
     this.logFile = path.join(logPath, `media-hardlinker-${new Date().toISOString().split('T')[0]}.log`);
     this.isDevelopment = isDevelopment();
+    this.enableConsoleOutput = env.CONSOLE_OUTPUT;
     this.logLevel = env.LOG_LEVEL;
     this.maxBufferSize = 1000;
     
@@ -60,9 +62,8 @@ class Logger {
         }
       }, this.pinoFileStream);
     }
-
-    // 初始化控制台日志
-    if (this.isDevelopment) {
+    
+    if (this.isDevelopment || this.enableConsoleOutput) {
       this.consoleLogger = pino({
         level: this.getPinoLevel(this.logLevel),
         transport: {
@@ -144,7 +145,7 @@ class Logger {
   }
 
   private writeToConsole(level: LogLevel, message: string, error?: unknown): void {
-    if (!this.consoleLogger) return;
+    if (!this.consoleLogger || !this.enableConsoleOutput) return;
 
     const obj = error ? { err: error } : undefined;
     switch (level) {
@@ -213,11 +214,12 @@ class Logger {
   }
 
   // 获取环境信息
-  public getEnvInfo(): { isDevelopment: boolean; logLevel: LogLevel; persistentLogging: boolean } {
+  public getEnvInfo(): { isDevelopment: boolean; logLevel: LogLevel; persistentLogging: boolean; enableConsoleOutput: boolean } {
     return {
       isDevelopment: this.isDevelopment,
       logLevel: this.logLevel,
       persistentLogging: this.persistentLogging,
+      enableConsoleOutput: this.enableConsoleOutput,
     };
   }
 
@@ -226,6 +228,7 @@ class Logger {
     try {
       const config = getConfig(false); // 不使用缓存，获取最新配置
       this.persistentLogging = config.persistentLogging;
+      this.enableConsoleOutput = env.CONSOLE_OUTPUT;
       
       // 关闭现有的文件流
       if (this.pinoFileStream) {
@@ -233,6 +236,7 @@ class Logger {
         this.pinoFileStream = undefined;
       }
       this.pinoLogger = undefined;
+      this.consoleLogger = undefined;
       
       // 重新初始化日志器
       this.initializeLoggers();

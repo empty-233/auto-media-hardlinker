@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { QueueConfig } from "../types/queue.types";
 import { logger } from "../utils/logger";
+import { isDevelopment } from '../config/env';
 
 /**
  * 配置文件接口定义
@@ -155,6 +156,15 @@ export function updateConfig(
       } catch (_error) {
         // logger重新初始化失败，记录警告但不影响配置更新
         console.warn('Logger重新初始化失败:', _error instanceof Error ? _error.message : String(_error));
+      }
+    }
+
+    // 记录LLM相关配置更新日志，以便调试
+    if(isDevelopment()){
+      const llmConfigKeys = ['useLlm', 'llmProvider', 'llmHost', 'llmModel', 'openaiApiKey', 'openaiModel', 'openaiBaseUrl'];
+      const updatedLlmKeys = Object.keys(updateData).filter(key => llmConfigKeys.includes(key));
+      if (updatedLlmKeys.length > 0) {
+        console.log(`LLM配置已更新，清除缓存: ${updatedLlmKeys.join(', ')}`);
       }
     }
 

@@ -1,8 +1,37 @@
 import { z } from 'zod';
 import dotenv from 'dotenv';
+import { existsSync } from 'fs';
+import { resolve } from 'path';
+
+// 检查 .env 文件是否存在
+const checkEnvFile = () => {
+  const currentDir = process.cwd();
+  const envPath = resolve(currentDir, '.env');
+  const envExamplePath = resolve(currentDir, '.env.example');
+  
+  console.log(`检查 .env 文件: ${envPath}`);
+  
+  if (!existsSync(envPath)) {
+    console.warn('警告: 未找到 .env 文件');
+    
+    if (existsSync(envExamplePath)) {
+      console.warn('提示: 发现 .env.example 文件，请复制并重命名为 .env');
+      console.warn(`执行命令: cp ${envExamplePath} ${envPath}`);
+    } else {
+      console.warn('提示: 请创建 .env 文件来配置环境变量');
+    }
+    
+    console.warn('应用将使用默认配置继续运行\n');
+  } else {
+    console.log('找到 .env 文件');
+  }
+};
+
+// 检查 .env 文件
+checkEnvFile();
 
 // 加载环境变量
-dotenv.config();
+dotenv.config({ path: resolve(process.cwd(), '.env') });
 
 // 定义日志级别枚举
 export enum LogLevel {
@@ -33,6 +62,12 @@ const envSchema = z.object({
   
   // 日志配置
   LOG_LEVEL: z.enum(LogLevel).default(LogLevel.INFO),
+  
+  // 控制台输出开关 (生产环境默认关闭，开发环境默认开启)
+  CONSOLE_OUTPUT: z
+    .string()
+    .default(process.env.NODE_ENV === NodeEnv.PRODUCTION ? "false" : "true")
+    .transform((value) => value.toLowerCase() === "true"),
 
   // JWT配置
   JWT_SECRET: z.string().default('auto-media-hardlinker-secret-key'),

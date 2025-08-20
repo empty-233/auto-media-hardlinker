@@ -13,6 +13,7 @@ export const SystemValidator = {
    * - 使用 refine 进行交叉字段验证，确保在启用特定提供商时，其相关字段也存在。
    */
   updateConfig: z.object({
+    tmdbApi: z.string().min(20, { message: 'TMDB API Key 长度不能少于20位' }).optional(),
     useLlm: CommonValidators.boolean.optional(),
     llmProvider: z.enum(['ollama', 'openai'], { message: 'LLM提供商必须是 "ollama" 或 "openai"' }).optional(),
     llmHost: z.url({ message: 'llmHost必须是有效的URL' }).optional(),

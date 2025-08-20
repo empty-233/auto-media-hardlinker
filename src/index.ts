@@ -10,14 +10,19 @@ const port = env.PORT;
 let server: Server;
 const hardlinkerService = new MediaHardlinkerService();
 
-prisma.$connect().then(() => {
-  logger.info("Connected to SQL Database");
-  // 启动核心服务
-  hardlinkerService.start();
-  server = app.listen(port, () => {
-    logger.info(`Listening to port ${port}`);
+prisma.$connect()
+  .then(() => {
+    logger.info("Connected to SQL Database");
+    // 启动核心服务
+    hardlinkerService.start();
+    server = app.listen(port, () => {
+      logger.info(`Listening to port ${port}`);
+    });
+  })
+  .catch((error) => {
+    logger.error("Failed to connect to SQL Database", error);
+    throw new Error(`数据库连接失败: ${error.message}`);
   });
-});
 
 const exitHandler = () => {
   hardlinkerService.stop().then(() => {
