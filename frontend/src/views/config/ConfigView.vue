@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { Link, Cpu, Document } from '@element-plus/icons-vue'
+import { Link, Cpu, Document, Warning } from '@element-plus/icons-vue'
 import { ConfigService } from '@/api/config'
 import type { SystemConfig, UpdateConfigParams } from '@/api/config/types'
+import { useConfigStore } from '@/stores/config'
 
 // 表单引用
 const configFormRef = ref<FormInstance>()
+
+// 配置Store
+const configStore = useConfigStore()
 
 // 加载状态
 const loading = ref(false)
@@ -198,6 +202,11 @@ const saveConfig = async () => {
     // 更新配置
     await updateConfig(updateParams)
     ElMessage.success('配置保存成功')
+    
+    // 如果是首次配置，清除提示标记
+    if (configStore.isFirstTimeSetup) {
+      configStore.clearFirstTimeSetup()
+    }
   } catch (error: unknown) {
     if (error !== 'cancel') {
       console.error('保存配置失败:', error)
@@ -243,6 +252,29 @@ onMounted(() => {
         <p class="page-description">配置系统运行参数和服务设置</p>
       </div>
     </div>
+
+    <!-- 首次配置提示 -->
+    <el-card v-if="configStore.isFirstTimeSetup" class="setup-guide-card">
+      <template #header>
+        <div class="guide-header">
+          <el-icon class="guide-icon" color="var(--el-color-warning)"><Warning /></el-icon>
+          <h2 class="guide-title">欢迎使用 Auto Media Hardlinker</h2>
+        </div>
+      </template>
+      <div class="guide-content">
+        <p class="guide-description">
+          为了系统正常运行，请完成以下配置：
+        </p>
+        <ul class="guide-checklist">
+          <li>配置 TMDB API Key</li>
+          <li>配置 LLM 设置</li>
+        </ul>
+        <p class="guide-note">
+          <el-icon><Document /></el-icon>
+          配置完成后请点击"保存更改"以使设置生效。
+        </p>
+      </div>
+    </el-card>
 
     <el-card class="config-card">
       <template #header>
@@ -512,6 +544,77 @@ onMounted(() => {
 
 .config-card:last-child {
   margin-bottom: 0;
+}
+
+/* 首次配置引导卡片样式 */
+.setup-guide-card {
+  background: linear-gradient(135deg, 
+    rgba(var(--el-color-warning-rgb), 0.1) 0%, 
+    rgba(var(--el-color-warning-rgb), 0.05) 100%);
+  border: 1px solid rgba(var(--el-color-warning-rgb), 0.2);
+  box-shadow: 0 2px 12px rgba(var(--el-color-warning-rgb), 0.15);
+  margin-bottom: 24px;
+}
+
+.guide-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.guide-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.guide-title {
+  margin: 0;
+  color: var(--color-heading);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.guide-content {
+  padding: 4px 0;
+}
+
+.guide-description {
+  margin: 0 0 16px 0;
+  color: var(--color-text);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.guide-checklist {
+  margin: 16px 0;
+  padding-left: 20px;
+  color: var(--color-text);
+}
+
+.guide-checklist li {
+  margin-bottom: 8px;
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+.guide-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 20px 0 0 0;
+  padding: 16px;
+  background-color: rgba(var(--el-color-warning-rgb), 0.1);
+  border-radius: 8px;
+  border-left: 4px solid var(--el-color-warning);
+  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.guide-note .el-icon {
+  color: var(--el-color-warning);
+  font-size: 16px;
+  flex-shrink: 0;
 }
 
 .card-header h2 {

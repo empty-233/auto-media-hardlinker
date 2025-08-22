@@ -133,12 +133,14 @@ import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { User, Lock, Key } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
+import { useConfigStore } from '@/stores/config'
 
 // 路由
 const router = useRouter()
 
 // Store
 const authStore = useAuthStore()
+const configStore = useConfigStore()
 
 // 响应式数据
 const showRegister = ref(false)
@@ -243,7 +245,12 @@ const handleRegister = async () => {
     await authStore.register(registerForm.value.username, registerForm.value.password)
     
     ElMessage.success('账户创建成功')
-    router.push('/')
+    
+    // 设置首次配置标记
+    configStore.setFirstTimeSetup(true)
+    
+    // 跳转到配置页面
+    router.push('/config')
   } catch (error: unknown) {
     // HTTP客户端已经处理了错误消息显示，这里只需要记录日志
     console.error('创建账户失败:', error)
