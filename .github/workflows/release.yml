@@ -56,7 +56,8 @@ jobs:
           cp README.md LICENSE release/ 2>/dev/null || true
           cp docker-compose.yml Dockerfile start.sh release/ 2>/dev/null || true
           cp -r docker release/ 2>/dev/null || true
-          cp .env.example release/.env 2>/dev/null || true
+          cp .env.example .env 2>/dev/null || true
+          cp .env release/.env 2>/dev/null || true
 
           # 初始化数据库
           pnpm prisma migrate deploy --schema=prisma/schema.prisma
