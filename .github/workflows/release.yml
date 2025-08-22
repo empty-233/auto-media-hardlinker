@@ -56,6 +56,7 @@ jobs:
           cp README.md LICENSE release/ 2>/dev/null || true
           cp docker-compose.yml Dockerfile start.sh release/ 2>/dev/null || true
           cp -r docker release/ 2>/dev/null || true
+          cp config/config.json.example release/config.json 2>/dev/null || true
           cp .env.example .env 2>/dev/null || true
           cp .env release/.env 2>/dev/null || true
 
@@ -63,10 +64,8 @@ jobs:
           pnpm prisma migrate deploy --schema=prisma/schema.prisma
           cp prisma/dev.db release/prisma/dev.db 2>/dev/null || true
 
-          # 创建压缩包
-          cd release
-          tar -czf ../auto-media-hardlinker-${{ github.ref_name }}.tar.gz .
-          cd ..
+          # 创建压缩包 - 修复目录结构问题
+          tar -czf auto-media-hardlinker-${{ github.ref_name }}.tar.gz -C release .
           
       - name: Generate changelog
         id: changelog
@@ -108,21 +107,47 @@ jobs:
           ### Option 2: Use Docker Image
           ```bash
           # Option A: Pull from Docker Hub (recommended)
-          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:${{ github.ref_name }}
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/auto-media-hardlinker:${{ github.ref_name }}
           
           # Option B: Pull from GitHub Container Registry
           docker pull ghcr.io/${{ github.repository }}:${{ github.ref_name }}
           
-          # Run with docker-compose (automatically pulls latest)
+          # Run with docker-compose (recommended - automatically handles volumes and config)
           curl -O https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/docker-compose.yml
+          # Edit docker-compose.yml to set your file paths
           docker-compose up -d
           
-          # Or run directly with Docker Hub image
-          docker run -d -p 3000:80 ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:${{ github.ref_name }}
+          # Or run directly with Docker Hub image (complete setup)
+          docker run -d \
+            --name auto-media-hardlinker \
+            -p 3000:80 \
+            -v $(pwd)/config:/app/config \
+            -v $(pwd)/data:/app/data \
+            -v /path/to/your/media/files:/file \
+            -v $(pwd)/logs:/app/logs \
+            -e CONSOLE_OUTPUT=false \
+            --restart unless-stopped \
+            ${{ secrets.DOCKERHUB_USERNAME }}/auto-media-hardlinker:${{ github.ref_name }}
+
+          # Or run with GitHub Container Registry image
+          docker run -d \
+            --name auto-media-hardlinker \
+            -p 3000:80 \
+            -v $(pwd)/config:/app/config \
+            -v $(pwd)/data:/app/data \
+            -v /path/to/your/media/files:/file \
+            -v $(pwd)/logs:/app/logs \
+            -e CONSOLE_OUTPUT=false \
+            --restart unless-stopped \
+            ghcr.io/${{ github.repository }}:${{ github.ref_name }}
           ```
           
+          **Important**: 
+          - Replace `/path/to/your/media/files` with your actual media files directory
+          - Create config, data, and logs directories before running: `mkdir -p config data logs`
+          
           ## 🔗 Links
-          - **Docker Hub**: [${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:${{ github.ref_name }}](https://hub.docker.com/r/${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }})
+          - **Docker Hub**: [${{ secrets.DOCKERHUB_USERNAME }}/auto-media-hardlinker:${{ github.ref_name }}](https://hub.docker.com/r/${{ secrets.DOCKERHUB_USERNAME }}/auto-media-hardlinker)
           - **GitHub Container Registry**: [ghcr.io/${{ github.repository }}:${{ github.ref_name }}](https://ghcr.io/${{ github.repository }})
           - **Source Code**: [View on GitHub](https://github.com/${{ github.repository }}/tree/${{ github.ref_name }})
           
