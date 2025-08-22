@@ -406,4 +406,4 @@ pnpm prisma:push       # 推送数据库模式变更
 
 ## 许可证
 
-MIT
+GPL-3.0

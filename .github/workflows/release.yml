@@ -1,0 +1,140 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*' # 当推送以 v 开头的 tag 时触发，如 v1.0.0
+  workflow_dispatch: # 允许手动触发
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # 获取完整的git历史，用于生成changelog
+        
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+          
+      - name: Install dependencies
+        run: |
+          pnpm install --frozen-lockfile
+          cd frontend && pnpm install --frozen-lockfile
+          
+      - name: Build project
+        run: |
+          pnpm prisma:generate
+          pnpm build
+          pnpm frontend:build
+          
+      - name: Create distribution archive
+        run: |
+          # 创建发布包
+          mkdir -p release
+          
+          # 复制构建产物和必要文件
+          cp -r dist release/
+          cp -r frontend/dist release/frontend
+          cp -r prisma release/
+          cp -r config release/
+          cp package.json pnpm-lock.yaml release/
+          cp README.md LICENSE release/ 2>/dev/null || true
+          cp docker-compose.yml Dockerfile start.sh release/ 2>/dev/null || true
+          cp -r docker release/ 2>/dev/null || true
+          cp .env.example release/.env 2>/dev/null || true
+
+          # 初始化数据库
+          pnpm prisma migrate deploy --schema=prisma/schema.prisma
+          cp prisma/dev.db release/prisma/dev.db 2>/dev/null || true
+
+          # 创建压缩包
+          cd release
+          tar -czf ../auto-media-hardlinker-${{ github.ref_name }}.tar.gz .
+          cd ..
+          
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # 获取上一个tag
+          PREVIOUS_TAG=$(git tag --sort=-version:refname | grep -v "^${{ github.ref_name }}$" | head -n1)
+          
+          if [ -z "$PREVIOUS_TAG" ]; then
+            echo "changelog=🎉 Initial release" >> $GITHUB_OUTPUT
+          else
+            # 生成变更日志
+            echo "changelog<<EOF" >> $GITHUB_OUTPUT
+            echo "### Changes since $PREVIOUS_TAG" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..${{ github.ref_name }} >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Create Release
+        run: |
+          # 判断是否为预发布版本
+          PRERELEASE=""
+          if [[ "${{ github.ref_name }}" == *"rc"* ]] || [[ "${{ github.ref_name }}" == *"beta"* ]] || [[ "${{ github.ref_name }}" == *"alpha"* ]]; then
+            PRERELEASE="--prerelease"
+          fi
+          
+          # 创建发布说明
+          cat > release_notes.md << 'EOF'
+          ${{ steps.changelog.outputs.changelog }}
+          
+          ## 📦 Installation
+          
+          ### Option 1: Download Release Archive
+          1. Download `auto-media-hardlinker-${{ github.ref_name }}.tar.gz` from the assets below
+          2. Extract the archive
+          3. Follow the README instructions
+          
+          ### Option 2: Use Docker Image
+          ```bash
+          # Pull the Docker image
+          docker pull ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+          
+          # Run with docker-compose
+          curl -O https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/docker-compose.yml
+          docker-compose up -d
+          
+          # Or run directly
+          docker run -d -p 80:80 ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+          ```
+          
+          ## 🔗 Links
+          - **Docker Image**: [ghcr.io/${{ github.repository }}:${{ github.ref_name }}](https://ghcr.io/${{ github.repository }})
+          - **Source Code**: [View on GitHub](https://github.com/${{ github.repository }}/tree/${{ github.ref_name }})
+          
+          EOF
+          
+          # 使用 GitHub CLI 创建 release
+          gh release create "${{ github.ref_name }}" \
+            --title "Release ${{ github.ref_name }}" \
+            --notes-file release_notes.md \
+            $PRERELEASE \
+            auto-media-hardlinker-${{ github.ref_name }}.tar.gz
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Output release details
+        run: |
+          echo "### 🚀 Release Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Assets:**" >> $GITHUB_STEP_SUMMARY
+          echo "- \`auto-media-hardlinker-${{ github.ref_name }}.tar.gz\`" >> $GITHUB_STEP_SUMMARY
