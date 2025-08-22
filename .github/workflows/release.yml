@@ -107,19 +107,23 @@ jobs:
           
           ### Option 2: Use Docker Image
           ```bash
-          # Pull the Docker image
+          # Option A: Pull from Docker Hub (recommended)
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:${{ github.ref_name }}
+          
+          # Option B: Pull from GitHub Container Registry
           docker pull ghcr.io/${{ github.repository }}:${{ github.ref_name }}
           
-          # Run with docker-compose
+          # Run with docker-compose (automatically pulls latest)
           curl -O https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/docker-compose.yml
           docker-compose up -d
           
-          # Or run directly
-          docker run -d -p 80:80 ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+          # Or run directly with Docker Hub image
+          docker run -d -p 80:80 ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:${{ github.ref_name }}
           ```
           
           ## 🔗 Links
-          - **Docker Image**: [ghcr.io/${{ github.repository }}:${{ github.ref_name }}](https://ghcr.io/${{ github.repository }})
+          - **Docker Hub**: [${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:${{ github.ref_name }}](https://hub.docker.com/r/${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }})
+          - **GitHub Container Registry**: [ghcr.io/${{ github.repository }}:${{ github.ref_name }}](https://ghcr.io/${{ github.repository }})
           - **Source Code**: [View on GitHub](https://github.com/${{ github.repository }}/tree/${{ github.ref_name }})
           
           EOF
