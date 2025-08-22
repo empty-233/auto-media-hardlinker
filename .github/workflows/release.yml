@@ -64,8 +64,11 @@ jobs:
           pnpm prisma migrate deploy --schema=prisma/schema.prisma
           cp prisma/dev.db release/prisma/dev.db 2>/dev/null || true
 
-          # 创建压缩包 - 修复目录结构问题
-          tar -czf auto-media-hardlinker-${{ github.ref_name }}.tar.gz -C release .
+          # 重命名release文件夹为版本号同名的文件夹
+          mv release auto-media-hardlinker-${{ github.ref_name }}
+          
+          # 创建压缩包
+          tar -czf auto-media-hardlinker-${{ github.ref_name }}.tar.gz auto-media-hardlinker-${{ github.ref_name }}
           
       - name: Generate changelog
         id: changelog
