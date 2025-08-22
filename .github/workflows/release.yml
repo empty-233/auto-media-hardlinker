@@ -118,7 +118,7 @@ jobs:
           docker-compose up -d
           
           # Or run directly with Docker Hub image
-          docker run -d -p 80:80 ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:${{ github.ref_name }}
+          docker run -d -p 3000:80 ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:${{ github.ref_name }}
           ```
           
           ## 🔗 Links
