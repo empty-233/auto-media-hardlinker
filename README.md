@@ -103,9 +103,9 @@ cp .env.example .env
 ```json
 {
     //监听目录位置
-    "monitorFilePath": "./media",
+    "monitorFilePath": "/file/monitor",
     //目标目录位置
-    "targetFilePath": "./file",
+    "targetFilePath": "/file/target",
     //是否持久化保存日志到文件(true/false)
     "persistentLogging": false,
     //tmdb api https://www.themoviedb.org/settings/api
@@ -255,9 +255,42 @@ server {
 }
 ```
 
-### Docker 部署（计划中）
+### Docker 部署
 
-Docker 部署支持正在开发中，即将在后续版本中提供。
+您可以使用 Docker 和 Docker Compose 快速部署应用。
+
+1.  **克隆项目**
+
+    ```bash
+    git clone https://github.com/empty-233/auto-media-hardlinker.git
+    cd auto-media-hardlinker
+    ```
+
+2.  **配置 `docker-compose.yml`**
+
+    编辑 `docker-compose.yml` 文件，根据您的实际情况修改卷（volumes）映射：
+
+    ```yaml
+    services:
+      app:
+        # ...
+        volumes:
+          - ./config:/app/config
+          - ./data:/app/data
+          - ./logs:/app/logs
+          # 文件目录 - 请修改为你的实际路径
+          - /path/to/your/file:/file
+    ```
+
+3.  **启动服务**
+
+    ```bash
+    docker-compose up -d
+    ```
+
+4.  **首次配置**
+
+    容器首次启动后，默认配置文件会自动创建在 `./config/config.json`。需要在webui中配置。
 
 ## 开发指南
 
@@ -361,13 +394,11 @@ pnpm prisma:push       # 推送数据库模式变更
 
 ### 🚀 功能规划
 
-1. **部署支持**
-   - Docker 容器化部署
-   - Docker Compose 一键部署
-   - 环境变量配置支持
+- BD刮削
 
-### ✅ 已完成优化
+### ✅ 已完成
 
+- ✅ Docker 部署支持
 - ✅ 大文件处理性能优化
 - ✅ 内存使用优化
 - ✅ 异常情况下的错误恢复

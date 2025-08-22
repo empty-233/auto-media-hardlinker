@@ -1,0 +1,24 @@
+services:
+  auto-media-hardlinker:
+    build: .
+    container_name: auto-media-hardlinker
+    ports:
+      - "3000:80"
+    volumes:
+      # 配置文件挂载
+      - ./config:/app/config
+      # 数据库和数据目录
+      - ./data:/app/data
+      # 文件目录 - 请修改为你的实际路径
+      - /path/to/your/file:/file
+      # 日志目录
+      - ./logs:/app/logs
+    environment:
+      - CONSOLE_OUTPUT=false
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
