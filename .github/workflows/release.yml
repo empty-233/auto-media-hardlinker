@@ -56,7 +56,7 @@ jobs:
           cp README.md LICENSE release/ 2>/dev/null || true
           cp docker-compose.yml Dockerfile start.sh release/ 2>/dev/null || true
           cp -r docker release/ 2>/dev/null || true
-          cp config/config.json.example release/config.json 2>/dev/null || true
+          cp config/config.json.example release/config/config.json 2>/dev/null || true
           cp .env.example .env 2>/dev/null || true
           cp .env release/.env 2>/dev/null || true
 
