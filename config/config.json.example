@@ -24,6 +24,20 @@
         ".mpeg",
         ".ts"
     ],
+    "subtitleExtensions": [
+        ".srt",
+        ".ass",
+        ".ssa",
+        ".sub",
+        ".idx",
+        ".vtt",
+        ".sup"
+    ],
+    "scanConfig": {
+        "enabled": true,
+        "interval": 360,
+        "concurrency": 3
+    },
     "queue": {
         "concurrency": 1,
         "retryDelay": 1000,

@@ -5,14 +5,25 @@ import { logger } from "../utils/logger";
 import { isDevelopment } from '../config/env';
 
 /**
+ * 扫描配置接口
+ */
+export interface ScanConfig {
+  enabled: boolean;
+  interval: number; // 间隔时间(分钟)
+  concurrency: number;
+}
+
+/**
  * 配置文件接口定义
  */
 export interface Config {
   monitorFilePath: string;
   targetFilePath: string;
   tmdbApi: string;
-  language:string;
+  language: string;
   videoExtensions: string[];
+  subtitleExtensions: string[];
+  scanConfig: ScanConfig;
   // LLM相关配置
   useLlm?: boolean;
   llmProvider?: "ollama" | "openai";
@@ -76,6 +87,26 @@ export function getConfig(
 
     if (!config.videoExtensions || !Array.isArray(config.videoExtensions) || config.videoExtensions.length === 0) {
       throw new Error("配置文件缺少或无效的 videoExtensions 字段");
+    }
+
+    if (!config.subtitleExtensions || !Array.isArray(config.subtitleExtensions) || config.subtitleExtensions.length === 0) {
+      throw new Error("配置文件缺少或无效的 subtitleExtensions 字段");
+    }
+
+    if (!config.scanConfig) {
+      throw new Error("配置文件缺少 scanConfig 字段");
+    }
+
+    if (typeof config.scanConfig.enabled !== "boolean") {
+      throw new Error("配置文件中的 scanConfig.enabled 字段必须是布尔值");
+    }
+
+    if (typeof config.scanConfig.interval !== "number" || config.scanConfig.interval < 1) {
+      throw new Error("配置文件中的 scanConfig.interval 字段必须是大于等于1的数字(分钟)");
+    }
+
+    if (typeof config.scanConfig.concurrency !== "number" || config.scanConfig.concurrency < 1) {
+      throw new Error("配置文件中的 scanConfig.concurrency 字段必须是大于0的数字");
     }
 
     if (config.useLlm) {

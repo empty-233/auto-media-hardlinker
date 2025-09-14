@@ -65,6 +65,9 @@ model File {
   episodeInfo   EpisodeInfo? @relation(fields: [episodeInfoId], references: [id])
   episodeInfoId Int?         @unique @map("episode_info_id") /// 关联电视剧单集信息的ID
 
+  /// 关联的库文件信息（一对一关系）
+  libraryFile Library?
+
   @@unique([deviceId, inode], name: "device_inode_unique") /// 设备ID和inode联合唯一约束
   @@index([fileHash]) /// 文件哈希索引，用于加速查询
 }
@@ -156,4 +159,49 @@ model User {
   password  String /// 密码哈希
   createdAt DateTime @default(now()) @map("created_at") /// 创建时间
   updatedAt DateTime @updatedAt @map("updated_at") /// 更新时间
+}
+
+/// 库文件状态枚举
+enum LibraryStatus {
+  PENDING   /// 待处理
+  PROCESSED /// 已处理
+  ERROR     /// 处理出错
+  IGNORED   /// 忽略
+}
+
+/// 媒体库表，存储所有扫描到的文件信息
+model Library {
+  id               Int           @id @default(autoincrement()) /// 唯一标识符
+  type             String /// 文件类型（video/subtitle）
+  path             String        @unique /// 文件路径
+  pathHash         String        @map("path_hash") /// 路径哈希值，用于快速查找
+  size             BigInt /// 文件大小（字节）
+  status           LibraryStatus @default(PENDING) /// 处理状态
+  lastProcessedAt  DateTime?     @map("last_processed_at") /// 上次处理时间
+  fileId           Int?          @unique /// 关联的file表ID（已刮削才有）
+  createdAt        DateTime      @default(now()) @map("created_at") /// 记录创建时间
+  updatedAt        DateTime      @updatedAt @map("updated_at") /// 记录更新时间
+
+  /// 关联的文件信息
+  file File? @relation(fields: [fileId], references: [id])
+
+  @@index([pathHash]) /// 路径哈希索引，用于加速查询
+  @@index([status]) /// 状态索引，用于加速查询
+  @@index([type]) /// 类型索引，用于加速查询
+}
+
+/// 扫描日志表，记录扫描历史和错误信息
+model ScanLog {
+  id          Int       @id @default(autoincrement()) /// 唯一标识符
+  scanTime    DateTime  @map("scan_time") /// 扫描时间
+  scanPath    String    @map("scan_path") /// 扫描路径
+  filesFound  Int       @map("files_found") /// 发现的文件数量
+  filesAdded  Int       @map("files_added") /// 新增的文件数量
+  duration    Int /// 扫描耗时（毫秒）
+  errors      String? /// 错误信息（JSON格式）
+  status      String /// 扫描状态（success/error）
+  createdAt   DateTime  @default(now()) @map("created_at") /// 记录创建时间
+
+  @@index([scanTime]) /// 扫描时间索引
+  @@index([status]) /// 状态索引
 }

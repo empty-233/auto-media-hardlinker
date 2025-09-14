@@ -1,4 +1,4 @@
-import { Type, Prisma } from "@prisma/client";
+import { Type, Prisma, LibraryStatus } from "@prisma/client";
 import prisma from "../client";
 import { logger } from "../utils/logger";
 import { downloadTMDBImage, formatDate } from "../utils/media";
@@ -110,6 +110,9 @@ export class MediaRepository implements IMediaRepository {
         updateData.episodeInfo = { disconnect: true };
       }
 
+      // 同时更新Library表中对应的记录状态
+      await this.updateLibraryStatus(fileDetails.sourcePath, LibraryStatus.PROCESSED, existingFile.id);
+
       return prisma.file.update({
         where: { id: existingFile.id },
         data: updateData,
@@ -126,8 +129,10 @@ export class MediaRepository implements IMediaRepository {
           `目标链接路径 "${fileDetails.linkPath}" 已被另一个文件 (ID: ${fileWithSameLinkPath.id}, Path: ${fileWithSameLinkPath.filePath}) 使用。请手动处理冲突。`
         );
       }
+      
       logger.info(`创建新的文件记录: ${fileDetails.sourcePath}`);
-      return prisma.file.create({
+
+      const fileRecord = await prisma.file.create({
         data: {
           deviceId: fileDetails.deviceId,
           inode: fileDetails.inode,
@@ -139,6 +144,35 @@ export class MediaRepository implements IMediaRepository {
           ...(episodeId ? { episodeInfo: { connect: { id: episodeId } } } : {}),
         },
       });
+
+      // 更新Library表状态并关联fileId
+      await this.updateLibraryStatus(fileDetails.sourcePath, LibraryStatus.PROCESSED, fileRecord.id);
+
+      return fileRecord;
+    }
+  }
+
+  /**
+   * 更新Library表中文件的状态
+   */
+  private async updateLibraryStatus(filePath: string, status: LibraryStatus, fileId?: number) {
+    try {
+      const updateData: any = {
+        status,
+        lastProcessedAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      if (fileId) {
+        updateData.fileId = fileId;
+      }
+
+      await prisma.library.updateMany({
+        where: { path: filePath },
+        data: updateData
+      });
+    } catch (error) {
+      logger.warn(`更新Library表状态失败 ${filePath}: ${error instanceof Error ? error.message : '未知错误'}`);
     }
   }
 

@@ -4,3 +4,4 @@ export { FileController } from "./file.controller";
 export { EpisodeController } from "./episode.controller";
 export { SystemController } from "./system.controller";
 export { TMDBController } from "./tmdb.controller";
+export { ScanController } from "./scan.controller";

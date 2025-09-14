@@ -1,7 +1,6 @@
 import { Router } from 'express'
 import { AuthController } from '../controllers/auth.controller'
 import { AuthService } from '../services'
-import { authenticateToken } from '../middleware/auth.middleware'
 
 const authService = new AuthService();
 const authController = new AuthController(authService);
@@ -18,6 +17,6 @@ router.post('/register', authController.register)
 router.post('/login', authController.login)
 
 // 获取当前用户信息（需要认证）
-router.get('/me', authenticateToken, authController.getCurrentUser)
+router.get('/me', authController.getCurrentUser)
 
 export default router

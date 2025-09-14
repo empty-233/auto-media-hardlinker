@@ -276,6 +276,29 @@ export class MediaHardlinkerService {
   }
 
   /**
+   * @public
+   * @method createHardlinkForFile
+   * @description 为单个文件创建硬链接
+   * @param filePath 文件路径
+   * @returns {Promise<void>}
+   */
+  public async createHardlinkForFile(filePath: string): Promise<void> {
+    try {
+      // 直接创建硬链接，不经过刮削流程
+      const targetPath = path.join(
+        this.config.targetFilePath,
+        path.basename(filePath)
+      );
+      
+      await createHardlink(filePath, targetPath);
+      logger.info(`成功创建硬链接: ${filePath} -> ${targetPath}`);
+    } catch (error) {
+      logger.error(`创建硬链接失败: ${filePath}`, error);
+      throw error;
+    }
+  }
+
+  /**
    * @private
    * @method calculateFileHash
    * @description 计算文件的MD5哈希值，用于唯一标识文件。

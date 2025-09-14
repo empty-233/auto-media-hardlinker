@@ -33,8 +33,8 @@
     - [自定义正则表达式配置](#自定义正则表达式配置)
     - [实际使用案例](#实际使用案例)
   - [待办事项](#待办事项)
-    - [功能规划](#-功能规划)
-    - [已完成](#-已完成)
+    - [功能规划](#功能规划)
+    - [已完成](#已完成)
   - [许可证](#许可证)
 
 ## 项目简介
@@ -320,7 +320,7 @@ cp .env.example .env
 
 # 初始化数据库
 pnpm prisma:generate
-pnpm prisma migrate deploy
+pnpm prisma db push
 
 # 启动开发服务器（同时启动前后端）
 pnpm dev & pnpm frontend:dev

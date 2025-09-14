@@ -93,6 +93,19 @@ const router = createRouter({
             componentName: 'QueueManagement'
           }
         },
+        // 扫描管理路由
+        {
+          path: 'scan',
+          name: 'scan',
+          component: () => import('../views/scan/ScanManagement.vue'),
+          meta: {
+            title: '扫描管理',
+            icon: 'Search',
+            showInMenu: true,
+            keepAlive: true,
+            componentName: 'ScanManagement'
+          }
+        },
         // 日志管理路由
         {
           path: 'logs',

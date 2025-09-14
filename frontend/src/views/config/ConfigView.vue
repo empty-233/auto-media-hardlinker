@@ -20,7 +20,7 @@ const switchLoading = ref(false)
 // 表单数据
 const configForm = reactive<SystemConfig>({
   tmdbApi: '',
-  useLlm: false,
+  useLlm: true,
   llmProvider: 'ollama',
   llmHost: '',
   llmModel: '',
@@ -34,7 +34,7 @@ const configForm = reactive<SystemConfig>({
 // 原始数据备份
 const originalConfig = ref<SystemConfig>({
   tmdbApi: '',
-  useLlm: false,
+  useLlm: true,
   llmProvider: 'ollama',
   llmHost: '',
   llmModel: '',
@@ -166,7 +166,9 @@ const saveConfig = async () => {
     await configFormRef.value.validate()
     
     saveLoading.value = true
-    
+    console.log(configForm);
+    console.log(originalConfig.value);
+
     // 检查是否有变更
     const hasChanges = Object.keys(configForm).some(key => {
       const k = key as keyof SystemConfig
@@ -737,6 +739,19 @@ onMounted(() => {
 .help-text {
   font-size: 12px;
   color: var(--el-color-info);
+}
+
+.interval-display {
+  margin-left: 12px;
+  color: var(--el-color-primary);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.unit-text {
+  margin-left: 8px;
+  color: var(--color-text);
+  font-size: 14px;
 }
 
 /* 响应式设计 */

@@ -57,6 +57,11 @@ export {
   QueueValidator
 } from './queue.validator';
 
+// 扫描相关验证器
+export {
+  ScanValidator
+} from './scan.validator';
+
 // 验证中间件
 export {
   validateRequest,
