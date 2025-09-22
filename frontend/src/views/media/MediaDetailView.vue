@@ -105,9 +105,9 @@ const viewFile = (file: MediaFile) => {
   pathParts.pop() // 移除文件名
 
   // 移除第一级根目录
-  if (pathParts.length > 0) {
-    pathParts.shift()
-  }
+  // if (pathParts.length > 0) {
+  //   pathParts.shift()
+  // }
 
   const dirPath = pathParts.join('/')
 

@@ -31,11 +31,4 @@ export class MediaService {
   ): Promise<PaginatedResponse<Media>> {
     return http.get<PaginatedResponse<Media>>(`/media/type/${type}`, params)
   }
-
-  /**
-   * 更新剧集信息
-   */
-  static async updateEpisode(id: number, params: UpdateEpisodeParams): Promise<EpisodeInfo> {
-    return http.put<EpisodeInfo>(`/episodes/${id}`, params)
-  }
 }

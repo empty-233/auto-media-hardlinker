@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { ScanController } from '../controllers';
 import { ScanScheduler } from '../core/scanScheduler';
-import { ValidationMiddleware, ScanValidator } from '../validators';
+import { createValidator } from '../middleware/validation.middleware';
+import { ParamValidators, ScanQueryValidators, ScanBodyValidators } from '../validators';
 
 const prisma = new PrismaClient();
 const scanScheduler = new ScanScheduler(prisma);
@@ -22,22 +23,38 @@ router.get("/status", scanController.getScanStatus);
 // 获取扫描日志
 router.get(
   "/logs",
-  ValidationMiddleware.query(ScanValidator.getLogsQuery),
+  createValidator({
+    query: ScanQueryValidators.logs
+  }),
   scanController.getScanLogs
 );
 
 // 获取库文件列表
 router.get(
   "/library",
-  ValidationMiddleware.query(ScanValidator.getLibraryFilesQuery),
+  createValidator({
+    query: ScanQueryValidators.libraryFiles
+  }),
   scanController.getLibraryFiles
 );
 
 // 删除库文件记录
-router.delete('/library/:id', ValidationMiddleware.params(ScanValidator.libraryFileIdParam), scanController.deleteLibraryFile);
+router.delete(
+  '/library/:id', 
+  createValidator({
+    params: ParamValidators.id
+  }), 
+  scanController.deleteLibraryFile
+);
 
 // 重新处理库文件
-router.put('/library/:id/reprocess', ValidationMiddleware.params(ScanValidator.libraryFileIdParam), scanController.reprocessLibraryFile);
+router.put(
+  '/library/:id/reprocess', 
+  createValidator({
+    params: ParamValidators.id
+  }), 
+  scanController.reprocessLibraryFile
+);
 
 // 获取扫描配置
 router.get("/config", scanController.getScanConfig);
@@ -45,9 +62,10 @@ router.get("/config", scanController.getScanConfig);
 // 更新扫描配置
 router.put(
   "/config",
-  ValidationMiddleware.body(ScanValidator.updateConfig),
+  createValidator({
+    body: ScanBodyValidators.updateConfig
+  }),
   scanController.updateScanConfig
 );
 
 export default router;
-export { scanScheduler };

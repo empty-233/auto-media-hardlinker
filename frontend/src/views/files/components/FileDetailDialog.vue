@@ -362,6 +362,14 @@ const saveAndLink = async () => {
     return
   }
 
+  // 显示进度提示
+  const loadingMessage = ElMessage({
+    message: '正在关联媒体，此过程可能需要1-2分钟...',
+    type: 'info',
+    duration: 0, // 不自动关闭
+    showClose: true,
+  })
+
   try {
     linkMediaLoading.value = true
 
@@ -370,8 +378,10 @@ const saveAndLink = async () => {
       type: selectedTmdbItem.value.media_type,
       tmdbId: selectedTmdbItem.value.id,
       title: selectedTmdbItem.value.title || selectedTmdbItem.value.name,
-      originalTitle: selectedTmdbItem.value.original_title || selectedTmdbItem.value.original_name,
-      releaseDate: selectedTmdbItem.value.release_date || selectedTmdbItem.value.first_air_date,
+      originalTitle:
+        selectedTmdbItem.value.original_title || selectedTmdbItem.value.original_name,
+      releaseDate:
+        selectedTmdbItem.value.release_date || selectedTmdbItem.value.first_air_date,
       description: selectedTmdbItem.value.overview,
       posterPath: selectedTmdbItem.value.poster_path,
       backdropPath: selectedTmdbItem.value.backdrop_path,
@@ -405,10 +415,32 @@ const saveAndLink = async () => {
 
     // 关闭弹窗
     handleClose()
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('保存关联失败:', error)
-    ElMessage.error('保存关联失败，请稍后重试')
+
+    // 根据错误类型显示不同的错误信息
+    let errorMessage = '保存关联失败，请稍后重试'
+
+    if (error instanceof Error) {
+      if (error.message?.includes('timeout')) {
+        errorMessage =
+          '操作超时，请检查网络连接后重试。注意：电视剧关联可能需要较长时间同步剧集信息。'
+      } else if (error.message?.includes('Network Error')) {
+        errorMessage = '网络连接错误，请检查网络后重试'
+      }
+    }
+
+    // 处理axios错误响应
+    if (typeof error === 'object' && error !== null && 'response' in error) {
+      const axiosError = error as { response?: { data?: { message?: string } } }
+      if (axiosError.response?.data?.message) {
+        errorMessage = axiosError.response.data.message
+      }
+    }
+
+    ElMessage.error(errorMessage)
   } finally {
+    loadingMessage.close()
     linkMediaLoading.value = false
   }
 }
@@ -825,6 +857,37 @@ const getPosterUrl = (posterPath?: string): string => {
         <div v-if="currentStep === 'confirm'" class="step-content">
           <h3 class="section-title">确认关联信息</h3>
 
+          <!-- 操作提示 -->
+          <div class="operation-notice">
+            <el-alert
+              title="操作提示"
+              type="info"
+              :closable="false"
+              show-icon
+            >
+              <template #default>
+                <div class="notice-content">
+                  <p>关联媒体将执行以下操作：</p>
+                  <ul>
+                    <li>从TMDB下载媒体海报和信息</li>
+                    <li v-if="selectedTmdbItem?.media_type === 'tv'">同步电视剧的剧集信息</li>
+                    <li>创建硬链接到媒体库</li>
+                    <li>保存关联信息到数据库</li>
+                  </ul>
+                  <p class="notice-warning">
+                    <strong>注意：</strong>
+                    <span v-if="selectedTmdbItem?.media_type === 'tv'">
+                      电视剧关联可能需要1-2分钟来同步所有剧集信息，请耐心等待。
+                    </span>
+                    <span v-else>
+                      此操作通常在30秒内完成。
+                    </span>
+                  </p>
+                </div>
+              </template>
+            </el-alert>
+          </div>
+
           <div v-if="selectedTmdbItem" class="confirm-info">
             <div class="confirm-media">
               <div class="media-poster">
@@ -883,8 +946,14 @@ const getPosterUrl = (posterPath?: string): string => {
           type="primary"
           :loading="linkMediaLoading"
           @click="saveAndLink"
+          :disabled="linkMediaLoading"
         >
-          保存并关联
+          <span v-if="linkMediaLoading">
+            {{ selectedTmdbItem?.media_type === 'tv' ? '正在同步剧集信息...' : '正在关联媒体...' }}
+          </span>
+          <span v-else>
+            确认并关联
+          </span>
         </el-button>
       </div>
     </template>
@@ -1498,6 +1567,30 @@ const getPosterUrl = (posterPath?: string): string => {
   flex: 1;
   overflow-y: auto;
   padding-right: 4px;
+}
+
+.operation-notice {
+  margin-bottom: 24px;
+}
+
+.notice-content {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.notice-content ul {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.notice-content li {
+  margin-bottom: 4px;
+}
+
+.notice-warning {
+  margin-top: 12px;
+  color: var(--el-color-warning);
+  font-size: 13px;
 }
 
 .selected-info h4 {

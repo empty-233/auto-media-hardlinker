@@ -92,7 +92,6 @@ class HttpClient {
         
         // 处理业务逻辑错误
         if (!data.success) {
-          this.handleBusinessError(data)
           return Promise.reject(new Error(data.message))
         }
 
@@ -114,13 +113,6 @@ class HttpClient {
   }
 
   /**
-   * 处理业务逻辑错误
-   */
-  private handleBusinessError(data: ApiResponse): void {
-    ElMessage.error(data.message || '请求失败')
-  }
-
-  /**
    * 处理HTTP错误
    */
   private handleHttpError(error: AxiosError<ErrorResponse>): void {
@@ -131,8 +123,6 @@ class HttpClient {
       
       switch (status) {
         case HttpStatus.BAD_REQUEST:
-          // 400错误通常是业务逻辑错误（如密码错误），显示具体错误信息
-          ElMessage.error(data?.message || '请求参数错误')
           break
         case HttpStatus.UNAUTHORIZED:
           ElMessage.error('登录已过期，请重新登录')

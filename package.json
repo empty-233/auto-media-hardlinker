@@ -24,6 +24,7 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
+    "express-zod-safe": "^2.0.0",
     "fast-glob": "^3.3.3",
     "jsonwebtoken": "^9.0.2",
     "moviedb-promise": "^4.0.7",

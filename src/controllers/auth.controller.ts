@@ -1,90 +1,79 @@
-import { Request, Response } from "express";
-import { AuthService } from "../services";
-import { logger } from "../utils/logger";
+import { Response } from "express";
 import {
   success,
   badRequest,
   unauthorized,
-  internalError,
-  forbidden,
-  notFound,
 } from "../utils/response";
+import { AuthService } from "../services/auth.service";
+import { TypedController, TypedRequest } from "./base.controller";
+import { AuthBodyValidators } from "../validators";
+import { z } from "zod";
 
-export class AuthController {
-  constructor(private authService: AuthService) {}
+// 类型推导
+type RegisterBody = z.infer<typeof AuthBodyValidators.register>;
+type LoginBody = z.infer<typeof AuthBodyValidators.login>;
+
+// 认证控制器
+export class AuthController extends TypedController {
+  constructor(private authService: AuthService) {
+    super();
+  }
+
+  // 用户注册
+  register = this.asyncHandler(async (req: TypedRequest<{}, {}, RegisterBody>, res: Response) => {
+    try {
+      const result = await this.authService.register(req.body);
+      success(res, result, "注册成功");
+    } catch (error) {
+      if (error instanceof Error) {
+        badRequest(res, error.message);
+      } else {
+        badRequest(res, "发生未知错误");
+      }
+    }
+  });
 
   // 用户登录
-  login = async (req: Request, res: Response): Promise<void> => {
+  login = this.asyncHandler(async (req: TypedRequest<{}, {}, LoginBody>, res: Response) => {
     try {
-      const { username, password } = req.body;
-
-      if (!username || !password) {
-        return badRequest(res, "用户名和密码不能为空");
-      }
-
-      const result = await this.authService.login({ username, password });
+      const result = await this.authService.login(req.body);
       success(res, result, "登录成功");
-    } catch (error: any) {
-      logger.error("登录失败:", error);
-      if (error.message === "用户名或密码错误") {
-        // 密码错误应该返回400而不是401，避免被前端认证拦截器误处理
-        badRequest(res, error.message);
+    } catch (error) {
+      if (error instanceof Error) {
+        unauthorized(res, error.message);
       } else {
-        internalError(res, "服务器错误");
+        unauthorized(res, "发生未知错误");
       }
     }
-  };
-
-  // 用户注册（仅在没有用户时允许）
-  register = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { username, password } = req.body;
-
-      if (!username || !password) {
-        return badRequest(res, "用户名和密码不能为空");
-      }
-
-      const result = await this.authService.register({ username, password });
-      success(res, result, "用户注册成功", 201);
-    } catch (error: any) {
-      logger.error("注册失败:", error);
-      if (error.message === "密码长度不能少于6位") {
-        badRequest(res, error.message);
-      } else if (error.message === "系统已有用户，无法注册新用户") {
-        forbidden(res, error.message);
-      } else {
-        internalError(res, "服务器错误");
-      }
-    }
-  };
+  });
 
   // 获取当前用户信息
-  getCurrentUser = async (req: Request, res: Response): Promise<void> => {
-    try {
-      if (!req.user) {
-        return unauthorized(res, "未授权");
-      }
+  getCurrentUser = this.asyncHandler(async (req: TypedRequest, res: Response) => {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return unauthorized(res, "用户未认证");
+    }
 
-      const user = await this.authService.getCurrentUser(req.user.userId);
+    try {
+      const user = await this.authService.getCurrentUser(userId);
       success(res, user, "获取用户信息成功");
-    } catch (error: any) {
-      logger.error("获取用户信息失败:", error);
-      if (error.message === "用户不存在") {
-        notFound(res, error.message);
+    } catch (error) {
+      if (error instanceof Error) {
+        unauthorized(res, error.message);
       } else {
-        internalError(res, "服务器错误");
+        unauthorized(res, "发生未知错误");
       }
     }
-  };
+  });
 
-  // 检查是否需要初始化用户
-  checkInitialization = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const result = await this.authService.checkInitialization();
-      success(res, result, "检查初始化状态成功");
-    } catch (error) {
-      logger.error("检查初始化状态失败:", error);
-      internalError(res, "服务器错误");
-    }
-  };
+  // 检查初始化状态
+  checkInitialization = this.asyncHandler(async (req: TypedRequest, res: Response) => {
+    const status = await this.authService.checkInitialization();
+    success(res, status, "获取初始化状态成功");
+  });
+
+  // 用户登出（仅返回成功信息）
+  logout = this.asyncHandler(async (req: TypedRequest, res: Response) => {
+    success(res, null, "退出登录成功");
+  });
 }

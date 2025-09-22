@@ -11,63 +11,55 @@ export {
   QueryValidators
 } from './common.validator';
 
+// 认证相关验证器
+export {
+  AuthBodyValidators
+} from './auth.validator';
+
+// 仪表板相关验证器
+export {
+  DashboardQueryValidators
+} from './dashboard.validator';
+
+// 剧集相关验证器
+export {
+  EpisodeParamValidators,
+  EpisodeQueryValidators,
+} from './episode.validator';
+
 // 文件相关验证器
 export {
   FileValidators,
   FileParamValidators,
-  FileValidationRules
 } from './file.validator';
-
-// 剧集相关验证器
-export {
-  EpisodeValidators,
-  EpisodeParamValidators,
-  EpisodeQueryValidators,
-  EpisodeModelValidators
-} from './episode.validator';
 
 // 媒体相关验证器
 export {
-  MediaValidators,
   MediaParamValidators,
-  MediaQueryValidators,
-  MediaModelValidators
+  MediaQueryValidators
 } from './media.validator';
-
-// TMDB相关验证器
-export {
-  TMDBValidators,
-  TMDBParamValidators,
-  TMDBQueryValidators
-} from './tmdb.validator';
-
-// 仪表板相关验证器
-export {
-  DashboardValidators,
-  DashboardQueryValidators,
-} from './dashboard.validator';
-
-// 系统相关验证器
-export {
-  SystemValidator
-} from './system.validator';
 
 // 队列相关验证器
 export {
-  QueueValidator
+  QueueParamValidators,
+  QueueQueryValidators,
+  QueueBodyValidators
 } from './queue.validator';
 
 // 扫描相关验证器
 export {
-  ScanValidator
+  ScanQueryValidators,
+  ScanBodyValidators
 } from './scan.validator';
 
-// 验证中间件
+// 系统相关验证器
 export {
-  validateRequest,
-  validateMultiple,
-  ValidationMiddleware,
-  ValidatorComposer,
-  type ValidationConfig,
-  type ValidationType
-} from '../middleware/validation.middleware';
+  SystemQueryValidators,
+  SystemBodyValidators
+} from './system.validator';
+
+// TMDB相关验证器
+export {
+  TMDBParamValidators,
+  TMDBQueryValidators
+} from './tmdb.validator';

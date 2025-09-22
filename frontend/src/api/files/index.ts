@@ -43,7 +43,9 @@ export class FileService {
    * 关联媒体文件
    */
   static async linkMedia(fileId: number | string, params: LinkMediaParams): Promise<FileInfo> {
-    return http.post<FileInfo>(`/files/${fileId}/link-media`, params)
+    return http.post<FileInfo>(`/files/${fileId}/link-media`, params, {}, {
+      timeout: 60000 // 60秒超时
+    })
   }
 
   /**

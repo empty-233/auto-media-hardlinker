@@ -3,54 +3,61 @@ import { FileController } from "../controllers";
 import { FileService, EpisodeService, TMDBService } from "../services";
 import { MediaRepository } from "../repository/media.repository";
 import { MediaHardlinkerService } from "../core/mediaHardlinker";
-import {
-  ValidationMiddleware,
-  FileValidators,
-  FileParamValidators,
-  QueryValidators
-} from "../validators";
+import { createValidator } from "../middleware/validation.middleware";
+import { ParamValidators, FileValidators } from "../validators";
 
 const tmdbService = TMDBService.getInstance();
 const episodeService = new EpisodeService(tmdbService);
-const fileService = new FileService();
 const mediaRepository = new MediaRepository();
 const mediaHardlinkerService = new MediaHardlinkerService();
-const fileController = new FileController(fileService, episodeService, mediaHardlinkerService, mediaRepository);
+const fileService = new FileService(mediaHardlinkerService, mediaRepository, episodeService);
+const fileController = new FileController(fileService);
 
 const router = Router();
 
 // 获取目录内容
 router.get(
   "/directory",
-  ValidationMiddleware.query(QueryValidators.directoryPath),
+  createValidator({
+    query: FileValidators.getDirectoryContents
+  }),
   fileController.getDirectoryContents
 );
 
 // 获取单个文件详情
 router.get(
   "/:id",
-  ValidationMiddleware.params(FileParamValidators.fileId),
+  createValidator({
+    params: ParamValidators.id
+  }),
   fileController.getFileById
 );
 
 // 重命名文件
 router.post(
   "/rename",
-  ValidationMiddleware.body(FileValidators.renameFile),
+  createValidator({
+    body: FileValidators.renameFile
+  }),
   fileController.renameFile
 );
 
 // 关联媒体文件
 router.post(
   "/:id/link-media",
-  ValidationMiddleware.body(FileValidators.linkMedia),
+  createValidator({
+    params: ParamValidators.idOrNew,
+    body: FileValidators.linkMedia
+  }),
   fileController.linkMedia
 );
 
 // 取消关联媒体文件
 router.post(
   "/:id/unlink-media",
-  ValidationMiddleware.params(FileParamValidators.fileId),
+  createValidator({
+    params: ParamValidators.id
+  }),
   fileController.unlinkMedia
 );
 

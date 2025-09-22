@@ -105,14 +105,14 @@ export const FileValidators = {
     mediaInfo: mediaInfoSchema,
     /** 文件名 */
     filename: CommonValidators.fileName,
-    /** 文件路径 */
-    path: CommonValidators.filePath,
+    /** 文件路径，可以为空(代表根目录) */
+    path: CommonValidators.optionalFilePath.default(''),
     /** 剧集的TMDB ID（仅电视剧需要），自动转换为数字 */
-    episodeTmdbId: z.coerce.number().int().positive().optional(),
+    episodeTmdbId: z.coerce.number().int().positive().optional().default(0),
     /** 季号（仅电视剧需要），自动转换为数字，允许从第0季开始 */
-    seasonNumber: z.coerce.number().int().min(0).nullable().optional(),
+    seasonNumber: z.coerce.number().int().min(0).nullable().optional().default(0),
     /** 集号（仅电视剧需要），自动转换为数字，允许从第0集开始 */
-    episodeNumber: z.coerce.number().int().min(0).nullable().optional()
+    episodeNumber: z.coerce.number().int().min(0).nullable().optional().default(0)
   }).refine(
     (data) => {
       // 如果是电视剧类型，必须提供季集信息
@@ -131,14 +131,16 @@ export const FileValidators = {
    * 获取目录内容查询参数验证
    * 
    * 验证目录浏览请求的参数，确保目录路径有效且长度合理。
+   * dirPath 可以为空，空值代表监听文件夹的根目录。
    * 
    * @example
    * // 查询参数示例
    * ?dirPath=/anime/2024/
+   * ?dirPath=  (空值，代表根目录)
    */
   getDirectoryContents: z.object({
-    /** 目录路径，不能为空且长度限制在1024字符内 */
-    dirPath: z.string().min(1, '目录路径不能为空').max(1024, '目录路径不能超过1024个字符')
+    /** 目录路径，可以为空(代表根目录)，长度限制在1024字符内 */
+    dirPath: CommonValidators.optionalFilePath
   })
 };
 

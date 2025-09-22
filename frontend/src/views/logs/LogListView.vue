@@ -47,6 +47,11 @@ const loadLogList = async () => {
       sortBy: sortConfig.value.prop,
       sortOrder: sortConfig.value.order === 'descending' ? 'desc' : 'asc',
     }
+    
+    // 如果 level 为空，则不传递该参数
+    if (!params.level) {
+      delete params.level
+    }
 
     const res = await LogService.getLogs(params)
     logList.value = res.items

@@ -29,6 +29,9 @@ importers:
       express:
         specifier: ^5.1.0
         version: 5.1.0
+      express-zod-safe:
+        specifier: ^2.0.0
+        version: 2.0.0(@types/express@5.0.3)(express@5.1.0)(zod@4.1.4)
       fast-glob:
         specifier: ^3.3.3
         version: 3.3.3
@@ -510,6 +513,13 @@ packages:
   expand-template@2.0.3:
     resolution: {integrity: sha512-XYfuKMvj4O35f/pOXLObndIRvyQ+/+6AhODh+OKWj9S9498pHHn/IMszH+gt0fBCRWMNfk1ZSp5x3AifmnI2vg==}
     engines: {node: '>=6'}
+
+  express-zod-safe@2.0.0:
+    resolution: {integrity: sha512-zizvwc2jmQrs8Lj7VfjAzlh377nzvWTfSE/z1aBk8w7ZVdRKd3YwBnDkSBQ/GfXvk2UA5thy1F4HXZe0fzt2dQ==}
+    peerDependencies:
+      '@types/express': ^4.0.0 || ^5.0.0
+      express: ^4.0.0 || ^5.0.0
+      zod: ^4.0.0
 
   express@5.1.0:
     resolution: {integrity: sha512-DT9ck5YIRU+8GYzzU5kT3eHGA5iL+1Zd0EutOmTE9Dtk+Tvuzd23VBU+ec7HPNSTxXYO55gPV/hq4pSBJDjFpA==}
@@ -1756,6 +1766,12 @@ snapshots:
   etag@1.8.1: {}
 
   expand-template@2.0.3: {}
+
+  express-zod-safe@2.0.0(@types/express@5.0.3)(express@5.1.0)(zod@4.1.4):
+    dependencies:
+      '@types/express': 5.0.3
+      express: 5.1.0
+      zod: 4.1.4
 
   express@5.1.0:
     dependencies:

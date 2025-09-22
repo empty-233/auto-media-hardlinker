@@ -1,42 +1,39 @@
-import { Request, Response } from "express";
-import { DashboardService } from "../services";
-import { logger } from "../utils/logger";
-import { success, internalError } from "../utils/response";
+import { Response } from "express";
+import { success } from "../utils/response";
+import { DashboardService } from "../services/dashboard.service";
+import { TypedController, TypedRequest } from "./base.controller";
 
-export class DashboardController {
-  constructor(private dashboardService: DashboardService) {}
+// 仪表板控制器
+export class DashboardController extends TypedController {
+  private dashboardService: DashboardService;
 
-  // 获取仪表板统计信息
-  getDashboardStats = async (req: Request, res: Response) => {
-    try {
-      const dashboardData = await this.dashboardService.getDashboardStats();
-      success(res, dashboardData, '获取仪表板统计信息成功');
-    } catch (error) {
-      logger.error(`获取仪表板统计信息失败`, error);
-      internalError(res, "获取仪表板统计信息失败");
-    }
+  constructor() {
+    super();
+    this.dashboardService = new DashboardService();
   }
+
+  // 获取仪表板统计数据
+  getDashboardStats = this.asyncHandler(
+    async (req: TypedRequest, res: Response) => {
+      const stats = await this.dashboardService.getDashboardStats();
+      success(res, stats, "获取统计数据成功");
+    }
+  );
 
   // 获取最近添加的媒体
-  getRecentMedia = async (req: Request, res: Response) => {
-    try {
-      const { limit } = req.query as any;
+  getRecentMedia = this.asyncHandler(
+    async (req: TypedRequest, res: Response) => {
+      const limit = req.query.limit || 10;
       const recentMedia = await this.dashboardService.getRecentMedia(limit);
-      success(res, recentMedia, '获取最近添加的媒体成功');
-    } catch (error) {
-      logger.error(`获取最近添加的媒体失败`, error);
-      internalError(res, "获取最近添加的媒体失败");
+      success(res, recentMedia, "获取最近媒体成功");
     }
-  }
+  );
 
-  // 获取存储空间详细信息
-  getStorageInfo = async (req: Request, res: Response) => {
-    try {
+  // 获取存储信息
+  getStorageInfo = this.asyncHandler(
+    async (req: TypedRequest, res: Response) => {
       const storageInfo = await this.dashboardService.getStorageInfo();
-      success(res, storageInfo, '获取存储空间信息成功');
-    } catch (error) {
-      logger.error(`获取存储空间信息失败`, error);
-      internalError(res, "获取存储空间信息失败");
+      success(res, storageInfo, "获取存储信息成功");
     }
-  }
+  );
 }

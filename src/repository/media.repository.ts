@@ -85,7 +85,7 @@ export class MediaRepository implements IMediaRepository {
     fileDetails: FileDetails,
     episodeId?: number
   ) {
-    const existingFile = await prisma.file.findFirst({
+    let existingFile = await prisma.file.findFirst({
       where: {
         deviceId: fileDetails.deviceId,
         inode: fileDetails.inode,
@@ -95,9 +95,23 @@ export class MediaRepository implements IMediaRepository {
       },
     });
 
+    // 如果通过 deviceId 和 inode 没找到，尝试通过 filePath 查找
+    if (!existingFile) {
+      existingFile = await prisma.file.findUnique({
+        where: {
+          filePath: fileDetails.sourcePath,
+        },
+        include: {
+          episodeInfo: true,
+        },
+      });
+    }
+
     if (existingFile) {
       logger.info(`文件记录已存在，将进行更新: ${fileDetails.sourcePath}`);
       const updateData: Prisma.FileUpdateInput = {
+        deviceId: fileDetails.deviceId,
+        inode: fileDetails.inode,
         fileHash: fileDetails.fileHash,
         fileSize: fileDetails.fileSize,
         filePath: fileDetails.sourcePath,
