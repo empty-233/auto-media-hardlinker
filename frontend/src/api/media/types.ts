@@ -62,6 +62,7 @@ export interface TvInfo {
 export interface EpisodeInfo {
   id: number
   tmdbId: number
+  seasonNumber: number
   episodeNumber: number
   title?: string
   releaseDate?: string

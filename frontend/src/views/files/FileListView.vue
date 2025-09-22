@@ -145,6 +145,26 @@ const filteredFileList = computed(() => {
   return result
 })
 
+// 处理文件ID参数的函数
+const handleFileIdParam = () => {
+  if (route.query.fileId) {
+    const fileId = parseInt(route.query.fileId as string)
+    
+    // 立即清除 fileId 参数
+    const query = { ...route.query }
+    delete query.fileId
+    router.replace({ query })
+    
+    // 查找并打开文件
+    const fileToView = fileList.value.find(
+      (f) => f.databaseRecord?.id === fileId && !f.isDirectory,
+    )
+    if (fileToView) {
+      viewFileDetail(fileToView)
+    }
+  }
+}
+
 // 方法
 const loadDirectoryContents = async (dirPath?: string) => {
   try {
@@ -163,16 +183,8 @@ const loadDirectoryContents = async (dirPath?: string) => {
     }
     router.replace({ query })
 
-    // 处理从其他页面跳转过来的文件ID
-    if (route.query.fileId) {
-      const fileId = parseInt(route.query.fileId as string)
-      const fileToView = fileList.value.find(
-        (f) => f.databaseRecord?.id === fileId && !f.isDirectory,
-      )
-      if (fileToView) {
-        viewFileDetail(fileToView)
-      }
-    }
+    // 处理文件ID参数
+    handleFileIdParam()
   } catch (error) {
     console.error('加载目录内容失败:', error)
     ElMessage.error('加载目录内容失败，请稍后重试')
@@ -306,24 +318,13 @@ onActivated(() => {
     loadDirectoryContents(initialPath)
     isLoaded.value = true
   } else {
-    // 后续激活
-    if (route.query.fileId) {
-      const fileId = parseInt(route.query.fileId as string)
-      const newPath = ((route.query.path as string) || '').replace(/\\/g, '/')
-      const current = (currentPath.value || '').replace(/\\/g, '/')
-
-      if (newPath !== current) {
-        loadDirectoryContents(newPath)
-      } else if (fileList.value.length > 0) {
-        const fileToView = fileList.value.find(
-          (f) => f.databaseRecord?.id === fileId && !f.isDirectory,
-        )
-        if (fileToView) {
-          viewFileDetail(fileToView)
-        }
-      } else {
-        loadDirectoryContents(newPath)
-      }
+    // 后续激活，检查是否有新的参数
+    const newPath = ((route.query.path as string) || '').replace(/\\/g, '/')
+    const current = (currentPath.value || '').replace(/\\/g, '/')
+    
+    if (route.query.fileId || newPath !== current) {
+      // 如果有 fileId 参数或路径变化，重新加载
+      loadDirectoryContents(newPath)
     }
   }
 })

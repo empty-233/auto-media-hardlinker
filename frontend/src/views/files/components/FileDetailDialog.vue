@@ -577,8 +577,9 @@ const getPosterUrl = (posterPath?: string): string => {
             <div v-if="fileInfo.databaseRecord.Media.originalTitle" class="media-original-title">
               ({{ fileInfo.databaseRecord.Media.originalTitle }})
             </div>
-            <div v-if="fileInfo.databaseRecord.episodeInfo" class="episode-info">
-              第{{ fileInfo.databaseRecord.episodeInfo.episodeNumber }}集
+            <!-- 只对电视剧类型显示季数和集数信息 -->
+            <div v-if="fileInfo.databaseRecord.episodeInfo && fileInfo.databaseRecord.Media.type === 'tv'" class="episode-info">
+              第{{ fileInfo.databaseRecord.episodeInfo.seasonNumber }}季 第{{ fileInfo.databaseRecord.episodeInfo.episodeNumber }}集
               <span v-if="fileInfo.databaseRecord.episodeInfo.title">
                 - {{ fileInfo.databaseRecord.episodeInfo.title }}
               </span>
