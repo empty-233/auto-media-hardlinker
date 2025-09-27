@@ -2,7 +2,7 @@ import { Router } from "express";
 import { FileController } from "../controllers";
 import { FileService, EpisodeService, TMDBService } from "../services";
 import { MediaRepository } from "../repository/media.repository";
-import { MediaHardlinkerService } from "../core/mediaHardlinker";
+import { MediaHardlinkerService } from "../core/fileManage/mediaHardlinker";
 import { createValidator } from "../middleware/validation.middleware";
 import { ParamValidators, FileValidators } from "../validators";
 

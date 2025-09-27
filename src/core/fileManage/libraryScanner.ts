@@ -1,22 +1,15 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import * as crypto from 'crypto';
 import { glob } from 'fast-glob';
 import { PrismaClient } from '@prisma/client';
-import { getConfig } from '../config/config';
-import { logger } from '../utils/logger';
-import { MediaHardlinkerService } from './mediaHardlinker';
-import { getQueueService } from '../queue/queueService';
-import { ScrapingTaskData } from '../types/queue.types';
+import { getConfig } from '../../config/config';
+import { logger } from '../../utils/logger';
+import { getContainer } from './container';
+import { FileProcessor } from './fileProcessor';
+import { SpecialFolderProcessor } from './specialFolderProcessor';
 
-/**
- * 特殊文件夹结构类型
- */
-export enum SpecialFolderType {
-  BDMV = 'BDMV',
-  DVD_VIDEO = 'VIDEO_TS',
-  NORMAL = 'NORMAL'
-}
+// 重新导出特殊文件夹类型
+export { SpecialFolderType } from './specialFolderProcessor';
 
 /**
  * 库文件状态枚举
@@ -63,12 +56,15 @@ export interface FolderStructure {
  */
 export class LibraryScanner {
   private prisma: PrismaClient;
-  private mediaHardlinker: MediaHardlinkerService;
+  private fileProcessor: FileProcessor;
+  private specialFolderProcessor: SpecialFolderProcessor;
   private config = getConfig();
 
   constructor(prisma: PrismaClient) {
     this.prisma = prisma;
-    this.mediaHardlinker = new MediaHardlinkerService();
+    const container = getContainer();
+    this.fileProcessor = container.getFileProcessor();
+    this.specialFolderProcessor = container.getSpecialFolderProcessor();
   }
 
   /**
@@ -168,7 +164,7 @@ export class LibraryScanner {
           const stat = fs.statSync(filePath);
           const ext = path.extname(filePath).toLowerCase();
           const type = videoExtensions.includes(ext) ? 'video' : 'subtitle';
-          const pathHash = this.generatePathHash(filePath);
+          const pathHash = this.fileProcessor.generatePathHash(filePath);
 
           fileInfos.push({
             path: filePath,
@@ -261,34 +257,8 @@ export class LibraryScanner {
    */
   private async enqueueNewVideoFiles(newFiles: FileInfo[]): Promise<void> {
     try {
-      // 只处理视频文件，跳过字幕文件
-      const videoFiles = newFiles.filter(file => file.type === 'video');
-      
-      if (videoFiles.length === 0) {
-        return;
-      }
-
-      const queueService = getQueueService();
-      
-      // 确保队列服务已启动
-      if (!queueService.isRunning()) {
-        await queueService.start();
-        logger.info('队列服务已自动启动');
-      }
-
-      // 准备任务数据
-      const taskDataList: ScrapingTaskData[] = videoFiles.map(file => ({
-        filePath: file.path,
-        fileName: path.basename(file.path),
-        isDirectory: false,
-        priority: 1, // 扫描发现的文件优先级设为1
-        maxRetries: this.config.queue?.defaultMaxRetries
-      }));
-
-      // 批量添加到队列
-      const taskIds = await queueService.enqueueTasks(taskDataList);
-      
-      logger.info(`已将 ${videoFiles.length} 个新发现的视频文件推送到队列进行刮削，任务ID: [${taskIds.join(', ')}]`);
+      // 使用文件处理器统一处理新发现的文件
+      await this.fileProcessor.handleScannedFiles(newFiles);
     } catch (error) {
       logger.error('推送新视频文件到队列失败', error);
       // 不抛出错误，避免影响扫描流程的继续执行
@@ -300,199 +270,20 @@ export class LibraryScanner {
    */
   private async processSpecialFolders(basePath: string, errors: string[]): Promise<void> {
     try {
-      // 递归查找特殊文件夹
-      const specialFolders = await this.findSpecialFolders(basePath);
+      // 使用专门的特殊文件夹处理器
+      const specialFolders = await this.specialFolderProcessor.scanAndProcessSpecialFolders(basePath);
       
-      for (const folder of specialFolders) {
-        try {
-          await this.processSpecialFolder(folder, errors);
-        } catch (error) {
-          const errorMessage = `处理特殊文件夹失败 ${folder.path}: ${error instanceof Error ? error.message : '未知错误'}`;
-          errors.push(errorMessage);
-          logger.error(errorMessage, error);
-        }
+      if (specialFolders.length > 0) {
+        logger.info(`发现 ${specialFolders.length} 个特殊文件夹`);
+        specialFolders.forEach(folder => {
+          logger.info(`  - ${folder.type}: ${folder.name} (${folder.fileCount} 个文件, ${Math.round(folder.totalSize / 1024 / 1024)}MB)`);
+        });
       }
     } catch (error) {
-      const errorMessage = `查找特殊文件夹失败 ${basePath}: ${error instanceof Error ? error.message : '未知错误'}`;
+      const errorMessage = `处理特殊文件夹失败 ${basePath}: ${error instanceof Error ? error.message : '未知错误'}`;
       errors.push(errorMessage);
       logger.error(errorMessage, error);
     }
-  }
-
-  /**
-   * 查找特殊文件夹结构
-   */
-  private async findSpecialFolders(basePath: string): Promise<{ path: string; type: SpecialFolderType }[]> {
-    const specialFolders: { path: string; type: SpecialFolderType }[] = [];
-
-    const findSpecialInDir = async (dirPath: string) => {
-      try {
-        const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-        
-        for (const entry of entries) {
-          if (entry.isDirectory()) {
-            const fullPath = path.join(dirPath, entry.name);
-            
-            // 检查是否是BDMV结构
-            if (entry.name === 'BDMV' && this.isBDMVStructure(fullPath)) {
-              specialFolders.push({ path: path.dirname(fullPath), type: SpecialFolderType.BDMV });
-            }
-            // 检查是否是DVD结构
-            else if (entry.name === 'VIDEO_TS' && this.isDVDStructure(fullPath)) {
-              specialFolders.push({ path: path.dirname(fullPath), type: SpecialFolderType.DVD_VIDEO });
-            }
-            // 递归检查子目录
-            else {
-              await findSpecialInDir(fullPath);
-            }
-          }
-        }
-      } catch (error) {
-        logger.warn(`读取目录失败 ${dirPath}: ${error instanceof Error ? error.message : '未知错误'}`);
-      }
-    };
-
-    await findSpecialInDir(basePath);
-    return specialFolders;
-  }
-
-  /**
-   * 检查是否是BDMV结构
-   */
-  private isBDMVStructure(bdmvPath: string): boolean {
-    try {
-      const requiredDirs = ['STREAM', 'CLIPINF', 'PLAYLIST'];
-      const entries = fs.readdirSync(bdmvPath);
-      return requiredDirs.some(dir => entries.includes(dir));
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * 检查是否是DVD结构
-   */
-  private isDVDStructure(videoTsPath: string): boolean {
-    try {
-      const entries = fs.readdirSync(videoTsPath);
-      return entries.some(entry => entry.endsWith('.VOB') || entry.endsWith('.IFO'));
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * 处理特殊文件夹
-   */
-  private async processSpecialFolder(folder: { path: string; type: SpecialFolderType }, errors: string[]): Promise<void> {
-    logger.info(`发现特殊文件夹结构 ${folder.type}: ${folder.path}`);
-    
-    // 获取文件夹结构信息
-    const structure = this.getFolderStructure(folder.path);
-    
-    // 使用LLM判断是否需要刮削
-    const shouldProcess = await this.shouldProcessSpecialFolder(structure);
-    
-    if (shouldProcess) {
-      try {
-        // 直接硬链接整个文件夹的所有文件
-        await this.hardlinkSpecialFolder(folder.path, errors);
-      } catch (error) {
-        const errorMessage = `硬链接特殊文件夹失败 ${folder.path}: ${error instanceof Error ? error.message : '未知错误'}`;
-        errors.push(errorMessage);
-        logger.error(errorMessage, error);
-      }
-    }
-  }
-
-  /**
-   * 获取文件夹结构
-   */
-  private getFolderStructure(folderPath: string): FolderStructure {
-    const name = path.basename(folderPath);
-    const files: string[] = [];
-    const subdirs: FolderStructure[] = [];
-
-    try {
-      const entries = fs.readdirSync(folderPath, { withFileTypes: true });
-      
-      for (const entry of entries) {
-        if (entry.isFile()) {
-          files.push(entry.name);
-        } else if (entry.isDirectory()) {
-          const subdir = this.getFolderStructure(path.join(folderPath, entry.name));
-          subdirs.push(subdir);
-        }
-      }
-    } catch (error) {
-      logger.warn(`读取文件夹结构失败 ${folderPath}: ${error instanceof Error ? error.message : '未知错误'}`);
-    }
-
-    return { path: folderPath, name, files, subdirs };
-  }
-
-  /**
-   * 判断是否应该处理特殊文件夹（使用LLM）
-   */
-  private async shouldProcessSpecialFolder(structure: FolderStructure): Promise<boolean> {
-    // 简化逻辑：如果文件夹包含视频文件就处理
-    const hasVideoFiles = this.hasVideoFilesInStructure(structure);
-    return hasVideoFiles;
-  }
-
-  /**
-   * 检查文件夹结构中是否包含视频文件
-   */
-  private hasVideoFilesInStructure(structure: FolderStructure): boolean {
-    const videoExtensions = this.config.videoExtensions.map(ext => ext.toLowerCase());
-    
-    // 检查当前文件夹的文件
-    const hasVideo = structure.files.some(file => {
-      const ext = path.extname(file).toLowerCase();
-      return videoExtensions.includes(ext);
-    });
-    
-    if (hasVideo) return true;
-    
-    // 递归检查子文件夹
-    return structure.subdirs.some(subdir => this.hasVideoFilesInStructure(subdir));
-  }
-
-  /**
-   * 硬链接特殊文件夹的所有文件
-   */
-  private async hardlinkSpecialFolder(folderPath: string, errors: string[]): Promise<void> {
-    const allFiles = await this.getAllFilesInFolder(folderPath);
-    
-    for (const filePath of allFiles) {
-      try {
-        // 使用现有的硬链接逻辑
-        await this.mediaHardlinker.createHardlinkForFile(filePath);
-      } catch (error) {
-        const errorMessage = `硬链接文件失败 ${filePath}: ${error instanceof Error ? error.message : '未知错误'}`;
-        errors.push(errorMessage);
-        logger.warn(errorMessage);
-      }
-    }
-  }
-
-  /**
-   * 获取文件夹中的所有文件
-   */
-  private async getAllFilesInFolder(folderPath: string): Promise<string[]> {
-    const files = await glob('**/*', {
-      cwd: folderPath,
-      absolute: true,
-      onlyFiles: true
-    });
-    return files;
-  }
-
-  /**
-   * 生成路径哈希
-   */
-  private generatePathHash(filePath: string): string {
-    return crypto.createHash('md5').update(filePath).digest('hex');
   }
 
   /**

@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { success, successWithPagination } from "../utils/response";
 import { ScanService } from "../services/scan.service";
-import { ScanScheduler } from "../core/scanScheduler";
+import { ScanScheduler } from "../core/fileManage/scanScheduler";
 import { TypedController, TypedRequest } from "./base.controller";
 import {
   ScanQueryValidators,

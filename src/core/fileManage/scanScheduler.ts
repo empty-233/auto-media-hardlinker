@@ -1,8 +1,9 @@
 import { PrismaClient } from '@prisma/client';
-import { getConfig } from '../config/config';
+import { getConfig } from '../../config/config';
 import { LibraryScanner } from './libraryScanner';
-import { logger } from '../utils/logger';
-import { getQueueService } from '../queue/queueService';
+import { logger } from '../../utils/logger';
+import { getContainer } from './container';
+import { FileProcessor } from './fileProcessor';
 
 /**
  * 定期扫描调度器
@@ -10,6 +11,7 @@ import { getQueueService } from '../queue/queueService';
 export class ScanScheduler {
   private prisma: PrismaClient;
   private scanner: LibraryScanner;
+  private fileProcessor: FileProcessor;
   private config = getConfig();
   private intervalId: NodeJS.Timeout | null = null;
   private isRunning: boolean = false;
@@ -17,6 +19,8 @@ export class ScanScheduler {
   constructor(prisma: PrismaClient) {
     this.prisma = prisma;
     this.scanner = new LibraryScanner(prisma);
+    const container = getContainer();
+    this.fileProcessor = container.getFileProcessor();
   }
 
   /**
@@ -85,11 +89,7 @@ export class ScanScheduler {
 
     try {
       // 确保队列服务已启动，以便处理扫描发现的新文件
-      const queueService = getQueueService(this.config.queue);
-      if (!queueService.isRunning()) {
-        await queueService.start();
-        logger.info('队列服务已启动，准备处理扫描发现的新文件');
-      }
+      await this.fileProcessor.ensureQueueService();
 
       const result = await this.scanner.scanAllLibraries();
       logger.info(`定期扫描完成: 发现 ${result.filesFound} 个文件，新增 ${result.filesAdded} 个，耗时 ${result.duration}ms`);

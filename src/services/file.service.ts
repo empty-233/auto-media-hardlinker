@@ -3,7 +3,7 @@ import { logger } from "../utils/logger";
 import { getConfig } from "../config/config";
 import fs from "fs/promises";
 import path from "path";
-import { MediaHardlinkerService } from "../core/mediaHardlinker";
+import { MediaHardlinkerService } from "../core/fileManage/mediaHardlinker";
 import { MediaRepository } from "../repository/media.repository";
 import { EpisodeService } from "./episode.service";
 import { deleteHardlink } from "../utils/hardlink";

@@ -1,6 +1,6 @@
 import chokidar, { FSWatcher } from "chokidar";
 import path from "path";
-import { logger } from "../utils/logger";
+import { logger } from "../../utils/logger";
 
 /**
  * 文件监控器配置选项

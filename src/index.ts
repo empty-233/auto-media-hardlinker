@@ -2,7 +2,7 @@ import { Server } from "http";
 import app from "./app";
 import prisma from "./client";
 import { logger } from "./utils/logger";
-import { MediaHardlinkerService } from "./core/mediaHardlinker";
+import { MediaHardlinkerService } from "./core/fileManage/mediaHardlinker";
 import { env } from "./config/env";
 
 const port = env.PORT;

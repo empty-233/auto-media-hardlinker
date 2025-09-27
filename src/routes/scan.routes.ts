@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { ScanController } from '../controllers';
-import { ScanScheduler } from '../core/scanScheduler';
+import { ScanScheduler } from '../core/fileManage/scanScheduler';
 import { createValidator } from '../middleware/validation.middleware';
 import { ParamValidators, ScanQueryValidators, ScanBodyValidators } from '../validators';
 

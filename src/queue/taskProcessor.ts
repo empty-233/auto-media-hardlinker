@@ -1,6 +1,6 @@
 import { IMediaIdentifier } from "../types/media.types";
 import { MediaRepository } from "../repository/media.repository";
-import { MediaHardlinkerService } from "../core/mediaHardlinker";
+import { MediaHardlinkerService } from "../core/fileManage/mediaHardlinker";
 import { LLMIdentifier } from "../strategies/llm.identifier";
 import { RegexIdentifier } from "../strategies/regex.identifier";
 import { getConfig } from "../config/config";
