@@ -11,6 +11,7 @@ export interface FileMonitorOptions {
   usePolling?: boolean;
   ignoreInitial?: boolean;
   ignored?: RegExp | string | Array<RegExp | string>;
+  cwd?: string;
 }
 
 type EventCallback = (eventType: string, fileInfo: { path: string; filename: string; isDirectory: boolean }) => void;
@@ -24,7 +25,8 @@ export class FileMonitor {
   private readonly options: FileMonitorOptions;
 
   constructor(filePath: string, options: FileMonitorOptions) {
-    this.filePath = filePath;
+    this.filePath = path.isAbsolute(filePath) ? filePath : path.resolve(filePath);
+    
     this.options = {
       persistent: true,
       ignoreInitial: true,
