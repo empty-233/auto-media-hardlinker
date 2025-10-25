@@ -23,6 +23,24 @@ if [ ! -f "$FINAL_DB_PATH" ] && [ -f "$INITIAL_DB_PATH" ]; then
     echo "数据库在卷中找不到。复制初始数据库..."
     cp $INITIAL_DB_PATH $FINAL_DB_PATH
     echo "初始数据库复制成功"
+fi
+
+# 运行 Prisma 生产环境迁移（仅当数据库文件存在时）
+if [ -f "$FINAL_DB_PATH" ]; then
+    echo "检测到数据库文件，运行数据库迁移..."
+    if pnpm prisma migrate deploy 2>/dev/null; then
+        echo "数据库迁移成功完成 (migrate deploy)"
+    else
+        echo "migrate deploy 失败或无迁移文件，尝试使用 db push..."
+        if pnpm prisma db push --accept-data-loss 2>/dev/null; then
+            echo "数据库架构同步成功 (db push)"
+        else
+            echo "警告：数据库迁移失败，请检查数据库连接和迁移文件"
+        fi
+    fi
+else
+    echo "数据库文件不存在，跳过迁移（将在首次访问时自动创建）"
+fi
 
 # 如果 /file/monitor 和 /file/target 不存在则创建
 if [ ! -d "/file/monitor" ]; then
@@ -33,8 +51,6 @@ fi
 if [ ! -d "/file/target" ]; then
     echo "目录 /file/target 不存在，创建中..."
     mkdir -p "/file/target"
-fi
-
 fi
 
 # 启动nginx (后台)

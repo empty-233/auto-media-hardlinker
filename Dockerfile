@@ -21,7 +21,7 @@ RUN cd frontend && pnpm install --frozen-lockfile
 # 复制所有源码和配置文件
 COPY src ./src
 COPY tsconfig.json ./tsconfig.json
-COPY prisma/schema.prisma ./prisma/schema.prisma
+COPY prisma ./prisma
 COPY config ./config
 COPY frontend ./frontend
 
@@ -55,13 +55,11 @@ RUN apk add --no-cache --virtual .build-deps python3 build-base && \
 
 # 从构建阶段复制构建好的产物
 # 1. 复制后端代码 (dist 目录)
-COPY --from=builder /app/dist ./
-# 2. 复制 Prisma schema 用于数据库迁移
+COPY --from=builder /app/dist ./dist
+# 2. 复制 Prisma 完整目录
 COPY --from=builder /app/prisma ./prisma
 # 3. 复制前端构建产物 (假设 Nginx 会服务这个目录)
 COPY --from=builder /app/frontend/dist ./frontend
-
-COPY --from=builder /app/prisma/schema.prisma ./prisma/schema.prisma
 
 # 运行数据库迁移
 RUN pnpm prisma generate
@@ -69,8 +67,14 @@ RUN pnpm prisma generate
 # 创建运行时所需的目录
 RUN mkdir -p /app/data /app/db_init
 
-# 生成临时数据库
-RUN DATABASE_URL="file:/app/db_init/dev.db" pnpm prisma db push
+# 生成临时初始数据库（用于首次启动时复制）
+# 优先使用 migrate deploy（如果有迁移文件），否则使用 db push
+RUN if DATABASE_URL="file:/app/db_init/dev.db" pnpm prisma migrate deploy 2>/dev/null; then \
+        echo "使用 migrate deploy 初始化数据库"; \
+    else \
+        echo "无迁移文件，使用 db push 初始化数据库"; \
+        DATABASE_URL="file:/app/db_init/dev.db" pnpm prisma db push; \
+    fi
 
 # 复制 Nginx 配置文件
 COPY docker/http.d/ /etc/nginx/http.d/
