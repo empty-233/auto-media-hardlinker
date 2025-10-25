@@ -11,6 +11,7 @@ export interface ScanConfig {
   enabled: boolean;
   interval: number; // 间隔时间(分钟)
   concurrency: number;
+  scanMaxDepth: number; // 扫描最大深度，用于特殊文件夹结构识别
 }
 
 /**
@@ -107,6 +108,10 @@ export function getConfig(
 
     if (typeof config.scanConfig.concurrency !== "number" || config.scanConfig.concurrency < 1) {
       throw new Error("配置文件中的 scanConfig.concurrency 字段必须是大于0的数字");
+    }
+
+    if (config.scanConfig.scanMaxDepth === undefined || typeof config.scanConfig.scanMaxDepth !== "number" || config.scanConfig.scanMaxDepth < 1) {
+      throw new Error("配置文件中的 scanConfig.scanMaxDepth 字段必须是大于等于1的数字");
     }
 
     if (config.useLlm) {

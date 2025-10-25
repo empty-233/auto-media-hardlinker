@@ -56,6 +56,13 @@ model File {
   filePath  String   @unique @map("file_path") /// 原始文件路径
   linkPath  String   @unique @map("link_path") /// 硬链接文件路径
   createdAt DateTime @default(now()) @map("created_at") /// 记录创建时间
+  
+  // 文件/文件夹标识
+  isDirectory     Boolean @default(false) @map("is_directory") /// 是否为文件夹
+  isSpecialFolder Boolean @default(false) @map("is_special_folder") /// 是否为特殊文件夹（BDMV/DVD/ISO）
+  folderType      String? @map("folder_type") /// 特殊文件夹类型（BDMV/VIDEO_TS/ISO）
+  isMultiDisc     Boolean @default(false) @map("is_multi_disc") /// 是否为多碟片结构
+  discNumber      Int?    @map("disc_number") /// 碟片编号（Vol.1, Disc 2 等）
 
   /// 关联的媒体信息
   Media   Media? @relation(fields: [mediaId], references: [id])
@@ -70,6 +77,10 @@ model File {
 
   @@unique([deviceId, inode], name: "device_inode_unique") /// 设备ID和inode联合唯一约束
   @@index([fileHash]) /// 文件哈希索引，用于加速查询
+  @@index([isDirectory]) /// 文件夹标识索引，用于快速筛选文件夹
+  @@index([isSpecialFolder]) /// 特殊文件夹索引，用于快速筛选特殊文件夹
+  @@index([folderType]) /// 特殊文件夹类型索引，用于按类型查询
+  @@index([isMultiDisc, discNumber]) /// 多碟片索引，用于关联同系列碟片
 }
 
 /// 电视剧详细信息表
@@ -169,25 +180,28 @@ enum LibraryStatus {
   IGNORED   /// 忽略
 }
 
-/// 媒体库表，存储所有扫描到的文件信息
+/// 媒体库表，存储所有扫描到的文件/文件夹路径
 model Library {
   id               Int           @id @default(autoincrement()) /// 唯一标识符
-  type             String /// 文件类型（video/subtitle）
-  path             String        @unique /// 文件路径
+  type             String /// 条目类型（video/subtitle/folder）
+  path             String        @unique /// 文件/文件夹路径
   pathHash         String        @map("path_hash") /// 路径哈希值，用于快速查找
-  size             BigInt /// 文件大小（字节）
+  size             BigInt /// 文件/文件夹大小（字节）
+  isDirectory      Boolean       @default(false) @map("is_directory") /// 是否为文件夹
   status           LibraryStatus @default(PENDING) /// 处理状态
   lastProcessedAt  DateTime?     @map("last_processed_at") /// 上次处理时间
-  fileId           Int?          @unique /// 关联的file表ID（已刮削才有）
+  fileId           Int?          @unique @map("file_id") /// 关联的file表ID（处理完成后）
+  
   createdAt        DateTime      @default(now()) @map("created_at") /// 记录创建时间
   updatedAt        DateTime      @updatedAt @map("updated_at") /// 记录更新时间
 
-  /// 关联的文件信息
+  /// 关联的文件信息（处理完成后创建硬链接或刮削元数据）
   file File? @relation(fields: [fileId], references: [id])
 
   @@index([pathHash]) /// 路径哈希索引，用于加速查询
   @@index([status]) /// 状态索引，用于加速查询
   @@index([type]) /// 类型索引，用于加速查询
+  @@index([isDirectory]) /// 文件夹标识索引，用于快速筛选文件夹
 }
 
 /// 扫描日志表，记录扫描历史和错误信息

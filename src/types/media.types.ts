@@ -12,7 +12,7 @@ export interface ExtractedMediaInfo {
  * 媒体识别器返回的标准化媒体数据结构
  */
 export interface IdentifiedMedia {
-  type: "movie" | "tv";
+  type: "movie" | "tv" | "collection";
   tmdbId: number;
   title: string;
   originalTitle: string;

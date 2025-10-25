@@ -59,6 +59,51 @@ export async function createHardlink(
 }
 
 /**
+ * 递归创建文件夹硬链接
+ * 将源文件夹下的所有文件和子文件夹结构完整复制到目标位置（通过硬链接）
+ * @param sourcePath - 源文件夹路径
+ * @param targetPath - 目标文件夹路径
+ * @returns Promise<void>
+ * @throws 如果递归创建硬链接失败，则抛出错误
+ */
+export async function createHardlinkRecursively(
+  sourcePath: string,
+  targetPath: string
+): Promise<void> {
+  try {
+    const entries = await fs.promises.readdir(sourcePath, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      const sourceItemPath = path.join(sourcePath, entry.name);
+      const targetItemPath = path.join(targetPath, entry.name);
+      
+      if (entry.isDirectory()) {
+        // 创建目标子文件夹
+        await fs.promises.mkdir(targetItemPath, { recursive: true });
+        
+        // 递归处理子文件夹
+        await createHardlinkRecursively(sourceItemPath, targetItemPath);
+      } else {
+        // 创建文件硬链接
+        try {
+          await fs.promises.link(sourceItemPath, targetItemPath);
+          logger.debug(`创建硬链接: ${sourceItemPath} -> ${targetItemPath}`);
+        } catch (error: any) {
+          if (error.code === 'EEXIST') {
+            logger.debug(`文件已存在，跳过: ${targetItemPath}`);
+          } else {
+            logger.error(`创建硬链接失败: ${sourceItemPath} -> ${targetItemPath} - ${error instanceof Error ? error.message : String(error)}`);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    logger.error(`递归创建硬链接失败: ${sourcePath}`, error);
+    throw error;
+  }
+}
+
+/**
  * 删除指定路径的文件。
  * @param filePath - 要删除的文件路径
  * @returns Promise<void>

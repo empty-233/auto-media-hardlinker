@@ -36,7 +36,8 @@
     "scanConfig": {
         "enabled": true,
         "interval": 360,
-        "concurrency": 3
+        "concurrency": 3,
+        "scanMaxDepth": 2
     },
     "queue": {
         "concurrency": 1,

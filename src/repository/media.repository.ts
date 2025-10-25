@@ -2,6 +2,7 @@ import { Type, Prisma, LibraryStatus } from "@prisma/client";
 import prisma from "../client";
 import { logger } from "../utils/logger";
 import { downloadTMDBImage, formatDate } from "../utils/media";
+import { Episode } from "moviedb-promise";
 import {
   IMediaRepository,
   IdentifiedMedia,
@@ -11,7 +12,7 @@ import { NonRetryableError } from "../core/errors";
 
 export class MediaRepository implements IMediaRepository {
   constructor() {}
-  // REFACTOR: 将 saveMediaAndFile 分解为更小的、职责单一的方法
+  
   public async saveMediaAndFile(
     media: IdentifiedMedia,
     fileDetails: FileDetails
@@ -30,6 +31,155 @@ export class MediaRepository implements IMediaRepository {
     } catch (error) {
       logger.error(`数据库操作失败`, error);
       throw error;
+    }
+  }
+
+  /**
+   * 保存特殊文件夹和媒体信息
+   * @param media 媒体信息
+   * @param folderDetails 文件夹详细信息
+   * @returns 文件记录
+   */
+  public async saveMediaAndFolder(
+    media: IdentifiedMedia,
+    folderDetails: {
+      sourcePath: string;
+      linkPath: string;
+      deviceId: bigint;
+      inode: bigint;
+      fileHash: string;
+      fileSize: bigint;
+      folderType: string;
+      isMultiDisc: boolean;
+      discNumber: number | null;
+    }
+  ): Promise<any> {
+    try {
+      const mediaRecord = await this.findOrCreateMediaRecord(media);
+      const episodeId = await this.saveShowOrMovieInfo(mediaRecord.id, media);
+      
+      // 使用文件夹专用的 upsert 方法
+      const fileRecord = await this.upsertFolderRecord(
+        mediaRecord.id,
+        folderDetails,
+        episodeId
+      );
+
+      logger.info(`成功将特殊文件夹 "${folderDetails.sourcePath}" 信息保存到数据库`);
+      return fileRecord;
+    } catch (error) {
+      logger.error(`保存特殊文件夹数据库操作失败`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 创建或更新特殊文件夹记录
+   */
+  private async upsertFolderRecord(
+    mediaId: number,
+    folderDetails: {
+      sourcePath: string;
+      linkPath: string;
+      deviceId: bigint;
+      inode: bigint;
+      fileHash: string;
+      fileSize: bigint;
+      folderType: string;
+      isMultiDisc: boolean;
+      discNumber: number | null;
+    },
+    episodeId?: number
+  ) {
+    let existingFile = await prisma.file.findFirst({
+      where: {
+        deviceId: folderDetails.deviceId,
+        inode: folderDetails.inode,
+      },
+      include: {
+        episodeInfo: true,
+      },
+    });
+
+    // 如果通过 deviceId 和 inode 没找到，尝试通过 filePath 查找
+    if (!existingFile) {
+      existingFile = await prisma.file.findUnique({
+        where: {
+          filePath: folderDetails.sourcePath,
+        },
+        include: {
+          episodeInfo: true,
+        },
+      });
+    }
+
+    if (existingFile) {
+      logger.info(`特殊文件夹记录已存在，将进行更新: ${folderDetails.sourcePath}`);
+      const updateData: Prisma.FileUpdateInput = {
+        deviceId: folderDetails.deviceId,
+        inode: folderDetails.inode,
+        fileHash: folderDetails.fileHash,
+        fileSize: folderDetails.fileSize,
+        filePath: folderDetails.sourcePath,
+        linkPath: folderDetails.linkPath,
+        isDirectory: true,
+        isSpecialFolder: true,
+        folderType: folderDetails.folderType,
+        isMultiDisc: folderDetails.isMultiDisc,
+        discNumber: folderDetails.discNumber,
+        Media: { connect: { id: mediaId } },
+      };
+      
+      if (episodeId) {
+        updateData.episodeInfo = { connect: { id: episodeId } };
+      } else if (existingFile.episodeInfo) {
+        updateData.episodeInfo = { disconnect: true };
+      }
+
+      // 同时更新Library表中对应的记录状态
+      await this.updateLibraryStatus(folderDetails.sourcePath, LibraryStatus.PROCESSED, existingFile.id);
+
+      return prisma.file.update({
+        where: { id: existingFile.id },
+        data: updateData,
+      });
+    } else {
+      const fileWithSameLinkPath = await prisma.file.findFirst({
+        where: {
+          linkPath: folderDetails.linkPath,
+        },
+      });
+
+      if (fileWithSameLinkPath) {
+        throw new NonRetryableError(
+          `目标链接路径 "${folderDetails.linkPath}" 已被另一个文件夹 (ID: ${fileWithSameLinkPath.id}, Path: ${fileWithSameLinkPath.filePath}) 使用。请手动处理冲突。`
+        );
+      }
+      
+      logger.info(`创建新的特殊文件夹记录: ${folderDetails.sourcePath}`);
+
+      const fileRecord = await prisma.file.create({
+        data: {
+          deviceId: folderDetails.deviceId,
+          inode: folderDetails.inode,
+          fileHash: folderDetails.fileHash,
+          fileSize: folderDetails.fileSize,
+          filePath: folderDetails.sourcePath,
+          linkPath: folderDetails.linkPath,
+          isDirectory: true,
+          isSpecialFolder: true,
+          folderType: folderDetails.folderType,
+          isMultiDisc: folderDetails.isMultiDisc,
+          discNumber: folderDetails.discNumber,
+          Media: { connect: { id: mediaId } },
+          ...(episodeId ? { episodeInfo: { connect: { id: episodeId } } } : {}),
+        },
+      });
+
+      // 更新Library表状态并关联fileId
+      await this.updateLibraryStatus(folderDetails.sourcePath, LibraryStatus.PROCESSED, fileRecord.id);
+
+      return fileRecord;
     }
   }
 
@@ -171,15 +321,12 @@ export class MediaRepository implements IMediaRepository {
    */
   private async updateLibraryStatus(filePath: string, status: LibraryStatus, fileId?: number) {
     try {
-      const updateData: any = {
+      const updateData: Prisma.LibraryUpdateManyMutationInput = {
         status,
         lastProcessedAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        ...(fileId && { fileId })
       };
-      
-      if (fileId) {
-        updateData.fileId = fileId;
-      }
 
       await prisma.library.updateMany({
         where: { path: filePath },
@@ -217,7 +364,7 @@ export class MediaRepository implements IMediaRepository {
     mediaId: number,
     media: IdentifiedMedia
   ): Promise<number | undefined> {
-    // 1. 创建或查找 TvInfo
+    // 创建或查找 TvInfo
     let tvInfo = await prisma.tvInfo.findFirst({
       where: { tmdbId: media.tmdbId },
     });
@@ -231,19 +378,19 @@ export class MediaRepository implements IMediaRepository {
       });
     }
 
-    // 2. 关联 Media 和 TvInfo
+    // 关联 Media 和 TvInfo
     await prisma.media.update({
       where: { id: mediaId },
       data: { tvInfoId: tvInfo.id },
     });
 
-    // 3. 如果是剧集文件，创建或更新 EpisodeInfo
+    // 如果是剧集文件，创建或更新 EpisodeInfo
     if (media.episodeNumber && media.rawData?.episodes) {
-      const episodeData = media.rawData.episodes.find(
-        (e: any) => e.episode_number === media.episodeNumber
+      const episodeData = (media.rawData.episodes as Episode[]).find(
+        (e) => e.episode_number === media.episodeNumber
       );
 
-      if (episodeData) {
+      if (episodeData && episodeData.id && episodeData.season_number && episodeData.episode_number) {
         const episodeTmdbId = episodeData.id;
         let episodeInfo = await prisma.episodeInfo.findFirst({
           where: { tmdbId: episodeTmdbId },

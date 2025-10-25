@@ -12,6 +12,16 @@ export interface ScrapingTaskData {
 }
 
 /**
+ * 队列中的任务（包含数据库ID）
+ */
+export interface QueueTask extends ScrapingTaskData {
+  id: number;
+  status?: TaskStatus;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+/**
  * 任务结果
  */
 export interface TaskResult {
@@ -22,6 +32,12 @@ export interface TaskResult {
   processingTime?: number;
   isNonRetryable?: boolean;
   isTimeout?: boolean;
+  metadata?: {
+    totalCount?: number;
+    successCount?: number;
+    failedCount?: number;
+    failedPaths?: string[];
+  };
 }
 
 

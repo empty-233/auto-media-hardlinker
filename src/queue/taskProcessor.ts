@@ -1,19 +1,22 @@
-import { IMediaIdentifier } from "../types/media.types";
+import { IMediaIdentifier, IdentifiedMedia } from "../types/media.types";
 import { MediaRepository } from "../repository/media.repository";
 import { MediaHardlinkerService } from "../core/fileManage/mediaHardlinker";
 import { LLMIdentifier } from "../strategies/llm.identifier";
 import { RegexIdentifier } from "../strategies/regex.identifier";
 import { getConfig } from "../config/config";
 import { logger } from "../utils/logger";
-import { TaskResult } from "../types/queue.types";
+import { TaskResult, QueueTask } from "../types/queue.types";
 import { NonRetryableError } from "../core/errors";
+import { getContainer } from "../core/fileManage/container";
+import { FolderDetails, SpecialFolderProcessResult } from "../types/specialFolder.types";
 
 /**
- * 任务处理器 - 负责处理具体的刮削任务
+ * 任务处理器 - 统一处理普通文件和特殊文件夹
  */
 export class TaskProcessor {
   private mediaRepository: MediaRepository;
   private hardlinkerService: MediaHardlinkerService;
+  private config = getConfig();
 
   constructor() {
     this.mediaRepository = new MediaRepository();
@@ -21,21 +24,171 @@ export class TaskProcessor {
   }
 
   /**
-   * 处理单个刮削任务
+   * 判断是否为特殊文件夹（快速检查，不调用 LLM）
    */
-  async processTask(task: any): Promise<TaskResult> {
+  private async isSpecialFolder(folderPath: string): Promise<boolean> {
+    try {
+      const container = getContainer();
+      const specialFolderProcessor = container.getSpecialFolderProcessor();
+      // 使用快速规则检查，不调用 LLM
+      const result = await specialFolderProcessor.isPotentialSpecialFolder(folderPath);
+      return result.isPotential;
+    } catch (error) {
+      logger.error(`判断特殊文件夹失败: ${folderPath}`, error);
+      return false;
+    }
+  }
+
+  /**
+   * 处理单个刮削任务（统一处理普通文件和特殊文件夹）
+   */
+  async processTask(task: QueueTask): Promise<TaskResult> {
     const startTime = Date.now();
     
     try {
       logger.info(`开始处理任务: ${task.fileName} (ID: ${task.id})`);
 
-      // 1. 选择识别策略
-      const config = getConfig();
-      const identifier: IMediaIdentifier = config.useLlm
+      // 判断是否为特殊文件夹（BDMV/DVD等）
+      if (task.isDirectory && await this.isSpecialFolder(task.filePath)) {
+        return await this.processSpecialFolder(task, startTime);
+      }
+
+      // 处理普通文件
+      return await this.processNormalFile(task, startTime);
+
+    } catch (error) {
+      const processingTime = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : "未知错误";
+      logger.error(`任务处理失败: ${task.fileName} (ID: ${task.id})`, error);
+
+      return {
+        success: false,
+        error: errorMessage,
+        processingTime,
+        isNonRetryable: error instanceof NonRetryableError,
+      };
+    }
+  }
+
+  /**
+   * 处理特殊文件夹（BDMV/DVD/ISO等）
+   * 统一在 TaskProcessor 中保存数据库
+   */
+  private async processSpecialFolder(task: QueueTask, startTime: number): Promise<TaskResult> {
+    try {
+      logger.info(`[特殊文件夹] 开始处理: ${task.fileName}`);
+
+      const container = getContainer();
+      const specialFolderProcessor = container.getSpecialFolderProcessor();
+
+      // 调用 processFolder 获取处理结果
+      const results: SpecialFolderProcessResult[] = await specialFolderProcessor.processFolder(task.filePath);
+
+      if (results.length === 0) {
+        logger.warn(`[特殊文件夹] 无有效结果: ${task.fileName}`);
+        return {
+          success: true,
+          processingTime: Date.now() - startTime
+        };
+      }
+
+      // 统一保存到数据库
+      const savedIds: number[] = [];
+      const failedPaths: string[] = [];
+      
+      for (const result of results) {
+        try {
+          const { folderInfo, linkPath, mediaInfo } = result;
+
+          // 获取文件夹的 stat 信息
+          const fsPromises = await import("fs/promises");
+          const stats = await fsPromises.stat(folderInfo.path);
+
+          // 构建 IdentifiedMedia 对象
+          const identifiedMedia: IdentifiedMedia = {
+            type: mediaInfo.mediaType,
+            tmdbId: mediaInfo.tmdbId,
+            title: mediaInfo.title,
+            originalTitle: mediaInfo.originalTitle || '',
+            releaseDate: mediaInfo.releaseDate ? new Date(mediaInfo.releaseDate) : null,
+            description: mediaInfo.description,
+            posterPath: mediaInfo.posterPath,
+            backdropPath: null,
+            rawData: null,
+          };
+
+          // 构建文件夹详细信息
+          const folderDetails: FolderDetails = {
+            sourcePath: folderInfo.path,
+            linkPath: linkPath,
+            deviceId: BigInt(stats.dev),
+            inode: BigInt(stats.ino),
+            fileHash: this.generatePathHash(folderInfo.path),
+            fileSize: BigInt(folderInfo.totalSize),
+            folderType: folderInfo.type,
+            isMultiDisc: folderInfo.isMultiDisc || false,
+            discNumber: folderInfo.discNumber || null,
+          };
+
+          // 保存到数据库
+          const fileRecord = await this.mediaRepository.saveMediaAndFolder(identifiedMedia, folderDetails);
+          savedIds.push(fileRecord.id);
+
+          logger.info(`[特殊文件夹] ✅ 已保存到数据库: ${folderInfo.path} (File ID: ${fileRecord.id})`);
+        } catch (error) {
+          logger.error(`[特殊文件夹] 保存数据库失败: ${result.folderInfo.path}`, error);
+          failedPaths.push(result.folderInfo.path);
+        }
+      }
+
+      const processingTime = Date.now() - startTime;
+      const totalCount = results.length;
+      const successCount = savedIds.length;
+      const failedCount = failedPaths.length;
+      
+      if (failedCount > 0) {
+        logger.warn(`[特殊文件夹] 部分保存失败: ${task.fileName} - 成功 ${successCount}/${totalCount}, 失败路径: ${failedPaths.join(', ')}`);
+      } else {
+        logger.info(`[特殊文件夹] 处理完成: ${task.fileName} (ID: ${task.id}), 共保存 ${successCount} 个, 耗时: ${processingTime}ms`);
+      }
+
+      return {
+        success: savedIds.length > 0,
+        processingTime,
+        fileId: savedIds[0],
+        metadata: {
+          totalCount,
+          successCount,
+          failedCount,
+          failedPaths: failedCount > 0 ? failedPaths : undefined
+        }
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error(`[特殊文件夹] 处理失败: ${task.fileName}`, error);
+      throw new Error(errorMessage);
+    }
+  }
+
+  /**
+   * 生成文件路径哈希
+   */
+  private generatePathHash(filePath: string): string {
+    const crypto = require('crypto');
+    return crypto.createHash('md5').update(filePath).digest('hex');
+  }
+
+  /**
+   * 处理普通文件
+   */
+  private async processNormalFile(task: QueueTask, startTime: number): Promise<TaskResult> {
+    try {
+      // 选择识别策略
+      const identifier: IMediaIdentifier = this.config.useLlm
         ? new LLMIdentifier()
         : new RegexIdentifier();
 
-      // 2. 识别媒体
+      // 识别媒体
       const media = await identifier.identify(
         task.fileName,
         task.isDirectory,
@@ -48,15 +201,15 @@ export class TaskProcessor {
 
       logger.info(`成功识别媒体: ${media.title} (任务ID: ${task.id})`);
 
-      // 3. 构建目标路径
+      // 构建目标路径
       const targetPath = this.hardlinkerService.buildTargetPath(media);
 
-      // 4. 处理文件或目录
+      // 处理文件或目录
       let fileId: number | undefined;
       let mediaId: number | undefined;
 
       if (task.isDirectory) {
-        // 对于目录，只创建目录结构，不处理文件
+        // 对于普通目录，只创建目录结构
         const fs = await import("fs/promises");
         await fs.mkdir(targetPath, { recursive: true });
         logger.info(`创建目录: ${targetPath} (任务ID: ${task.id})`);
@@ -86,17 +239,10 @@ export class TaskProcessor {
         fileId,
         processingTime
       };
-
-    } catch (error: any) {
-      const processingTime = Date.now() - startTime;
-      logger.error(`任务处理失败: ${task.fileName} (ID: ${task.id})`, error);
-
-      return {
-        success: false,
-        error: error.message || "未知错误",
-        processingTime,
-        isNonRetryable: error instanceof NonRetryableError,
-      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error(`处理普通文件失败: ${task.fileName}`, error);
+      throw new Error(errorMessage);
     }
   }
 }

@@ -239,18 +239,16 @@ export class FileProcessor {
 
   /**
    * 处理文件事件（用于实时监听）
-   * @param eventType 事件类型
+   * 只处理文件的 add 和 change 事件，目录由定期扫描处理
+   * @param eventType 事件类型 (add | change)
    * @param fileInfo 文件信息
    */
   public async handleFileEvent(
     eventType: string,
     fileInfo: { path: string; filename: string; isDirectory: boolean }
   ): Promise<number | null> {
-    if (
-      eventType !== "add" &&
-      eventType !== "addDir" &&
-      eventType !== "change"
-    ) {
+    // 只处理新增和修改事件
+    if (eventType !== "add" && eventType !== "change") {
       return null;
     }
 
@@ -261,7 +259,7 @@ export class FileProcessor {
     return await this.processFile({
       filePath: fileInfo.path,
       fileName: fileInfo.filename,
-      isDirectory: fileInfo.isDirectory,
+      isDirectory: false,
       priority: FilePriority.REALTIME,
       source: FileSource.REALTIME_WATCH
     });

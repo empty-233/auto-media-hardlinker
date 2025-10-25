@@ -10,7 +10,7 @@ export interface FileMonitorOptions {
   depth?: number;
   usePolling?: boolean;
   ignoreInitial?: boolean;
-  ignored?: RegExp | string | Array<RegExp | string>;
+  ignored?: RegExp | string | Array<RegExp | string> | ((path: string, stats?: any) => boolean);
   cwd?: string;
 }
 
@@ -80,9 +80,6 @@ export class FileMonitor {
     watcher
       .on("add", (filePath) => eventHandler("add", filePath, false))
       .on("change", (filePath) => eventHandler("change", filePath, false))
-      .on("unlink", (filePath) => eventHandler("unlink", filePath, false))
-      .on("addDir", (dirPath) => eventHandler("addDir", dirPath, true))
-      .on("unlinkDir", (dirPath) => eventHandler("unlinkDir", dirPath, true))
       .on("error", (error) => logger.error(`监控错误`, error))
       .on("ready", () => logger.info("初始扫描完成，准备监控文件变化"));
   }

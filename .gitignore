@@ -23,7 +23,6 @@ out
 .DS_Store
 
 # Prisma
-prisma/migrations
 *.db
 *.db-journal
 

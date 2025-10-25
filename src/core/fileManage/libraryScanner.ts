@@ -8,9 +8,6 @@ import { getContainer } from './container';
 import { FileProcessor } from './fileProcessor';
 import { SpecialFolderProcessor } from './specialFolderProcessor';
 
-// 重新导出特殊文件夹类型
-export { SpecialFolderType } from './specialFolderProcessor';
-
 /**
  * 库文件状态枚举
  */
@@ -138,14 +135,192 @@ export class LibraryScanner {
     let filesAdded = 0;
 
     try {
+      logger.info(`开始统一扫描库路径: ${libraryPath}`);
+      
+      // 扫描所有文件夹
+      const scanMaxDepth = this.config.scanConfig.scanMaxDepth;
+      const allFolders = await this.scanFolders(libraryPath, scanMaxDepth);
+
+      // 识别和处理特殊文件夹
+      const { specialFolders, processedPaths } = await this.identifyAndProcessSpecialFolders(
+        allFolders, 
+        errors
+      );
+      
+      logger.info(`特殊文件夹处理完成: ${specialFolders} 个`);
+
+      //扫描普通视频和字幕文件（排除已处理的特殊文件夹）
+      const normalFiles = await this.scanNormalFiles(
+        libraryPath, 
+        processedPaths,
+        errors
+      );
+      
+      filesFound = normalFiles.length;
+
+      // 批量处理普通文件
+      filesAdded = await this.processFileInfos(normalFiles, errors);
+
+      logger.info(`普通文件处理完成: 发现 ${filesFound} 个，新增 ${filesAdded} 个`);
+
+    } catch (error) {
+      const errorMessage = `扫描路径失败 ${libraryPath}: ${error instanceof Error ? error.message : '未知错误'}`;
+      errors.push(errorMessage);
+      logger.error(errorMessage, error);
+    }
+
+    return {
+      filesFound,
+      filesAdded,
+      duration: Date.now() - startTime,
+      errors
+    };
+  }
+
+  /**
+   * 扫描所有文件夹
+   */
+  private async scanFolders(basePath: string, maxDepth: number): Promise<string[]> {
+    try {
+      const patterns: string[] = [];
+      for (let depth = 1; depth <= maxDepth; depth++) {
+        const pattern = '*'.repeat(depth) + '/';
+        patterns.push(pattern);
+      }
+
+      logger.debug(`扫描文件夹，深度: ${maxDepth}, 模式: ${patterns.join(', ')}`);
+
+      const folders = await glob(patterns, {
+        cwd: basePath,
+        onlyDirectories: true,
+        deep: maxDepth,
+        absolute: true,
+        followSymbolicLinks: false,
+        suppressErrors: true
+      });
+
+      logger.debug(`文件夹扫描完成，找到 ${folders.length} 个文件夹`);
+      return folders;
+    } catch (error) {
+      logger.error(`文件夹扫描失败 ${basePath}`, error);
+      return [];
+    }
+  }
+
+  /**
+   * 识别和处理特殊文件夹（快速扫描 + 队列处理）
+   */
+  private async identifyAndProcessSpecialFolders(
+    folders: string[],
+    errors: string[]
+  ): Promise<{ specialFolders: number; processedPaths: Set<string> }> {
+    const processedPaths = new Set<string>();
+    let specialFolderCount = 0;
+
+    try {
+      // 批量查询数据库中已存在的文件夹
+      const existingFolders = await this.prisma.library.findMany({
+        where: {
+          path: {
+            in: folders
+          }
+        },
+        select: {
+          path: true,
+          type: true,
+          status: true
+        }
+      });
+
+      // 构建已存在文件夹的映射
+      const existingFolderMap = new Map(
+        existingFolders.map(f => [f.path, { type: f.type, status: f.status }])
+      );
+
+      logger.debug(`数据库中已存在 ${existingFolders.length} 个文件夹记录`);
+
+      // 快速收集可能的特殊文件夹（基础规则判断，不调用 LLM）
+      const foldersToQueue: string[] = [];
+
+      for (const folderPath of folders) {
+        try {
+          // 检查是否是已处理特殊文件夹的子文件夹
+          const isSubfolderOfProcessed = Array.from(processedPaths).some(
+            processed => folderPath.startsWith(processed + path.sep)
+          );
+          
+          if (isSubfolderOfProcessed) {
+            // logger.debug(`跳过已处理特殊文件夹的子文件夹: ${folderPath}`);
+            continue;
+          }
+
+          // 检查数据库中是否已存在
+          const existing = existingFolderMap.get(folderPath);
+          if (existing) {
+            // logger.debug(`文件夹已存在于数据库: ${folderPath} (类型: ${existing.type}, 状态: ${existing.status})`);
+            
+            // 如果是文件夹类型，添加到已处理路径
+            if (existing.type === 'folder') {
+              processedPaths.add(folderPath);
+              specialFolderCount++;
+            }
+            continue;
+          }
+
+          //使用快速规则判断是否可能是特殊文件夹（不调用 LLM）
+          const checkResult = await this.specialFolderProcessor.isPotentialSpecialFolder(folderPath);
+          
+          if (checkResult.isPotential) {
+            // 如果检测到子文件夹包含特殊结构，推送父文件夹
+            const folderToQueue = checkResult.shouldUseParent 
+              ? path.dirname(folderPath) 
+              : folderPath;
+            
+            if (!foldersToQueue.includes(folderToQueue)) {
+              logger.info(`发现可能的特殊文件夹: ${folderToQueue}`);
+              foldersToQueue.push(folderToQueue);
+              processedPaths.add(folderToQueue);
+              specialFolderCount++;
+              
+            }
+          }
+        } catch (error) {
+          const errorMessage = `检查文件夹失败 ${folderPath}: ${error instanceof Error ? error.message : '未知错误'}`;
+          errors.push(errorMessage);
+          logger.warn(errorMessage);
+        }
+      }
+
+      // 快速添加到队列
+      if (foldersToQueue.length > 0) {
+        logger.info(`发现 ${foldersToQueue.length} 个可能的特殊文件夹，添加到队列进行异步处理`);
+        await this.specialFolderProcessor.enqueueFoldersForProcessing(foldersToQueue);
+      }
+
+    } catch (error) {
+      const errorMessage = `特殊文件夹扫描失败: ${error instanceof Error ? error.message : '未知错误'}`;
+      errors.push(errorMessage);
+      logger.error(errorMessage, error);
+    }
+
+    return { specialFolders: specialFolderCount, processedPaths };
+  }
+
+  /**
+   * 扫描普通文件（排除特殊文件夹）
+   */
+  private async scanNormalFiles(
+    libraryPath: string,
+    excludePaths: Set<string>,
+    errors: string[]
+  ): Promise<FileInfo[]> {
+    try {
       // 构建文件扩展名匹配模式
       const videoExtensions = this.config.videoExtensions.map(ext => ext.toLowerCase());
       const subtitleExtensions = this.config.subtitleExtensions.map(ext => ext.toLowerCase());
       const allExtensions = [...videoExtensions, ...subtitleExtensions];
       
-      const patterns = allExtensions.map(ext => 
-        `**/*${ext}`
-      );
+      const patterns = allExtensions.map(ext => `**/*${ext}`);
 
       // 使用 fast-glob 递归扫描文件
       const files = await glob(patterns, {
@@ -155,11 +330,18 @@ export class LibraryScanner {
         onlyFiles: true
       });
 
-      filesFound = files.length;
+      // 过滤掉特殊文件夹内的文件
+      const filteredFiles = files.filter(filePath => {
+        return !Array.from(excludePaths).some(excludePath => 
+          filePath.startsWith(excludePath + path.sep)
+        );
+      });
+
+      logger.info(`文件扫描完成: 总共 ${files.length} 个，过滤后 ${filteredFiles.length} 个`);
 
       // 处理找到的文件
       const fileInfos: FileInfo[] = [];
-      for (const filePath of files) {
+      for (const filePath of filteredFiles) {
         try {
           const stat = fs.statSync(filePath);
           const ext = path.extname(filePath).toLowerCase();
@@ -179,24 +361,11 @@ export class LibraryScanner {
         }
       }
 
-      // 批量处理文件信息
-      filesAdded = await this.processFileInfos(fileInfos, errors);
-
-      // 检查特殊文件夹结构
-      await this.processSpecialFolders(libraryPath, errors);
-
+      return fileInfos;
     } catch (error) {
-      const errorMessage = `扫描路径失败 ${libraryPath}: ${error instanceof Error ? error.message : '未知错误'}`;
-      errors.push(errorMessage);
-      logger.error(errorMessage, error);
+      logger.error(`普通文件扫描失败 ${libraryPath}`, error);
+      return [];
     }
-
-    return {
-      filesFound,
-      filesAdded,
-      duration: Date.now() - startTime,
-      errors
-    };
   }
 
   /**
@@ -230,6 +399,7 @@ export class LibraryScanner {
           path: info.path,
           pathHash: info.pathHash,
           size: BigInt(info.size),
+          isDirectory: false,
           status: LibraryStatus.PENDING
         }));
 
@@ -262,27 +432,6 @@ export class LibraryScanner {
     } catch (error) {
       logger.error('推送新视频文件到队列失败', error);
       // 不抛出错误，避免影响扫描流程的继续执行
-    }
-  }
-
-  /**
-   * 处理特殊文件夹结构（BDMV、DVD等）
-   */
-  private async processSpecialFolders(basePath: string, errors: string[]): Promise<void> {
-    try {
-      // 使用专门的特殊文件夹处理器
-      const specialFolders = await this.specialFolderProcessor.scanAndProcessSpecialFolders(basePath);
-      
-      if (specialFolders.length > 0) {
-        logger.info(`发现 ${specialFolders.length} 个特殊文件夹`);
-        specialFolders.forEach(folder => {
-          logger.info(`  - ${folder.type}: ${folder.name} (${folder.fileCount} 个文件, ${Math.round(folder.totalSize / 1024 / 1024)}MB)`);
-        });
-      }
-    } catch (error) {
-      const errorMessage = `处理特殊文件夹失败 ${basePath}: ${error instanceof Error ? error.message : '未知错误'}`;
-      errors.push(errorMessage);
-      logger.error(errorMessage, error);
     }
   }
 
