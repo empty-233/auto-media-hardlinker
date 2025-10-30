@@ -300,6 +300,26 @@ const getValueByPath = (obj: any, path: string): any => {
   return path.split('.').reduce((o, p) => o?.[p], obj)
 }
 
+const getFolderTypeLabel = (folderType: string | null | undefined): string => {
+  if (!folderType) return ''
+  const labels: Record<string, string> = {
+    'BDMV': 'BDMV',
+    'VIDEO_TS': 'DVD',
+    'ISO': 'ISO'
+  }
+  return labels[folderType] || folderType
+}
+
+const getFolderTypeColor = (folderType: string | null | undefined): string => {
+  if (!folderType) return 'info'
+  const colors: Record<string, string> = {
+    'BDMV': 'primary',
+    'VIDEO_TS': 'success',
+    'ISO': 'warning'
+  }
+  return colors[folderType] || 'info'
+}
+
 const getStatusTag = (item: FileSystemItem) => {
   if (item.isDirectory) {
     return { type: 'info', text: '目录', icon: Folder }
@@ -464,6 +484,7 @@ onActivated(() => {
             <div class="file-name" :title="item.name">
               {{ item.name }}
             </div>
+
             <div class="file-meta">
               <div class="file-time">
                 {{ formatDate(item.modifiedTime) }}
@@ -473,10 +494,32 @@ onActivated(() => {
               </div>
             </div>
 
-            <div v-if="item.databaseRecord?.Media" class="media-info">
-              <el-tag type="primary" size="small">
+            <div v-if="item.databaseRecord?.Media" class="media-info-with-tags">
+              <el-tag 
+                type="primary" 
+                size="small" 
+                class="media-title-tag"
+                :title="item.databaseRecord.Media.title"
+              >
                 {{ item.databaseRecord.Media.title }}
               </el-tag>
+              <!-- 特殊文件夹标识 - 只对目录显示 -->
+              <div v-if="item.isDirectory && item.isSpecialFolder" class="folder-tags">
+                <el-tag 
+                  :type="getFolderTypeColor(item.folderType)" 
+                  size="small"
+                  effect="dark"
+                >
+                  {{ getFolderTypeLabel(item.folderType) }}
+                </el-tag>
+                <el-tag 
+                  v-if="item.isMultiDisc && item.discNumber" 
+                  type="info" 
+                  size="small"
+                >
+                  碟片 {{ item.discNumber }}
+                </el-tag>
+              </div>
             </div>
           </div>
         </div>
@@ -503,8 +546,27 @@ onActivated(() => {
                 <component :is="getFileIcon(row)" />
               </el-icon>
               <div class="file-info">
-                <div class="file-name" :title="row.name">
-                  {{ row.name }}
+                <div class="file-name-row">
+                  <span class="file-name" :title="row.name">
+                    {{ row.name }}
+                  </span>
+                  <!-- 特殊文件夹标识 -->
+                  <div v-if="row.isDirectory && row.isSpecialFolder" class="folder-tags-inline">
+                    <el-tag 
+                      :type="getFolderTypeColor(row.folderType)" 
+                      size="small"
+                      effect="dark"
+                    >
+                      {{ getFolderTypeLabel(row.folderType) }}
+                    </el-tag>
+                    <el-tag 
+                      v-if="row.isMultiDisc && row.discNumber" 
+                      type="info" 
+                      size="small"
+                    >
+                      碟片 {{ row.discNumber }}
+                    </el-tag>
+                  </div>
                 </div>
                 <div class="file-path" :title="row.path">
                   {{ row.path }}
@@ -746,6 +808,14 @@ onActivated(() => {
   font-size: 14px;
 }
 
+.folder-tags {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
 .file-meta {
   display: flex;
   justify-content: space-between;
@@ -765,6 +835,35 @@ onActivated(() => {
 
 .media-info {
   margin-top: 8px;
+}
+
+.media-info-with-tags {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.media-info-with-tags .media-title-tag {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.media-info-with-tags .media-title-tag :deep(.el-tag__content) {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+
+.media-info-with-tags .folder-tags {
+  margin-top: 0;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 /* 表格容器 */
@@ -811,12 +910,25 @@ onActivated(() => {
   min-width: 0;
 }
 
+.file-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .file-name {
   font-weight: 500;
   color: var(--color-heading);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.folder-tags-inline {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .file-path {

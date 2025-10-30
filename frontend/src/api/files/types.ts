@@ -15,6 +15,12 @@ export interface FileInfo {
   mediaId?: number
   Media?: Media
   episodeInfo?: EpisodeInfo
+  // 文件/文件夹标识
+  isDirectory?: boolean
+  isSpecialFolder?: boolean
+  folderType?: 'BDMV' | 'VIDEO_TS' | 'ISO' | null
+  isMultiDisc?: boolean
+  discNumber?: number | null
 }
 
 /**
@@ -31,6 +37,11 @@ export interface FileSystemItem {
   inDatabase: boolean
   databaseRecord?: FileInfo
   navigationPath?: string
+  // 特殊文件夹标识
+  isSpecialFolder?: boolean
+  folderType?: 'BDMV' | 'VIDEO_TS' | 'ISO' | null
+  isMultiDisc?: boolean
+  discNumber?: number | null
 }
 
 /**

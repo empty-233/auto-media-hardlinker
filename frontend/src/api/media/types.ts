@@ -44,6 +44,12 @@ export interface MediaFile {
   mediaId?: number
   Media?: Media
   episode?: EpisodeInfo
+  // 文件/文件夹标识
+  isDirectory?: boolean
+  isSpecialFolder?: boolean
+  folderType?: 'BDMV' | 'VIDEO_TS' | 'ISO' | null
+  isMultiDisc?: boolean
+  discNumber?: number | null
 }
 
 /**

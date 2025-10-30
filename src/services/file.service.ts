@@ -22,6 +22,11 @@ interface FileSystemItem {
   inDatabase: boolean;
   databaseRecord?: any;
   navigationPath?: string;
+  // 特殊文件夹标识
+  isSpecialFolder?: boolean;
+  folderType?: string | null;
+  isMultiDisc?: boolean;
+  discNumber?: number | null;
 }
 
 export class FileService {
@@ -103,14 +108,27 @@ export class FileService {
 
       // 计算相对路径用于面包屑导航
       const relativePath = path.relative(monitorPath, targetPath);
+      // 统一使用正斜杠，确保跨平台兼容性
+      const normalizedRelativePath = relativePath.replace(/\\/g, '/');
+      
+      // 计算父路径
+      let parentPath: string | null = null;
+      if (normalizedRelativePath) {
+        const dirname = path.dirname(relativePath).replace(/\\/g, '/');
+        // 如果 dirname 是 "."，表示父目录是根目录
+        parentPath = (dirname === "." || dirname === "") ? "" : dirname;
+      } else {
+        // 如果 relativePath 为空，表示当前在根目录，没有父目录
+        parentPath = null;
+      }
 
       logger.info(
         `获取目录内容成功，路径: ${targetPath}, 共${items.length}个项目`
       );
       return {
         items,
-        currentPath: relativePath || "",
-        parentPath: relativePath ? path.dirname(relativePath) : null,
+        currentPath: normalizedRelativePath || "",
+        parentPath: parentPath,
       };
     } catch (error) {
       logger.error(`获取目录内容失败`, error);
@@ -135,9 +153,18 @@ export class FileService {
         const displayPath = path.relative(process.cwd(), fullPath);
 
         if (entry.isDirectory()) {
-          const navigationPath = path.relative(monitorPath, fullPath);
+          const navigationPath = path.relative(monitorPath, fullPath).replace(/\\/g, '/');
           // 添加目录项
           const stat = await fs.stat(fullPath);
+
+          // 查找数据库中的目录记录
+          const normalizedPath = path.normalize(fullPath);
+          const resolvedPath = path.resolve(fullPath);
+
+          let dbRecord =
+            dbFileMap.get(fullPath) ||
+            dbFileMap.get(normalizedPath) ||
+            dbFileMap.get(resolvedPath);
 
           items.push({
             name: entry.name,
@@ -146,8 +173,13 @@ export class FileService {
             fullPath: fullPath,
             isDirectory: true,
             modifiedTime: stat.mtime,
-            inDatabase: false,
-            databaseRecord: undefined,
+            inDatabase: !!dbRecord,
+            databaseRecord: dbRecord,
+            // 添加特殊文件夹标识
+            isSpecialFolder: dbRecord?.isSpecialFolder,
+            folderType: dbRecord?.folderType,
+            isMultiDisc: dbRecord?.isMultiDisc,
+            discNumber: dbRecord?.discNumber,
           });
         } else {
           // 添加文件项

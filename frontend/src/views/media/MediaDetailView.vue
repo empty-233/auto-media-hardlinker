@@ -83,6 +83,26 @@ const getFileName = (filePath: string): string => {
   return filePath.split(/[/\\]/).pop() || filePath
 }
 
+const getFolderTypeLabel = (folderType: string | null | undefined): string => {
+  if (!folderType) return ''
+  const labels: Record<string, string> = {
+    'BDMV': 'BDMV',
+    'VIDEO_TS': 'DVD',
+    'ISO': 'ISO'
+  }
+  return labels[folderType] || folderType
+}
+
+const getFolderTypeColor = (folderType: string | null | undefined): string => {
+  if (!folderType) return 'info'
+  const colors: Record<string, string> = {
+    'BDMV': 'primary',
+    'VIDEO_TS': 'success',
+    'ISO': 'warning'
+  }
+  return colors[folderType] || 'info'
+}
+
 const formatFileSize = (sizeStr: string): string => {
   const size = parseInt(sizeStr)
   if (isNaN(size)) return sizeStr
@@ -238,7 +258,26 @@ onMounted(() => {
             class="file-item"
           >
             <div class="file-info">
-              <div class="file-name">{{ getFileName(file.filePath) }}</div>
+              <div class="file-name-row">
+                <span class="file-name">{{ getFileName(file.filePath) }}</span>
+                <!-- 特殊文件夹标识 -->
+                <div v-if="file.isDirectory && file.isSpecialFolder" class="folder-tags">
+                  <el-tag 
+                    :type="getFolderTypeColor(file.folderType)" 
+                    size="small"
+                    effect="dark"
+                  >
+                    {{ getFolderTypeLabel(file.folderType) }}
+                  </el-tag>
+                  <el-tag 
+                    v-if="file.isMultiDisc && file.discNumber" 
+                    type="info" 
+                    size="small"
+                  >
+                    碟片 {{ file.discNumber }}
+                  </el-tag>
+                </div>
+              </div>
               <div class="file-meta">
                 <span class="file-size">{{ formatFileSize(file.fileSize) }}</span>
                 <span class="file-path">{{ file.filePath }}</span>
@@ -483,12 +522,25 @@ onMounted(() => {
   min-width: 0;
 }
 
+.file-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
 .file-name {
   font-size: 14px;
   font-weight: 500;
   color: var(--color-heading);
-  margin-bottom: 4px;
   word-break: break-all;
+}
+
+.folder-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .file-meta {
