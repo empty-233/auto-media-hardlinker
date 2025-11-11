@@ -4,6 +4,7 @@ import { glob } from 'fast-glob';
 import { PrismaClient } from '@prisma/client';
 import { getConfig } from '../../config/config';
 import { logger } from '../../utils/logger';
+import { generatePathHash } from '../../utils/hash';
 import { getContainer } from './container';
 import { FileProcessor } from './fileProcessor';
 import { SpecialFolderProcessor } from './specialFolderProcessor';
@@ -346,7 +347,7 @@ export class LibraryScanner {
           const stat = fs.statSync(filePath);
           const ext = path.extname(filePath).toLowerCase();
           const type = videoExtensions.includes(ext) ? 'video' : 'subtitle';
-          const pathHash = this.fileProcessor.generatePathHash(filePath);
+          const pathHash = generatePathHash(filePath);
 
           fileInfos.push({
             path: filePath,

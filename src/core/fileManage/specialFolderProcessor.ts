@@ -5,8 +5,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import * as crypto from 'crypto';
 import { logger } from '../../utils/logger';
+import { generatePathHash } from '../../utils/hash';
 import { createHardlinkRecursively } from '../../utils/hardlink';
 import { FileProcessor } from './fileProcessor';
 import { PrismaClient, LibraryStatus } from '@prisma/client';
@@ -55,7 +55,7 @@ export class SpecialFolderProcessor {
       
       // 如果全都是媒体文件（或者没有文件），跳过
       if (files.length > 0 && videoFiles.length === files.length) {
-        logger.debug(`快速判断：普通文件夹，跳过: ${folderPath} (${videoFiles.length} 个视频)`);
+        // logger.debug(`快速判断：普通文件夹，跳过: ${folderPath} (${videoFiles.length} 个视频)`);
         return { isPotential: false, shouldUseParent: false };
       }
       
@@ -80,7 +80,7 @@ export class SpecialFolderProcessor {
       const records = folderPaths.map(folderPath => ({
         type: 'folder',
         path: folderPath,
-        pathHash: this.generatePathHash(folderPath),
+        pathHash: generatePathHash(folderPath),
         size: BigInt(0), // 初始大小为 0，队列处理时计算
         isDirectory: true,
         status: LibraryStatus.PENDING
@@ -275,7 +275,7 @@ export class SpecialFolderProcessor {
     folderPath: string, 
     identification: LLMFolderIdentification
   ): Promise<SpecialFolderProcessResult | null> {
-    const pathHash = this.generatePathHash(folderPath);
+    const pathHash = generatePathHash(folderPath);
 
     logger.debug(`[队列] 处理特殊文件夹: ${folderPath}`);
     logger.debug(`  - 标题: ${identification.title}`);
@@ -324,13 +324,6 @@ export class SpecialFolderProcessor {
       linkPath,
       mediaInfo
     };
-  }
-
-  /**
-   * 生成文件夹路径哈希
-   */
-  private generatePathHash(folderPath: string): string {
-    return crypto.createHash('md5').update(folderPath).digest('hex');
   }
 
   /**

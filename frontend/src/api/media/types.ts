@@ -36,7 +36,7 @@ export interface MediaFile {
   id: number
   deviceId: string
   inode: string
-  fileHash: string
+  fileHash: string | null
   fileSize: string
   filePath: string
   linkPath: string
@@ -50,6 +50,10 @@ export interface MediaFile {
   folderType?: 'BDMV' | 'VIDEO_TS' | 'ISO' | null
   isMultiDisc?: boolean
   discNumber?: number | null
+  // 父文件夹标识
+  isParentFolder?: boolean
+  parentFolderId?: number | null
+  childFolders?: MediaFile[]
 }
 
 /**

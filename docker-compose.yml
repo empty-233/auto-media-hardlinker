@@ -1,21 +1,34 @@
 services:
   auto-media-hardlinker:
-    build: .
+    image: kongwu233/auto-media-hardlinker:latest
+    # 或使用 GitHub Container Registry
+    # image: ghcr.io/empty-233/auto-media-hardlinker:latest
+    
+    # 如需从源码构建，请取消注释下面这行并注释掉上面的 image 行
+    # build: .
+    
     container_name: auto-media-hardlinker
+    restart: unless-stopped
     ports:
-      - "3000:80"
+      - "8080:80"
     volumes:
       # 配置文件挂载
       - ./config:/app/config
       # 数据库和数据目录
       - ./data:/app/data
-      # 文件目录 - 请修改为你的实际路径
-      - /path/to/your/file:/file
       # 日志目录
       - ./logs:/app/logs
+      # 静态资源（海报等）
+      - ./public:/app/public
+      # 文件目录 - 请修改为你的实际路径
+      - /path/to/your/monitor:/file/monitor  # 监控目录
+      - /path/to/your/target:/file/target    # 目标目录
     environment:
+      - NODE_ENV=production
+      - TZ=Asia/Shanghai  # 时区设置
       - CONSOLE_OUTPUT=false
-    restart: unless-stopped
+      # 图片基础URL配置
+      - IMAGE_BASE_URL=http://localhost:8080/public
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
       interval: 30s

@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import routers from "./routes";
 import { authenticateToken } from "./middleware/auth.middleware";
+import { isDevelopment } from "./config/env";
 
 const app = express();
 
@@ -23,7 +24,11 @@ app.set("json replacer", (key: string, value: any) => {
   return value;
 });
 
-app.use(express.static(path.join(__dirname, "../public")));
+// 仅在开发环境提供静态文件服务
+// 生产环境下由 nginx 直接提供静态文件
+if (isDevelopment()) {
+  app.use(express.static(path.join(__dirname, "../public")));
+}
 
 // JWT验证中间件，但排除不需要认证的路由
 app.use("/api", (req, res, next) => {

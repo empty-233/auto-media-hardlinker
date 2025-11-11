@@ -5,6 +5,7 @@ import { LLMIdentifier } from "../strategies/llm.identifier";
 import { RegexIdentifier } from "../strategies/regex.identifier";
 import { getConfig } from "../config/config";
 import { logger } from "../utils/logger";
+import { getFileDeviceInfo } from "../utils/hash";
 import { TaskResult, QueueTask } from "../types/queue.types";
 import { NonRetryableError } from "../core/errors";
 import { getContainer } from "../core/fileManage/container";
@@ -96,13 +97,43 @@ export class TaskProcessor {
       const savedIds: number[] = [];
       const failedPaths: string[] = [];
       
+      // 判断是否为多子卷结构（多于1个结果）
+      const isMultiVolume = results.length > 1;
+      let parentFolderId: number | undefined;
+      
+      // 如果是多子卷结构，先创建父文件夹记录
+      if (isMultiVolume) {
+        try {
+          const firstResult = results[0];
+          const identifiedMedia: IdentifiedMedia = {
+            type: firstResult.mediaInfo.mediaType,
+            tmdbId: firstResult.mediaInfo.tmdbId,
+            title: firstResult.mediaInfo.title,
+            originalTitle: firstResult.mediaInfo.originalTitle || '',
+            releaseDate: firstResult.mediaInfo.releaseDate ? new Date(firstResult.mediaInfo.releaseDate) : null,
+            description: firstResult.mediaInfo.description,
+            posterPath: firstResult.mediaInfo.posterPath,
+            backdropPath: null,
+            rawData: null,
+          };
+          
+          parentFolderId = await this.mediaRepository.createParentFolderRecord(
+            identifiedMedia,
+            task.filePath
+          );
+          
+          logger.info(`[特殊文件夹] 创建父文件夹记录: ${task.filePath} (Parent ID: ${parentFolderId})`);
+        } catch (error) {
+          logger.error(`[特殊文件夹] 创建父文件夹记录失败: ${task.filePath}`, error);
+        }
+      }
+      
       for (const result of results) {
         try {
           const { folderInfo, linkPath, mediaInfo } = result;
 
-          // 获取文件夹的 stat 信息
-          const fsPromises = await import("fs/promises");
-          const stats = await fsPromises.stat(folderInfo.path);
+          // 获取文件夹的设备信息
+          const deviceInfo = await getFileDeviceInfo(folderInfo.path);
 
           // 构建 IdentifiedMedia 对象
           const identifiedMedia: IdentifiedMedia = {
@@ -121,17 +152,21 @@ export class TaskProcessor {
           const folderDetails: FolderDetails = {
             sourcePath: folderInfo.path,
             linkPath: linkPath,
-            deviceId: BigInt(stats.dev),
-            inode: BigInt(stats.ino),
-            fileHash: this.generatePathHash(folderInfo.path),
+            deviceId: deviceInfo.deviceId,
+            inode: deviceInfo.inode,
+            fileHash: null,
             fileSize: BigInt(folderInfo.totalSize),
             folderType: folderInfo.type,
             isMultiDisc: folderInfo.isMultiDisc || false,
             discNumber: folderInfo.discNumber || null,
           };
 
-          // 保存到数据库
-          const fileRecord = await this.mediaRepository.saveMediaAndFolder(identifiedMedia, folderDetails);
+          // 保存到数据库，如果是多卷结构则关联父文件夹
+          const fileRecord = await this.mediaRepository.saveMediaAndFolder(
+            identifiedMedia, 
+            folderDetails,
+            parentFolderId
+          );
           savedIds.push(fileRecord.id);
 
           logger.info(`[特殊文件夹] ✅ 已保存到数据库: ${folderInfo.path} (File ID: ${fileRecord.id})`);
@@ -168,14 +203,6 @@ export class TaskProcessor {
       logger.error(`[特殊文件夹] 处理失败: ${task.fileName}`, error);
       throw new Error(errorMessage);
     }
-  }
-
-  /**
-   * 生成文件路径哈希
-   */
-  private generatePathHash(filePath: string): string {
-    const crypto = require('crypto');
-    return crypto.createHash('md5').update(filePath).digest('hex');
   }
 
   /**

@@ -9,6 +9,7 @@ if [ -d "$CONFIG_DIR" ] && [ -z "$(ls -A $CONFIG_DIR)" ]; then
     echo "初始化配置文件..."
     cp $EXAMPLE_DIR/config.json.example $CONFIG_DIR/config.json
     cp $EXAMPLE_DIR/prompt.md $CONFIG_DIR/prompt.md
+    cp $EXAMPLE_DIR/prompt.md $CONFIG_DIR/specialFolderPrompt.md
     cp $EXAMPLE_DIR/regexConfig.js $CONFIG_DIR/regexConfig.js
     echo "配置文件已复制，请编辑 $CONFIG_DIR/config.json"
 fi

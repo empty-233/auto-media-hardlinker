@@ -1,7 +1,8 @@
 import path from "path";
 import fs from "fs/promises";
-import crypto from "crypto";
 import { logger } from "../../utils/logger";
+import { generatePathHash, getFileDeviceInfo, calculateFileHash } from "../../utils/hash";
+import { createHardlink } from "../../utils/hardlink";
 import { getQueueService } from "../../queue/queueService";
 import { ScrapingTaskData } from "../../types/queue.types";
 import { getConfig } from "../../config/config";
@@ -9,7 +10,6 @@ import { PrismaClient } from '@prisma/client';
 import { LibraryStatus } from './libraryScanner';
 import { FileDetails, IdentifiedMedia } from "../../types/media.types";
 import { MediaRepository } from "../../repository/media.repository";
-import { createHardlink } from "../../utils/hardlink";
 
 /**
  * 文件处理优先级枚举
@@ -310,21 +310,12 @@ export class FileProcessor {
   }
 
   /**
-   * 生成文件路径哈希
-   * @param filePath 文件路径
-   * @returns MD5哈希值
-   */
-  public generatePathHash(filePath: string): string {
-    return crypto.createHash('md5').update(filePath).digest('hex');
-  }
-
-  /**
    * 检查文件是否已存在于库中
    * @param filePath 文件路径
    * @returns 是否已存在
    */
   private async isFileInLibrary(filePath: string): Promise<boolean> {
-    const pathHash = this.generatePathHash(filePath);
+    const pathHash = generatePathHash(filePath);
     const existing = await this.prisma.library.findFirst({
       where: { pathHash }
     });
@@ -340,7 +331,7 @@ export class FileProcessor {
   private async addFileToLibrary(filePath: string, isDirectory: boolean): Promise<number | null> {
     try {
       // 检查文件是否已存在
-      const pathHash = this.generatePathHash(filePath);
+      const pathHash = generatePathHash(filePath);
       const existing = await this.prisma.library.findFirst({
         where: { pathHash }
       });
@@ -528,72 +519,20 @@ export class FileProcessor {
   ): Promise<FileDetails> {
     try {
       await createHardlink(sourcePath, targetPath);
-      const stats = await fs.stat(sourcePath);
-      const fileHash = await this.calculateFileHash(sourcePath, stats.size);
+      const deviceInfo = await getFileDeviceInfo(sourcePath);
+      const fileHash = await calculateFileHash(sourcePath, Number(deviceInfo.size));
 
       return {
         sourcePath: sourcePath,
         linkPath: targetPath,
-        deviceId: stats.dev,
-        inode: stats.ino,
-        fileSize: stats.size,
+        deviceId: deviceInfo.deviceId,
+        inode: deviceInfo.inode,
+        fileSize: deviceInfo.size,
         fileHash: fileHash,
       };
     } catch (error) {
       logger.error(`准备文件详情时出错 (源: ${sourcePath})`, error);
       throw error;
-    }
-  }
-
-  /**
-   * 计算文件的MD5哈希值，用于唯一标识文件
-   * @param filePath 文件路径
-   * @param fileSize 文件大小
-   * @returns 文件的MD5哈希值
-   */
-  private async calculateFileHash(
-    filePath: string,
-    fileSize: number
-  ): Promise<string> {
-    const hashSum = crypto.createHash("md5");
-    let fileHandle;
-    try {
-      fileHandle = await fs.open(filePath, "r");
-      const bufferSize = 1024 * 1024; // 1MB
-      const buffer = Buffer.alloc(bufferSize);
-
-      const { bytesRead: headBytesRead } = await fileHandle.read(
-        buffer,
-        0,
-        Math.min(bufferSize, fileSize),
-        0
-      );
-      hashSum.update(buffer.slice(0, headBytesRead));
-
-      if (fileSize > bufferSize * 2) {
-        const { bytesRead: midBytesRead } = await fileHandle.read(
-          buffer,
-          0,
-          bufferSize,
-          Math.floor(fileSize / 2) - bufferSize / 2
-        );
-        hashSum.update(buffer.slice(0, midBytesRead));
-      }
-
-      if (fileSize > bufferSize) {
-        const { bytesRead: tailBytesRead } = await fileHandle.read(
-          buffer,
-          0,
-          Math.min(bufferSize, fileSize),
-          Math.max(0, fileSize - bufferSize)
-        );
-        hashSum.update(buffer.slice(0, tailBytesRead));
-      }
-
-      hashSum.update(fileSize.toString());
-      return hashSum.digest("hex");
-    } finally {
-      await fileHandle?.close();
     }
   }
 }

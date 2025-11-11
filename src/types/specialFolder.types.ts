@@ -57,7 +57,7 @@ export interface FolderDetails {
   linkPath: string;
   deviceId: bigint;
   inode: bigint;
-  fileHash: string;
+  fileHash: string | null;
   fileSize: bigint;
   folderType: string;
   isMultiDisc: boolean;

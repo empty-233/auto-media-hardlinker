@@ -102,52 +102,85 @@ jobs:
           
           ## 📦 Installation
           
-          ### Option 1: Download Release Archive
-          1. Download `auto-media-hardlinker-${{ github.ref_name }}.tar.gz` from the assets below
-          2. Extract the archive
-          3. Follow the README instructions
+          ### Option 1: Use Docker Compose (Recommended)
           
-          ### Option 2: Use Docker Image
           ```bash
-          # Option A: Pull from Docker Hub (recommended)
-          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/auto-media-hardlinker:${{ github.ref_name }}
+          # Create project directory
+          mkdir -p auto-media-hardlinker/config
+          cd auto-media-hardlinker
           
-          # Option B: Pull from GitHub Container Registry
-          docker pull ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+          # Download docker-compose.yml and configuration files
+          wget https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/docker-compose.yml
+          wget -P config/config.json https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/config/config.json.example
+          wget -P config https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/config/prompt.md
+          wget -P config https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/config/specialFolderPrompt.md
+          wget -P config https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/config/regexConfig.ts
           
-          # Run with docker-compose (recommended - automatically handles volumes and config)
-          curl -O https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/docker-compose.yml
-          # Edit docker-compose.yml to set your file paths
+          # Edit docker-compose.yml to set your monitor and target directories
+          # Then start the service
           docker-compose up -d
           
-          # Or run directly with Docker Hub image (complete setup)
+          # View logs
+          docker-compose logs -f
+          ```
+          
+          Access WebUI at `http://localhost:8080` (port can be changed in docker-compose.yml)
+          
+          ### Option 2: Use Docker Command Line
+          
+          ```bash
+          # Create directories and download config files
+          mkdir -p auto-media-hardlinker/config
+          cd auto-media-hardlinker
+          
+          wget -P config/config.json https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/config/config.json.example
+          wget -P config https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/config/prompt.md
+          wget -P config https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/config/specialFolderPrompt.md
+          wget -P config https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/config/regexConfig.ts
+          
+          # Run with Docker Hub image (recommended)
           docker run -d \
             --name auto-media-hardlinker \
-            -p 3000:80 \
+            --restart unless-stopped \
+            -p 8080:80 \
             -v $(pwd)/config:/app/config \
             -v $(pwd)/data:/app/data \
-            -v /path/to/your/media/files:/file \
             -v $(pwd)/logs:/app/logs \
-            -e CONSOLE_OUTPUT=false \
-            --restart unless-stopped \
+            -v $(pwd)/public:/app/public \
+            -v /path/to/your/monitor:/file/monitor \
+            -v /path/to/your/target:/file/target \
+            -e NODE_ENV=production \
+            -e IMAGE_BASE_URL=http://localhost:8080/public \
+            -e TZ=Asia/Shanghai \
             ${{ secrets.DOCKERHUB_USERNAME }}/auto-media-hardlinker:${{ github.ref_name }}
-
-          # Or run with GitHub Container Registry image
+          
+          # Or use GitHub Container Registry image
           docker run -d \
             --name auto-media-hardlinker \
-            -p 3000:80 \
+            --restart unless-stopped \
+            -p 8080:80 \
             -v $(pwd)/config:/app/config \
             -v $(pwd)/data:/app/data \
-            -v /path/to/your/media/files:/file \
             -v $(pwd)/logs:/app/logs \
-            -e CONSOLE_OUTPUT=false \
-            --restart unless-stopped \
+            -v $(pwd)/public:/app/public \
+            -v /path/to/your/monitor:/file/monitor \
+            -v /path/to/your/target:/file/target \
+            -e NODE_ENV=production \
+            -e IMAGE_BASE_URL=http://localhost:8080/public \
+            -e TZ=Asia/Shanghai \
             ghcr.io/${{ github.repository }}:${{ github.ref_name }}
           ```
           
           **Important**: 
-          - Replace `/path/to/your/media/files` with your actual media files directory
-          - Create config, data, and logs directories before running: `mkdir -p config data logs`
+          - Replace `/path/to/your/monitor` and `/path/to/your/target` with your actual directories
+          - Container will automatically run database migrations on startup
+          - Config files will be automatically generated on first run, can be modified via WebUI
+          
+          ### Option 3: Download Release Archive (Manual Deployment)
+          
+          1. Download `auto-media-hardlinker-${{ github.ref_name }}.tar.gz` from assets below
+          2. Extract: `tar -xzf auto-media-hardlinker-${{ github.ref_name }}.tar.gz`
+          3. Follow deployment instructions in README.md
           
           ## 🔗 Links
           - **Docker Hub**: [${{ secrets.DOCKERHUB_USERNAME }}/auto-media-hardlinker:${{ github.ref_name }}](https://hub.docker.com/r/${{ secrets.DOCKERHUB_USERNAME }}/auto-media-hardlinker)

@@ -18,11 +18,14 @@
     - [基础配置](#基础配置)
     - [Windows 环境中文支持](#windows-环境中文支持)
   - [部署指南](#部署指南)
+    - [Docker 部署（推荐）](#docker-部署推荐)
+      - [方式一：使用 Docker Compose（推荐）](#方式一使用-docker-compose推荐)
+      - [方式二：使用 Docker 命令行](#方式二使用-docker-命令行)
+      - [自行构建镜像（可选）](#自行构建镜像可选)
     - [生产环境部署](#生产环境部署)
       - [1. 部署步骤](#1-部署步骤)
       - [2. 使用 PM2 进程管理](#2-使用-pm2-进程管理)
       - [3. Nginx 反向代理配置](#3-nginx-反向代理配置)
-    - [Docker 部署](#docker-部署)
   - [开发指南](#开发指南)
     - [环境要求](#环境要求)
     - [初始步骤](#初始步骤)
@@ -32,6 +35,7 @@
     - [定期扫描配置](#定期扫描配置)
     - [自定义 LLM 提示](#自定义-llm-提示)
     - [自定义正则表达式配置](#自定义正则表达式配置)
+    - [BDMV/DVD/ISO 特殊文件夹处理](#bdmvdvdiso-特殊文件夹处理)
     - [实际使用案例](#实际使用案例)
   - [待办事项](#待办事项)
     - [功能规划](#功能规划)
@@ -135,6 +139,8 @@ cp .env.example .env
     "openaiBaseUrl": "https://api.openai.com/v1",
     //支持的视频文件扩展名
     "videoExtensions": [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".ts"],
+    //支持的字幕文件扩展名
+    "subtitleExtensions": [".srt", ".ass", ".ssa", ".sub", ".idx", ".vtt", ".sup"],
     //队列配置
     "queue": {
         // 并发工作进程数
@@ -157,7 +163,9 @@ cp .env.example .env
         // 扫描间隔（分钟）
         "interval": 360,
         // 扫描并发数
-        "concurrency": 3
+        "concurrency": 3,
+        // 扫描最大深度（子目录层级）
+        "scanMaxDepth": 2
     }
 }
 ```
@@ -180,6 +188,117 @@ cp .env.example .env
 
 ## 部署指南
 
+### Docker 部署（推荐）
+
+推荐使用 Docker 部署，可从以下平台拉取：
+
+- **Docker Hub**: `kongwu233/auto-media-hardlinker`
+- **GitHub Container Registry**: `ghcr.io/empty-233/auto-media-hardlinker`
+
+#### 方式一：使用 Docker Compose（推荐）
+
+1. **创建项目目录并下载配置文件**
+
+    ```bash
+    # 创建项目目录
+    mkdir -p auto-media-hardlinker/config
+    cd auto-media-hardlinker
+    
+    # 下载 docker-compose.yml
+    wget https://raw.githubusercontent.com/empty-233/auto-media-hardlinker/main/docker-compose.yml
+    
+    # 下载配置文件
+    wget -P config/config.json https://raw.githubusercontent.com/empty-233/auto-media-hardlinker/main/config/config.json.example
+    wget -P config https://raw.githubusercontent.com/empty-233/auto-media-hardlinker/main/config/prompt.md
+    wget -P config https://raw.githubusercontent.com/empty-233/auto-media-hardlinker/main/config/specialFolderPrompt.md
+    wget -P config https://raw.githubusercontent.com/empty-233/auto-media-hardlinker/main/config/regexConfig.ts
+    ```
+
+2. **编辑 `docker-compose.yml`**
+
+    根据实际情况修改卷映射路径，特别是监控目录和目标目录：
+
+    ```yaml
+    volumes:
+      - /path/to/your/monitor:/file/monitor  # 修改为你的监控目录
+      - /path/to/your/target:/file/target    # 修改为你的目标目录
+    ```
+
+3. **启动服务**
+
+    ```bash
+    docker-compose up -d
+    ```
+
+4. **查看日志**
+
+    ```bash
+    docker-compose logs -f
+    ```
+
+5. **访问 WebUI**
+
+    打开浏览器访问 `http://localhost:8080`（端口可在 `docker-compose.yml` 中修改）
+
+> **提示**：
+>
+> - Docker 容器启动时会自动执行数据库迁移（`prisma migrate deploy`）
+> - 下载的配置文件说明：
+>   - `config.json.example` - 主配置文件示例
+>   - `prompt.md` - LLM 提示词模板（用于普通文件）
+>   - `specialFolderPrompt.md` - 特殊文件夹识别提示词（用于 BDMV/DVD/ISO）
+>   - `regexConfig.ts` - 正则表达式配置
+> - 首次启动会自动生成 `config.json`，可在 WebUI 中修改配置
+> - 也可以手动复制 `config.json.example` 并重命名为 `config.json` 后修改
+
+#### 方式二：使用 Docker 命令行
+
+```bash
+# 创建项目目录
+mkdir -p auto-media-hardlinker/config
+cd auto-media-hardlinker
+
+# 下载配置文件
+curl -o config/config.json https://raw.githubusercontent.com/empty-233/auto-media-hardlinker/main/config/config.json.example
+curl -o config https://raw.githubusercontent.com/empty-233/auto-media-hardlinker/main/config/prompt.md
+curl -o config https://raw.githubusercontent.com/empty-233/auto-media-hardlinker/main/config/specialFolderPrompt.md
+curl -o config https://raw.githubusercontent.com/empty-233/auto-media-hardlinker/main/config/regexConfig.ts
+
+# 启动容器
+docker run -d \
+  --name auto-media-hardlinker \
+  --restart unless-stopped \
+  -p 8080:80 \
+  -v $(pwd)/config:/app/config \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/logs:/app/logs \
+  -v $(pwd)/public:/app/public \
+  -v /path/to/your/monitor:/file/monitor \
+  -v /path/to/your/target:/file/target \
+  -e NODE_ENV=production \
+  -e IMAGE_BASE_URL=http://localhost:8080/public \
+  -e TZ=Asia/Shanghai \
+  kongwu233/auto-media-hardlinker:latest
+```
+
+#### 自行构建镜像（可选）
+
+如果需要使用最新的开发代码或自定义构建，需要克隆完整项目：
+
+```bash
+# 克隆完整项目（包含源码）
+git clone https://github.com/empty-233/auto-media-hardlinker.git
+cd auto-media-hardlinker
+
+# 使用 Docker Compose 构建并启动
+docker-compose up -d --build
+
+# 或使用 Docker 命令构建
+docker build -t auto-media-hardlinker:custom .
+```
+
+> **注意**：自行构建将使用仓库中的最新代码，可能不是稳定版本。建议使用预构建的镜像。
+
 ### 生产环境部署
 
 #### 1. 部署步骤
@@ -200,15 +319,19 @@ cp .env.example .env
 # 编辑配置文件，填写TMDB API密钥等必要信息
 ```
 
+> **注意**：修改`IMAGE_BASE_URL`地址和端口
+
 **初始化数据库：**
 
 ```bash
 # 生成 Prisma 客户端
 pnpm prisma:generate
 
-# 初始化数据库
+# 应用数据库迁移（生产环境）
 pnpm prisma migrate deploy
 ```
+
+> **注意**：`prisma migrate deploy` 会应用所有待执行的迁移，适用于生产环境。该命令不会创建新的迁移文件，只会执行 `prisma/migrations` 目录中已有的迁移。
 
 **构建应用：**
 
@@ -250,6 +373,14 @@ server {
     # 前端静态文件根目录(修改路径)
     root /frontend/dist;
     index index.html;
+    
+    # 静态资源 (图片等)
+    location /public/ {
+        alias /app/public/;
+        expires 7d;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+    }
 
     # API 请求代理到后端
     location /api/ {
@@ -270,43 +401,6 @@ server {
     }
 }
 ```
-
-### Docker 部署
-
-您可以使用 Docker 和 Docker Compose 快速部署应用。
-
-1.  **克隆项目**
-
-    ```bash
-    git clone https://github.com/empty-233/auto-media-hardlinker.git
-    cd auto-media-hardlinker
-    ```
-
-2.  **配置 `docker-compose.yml`**
-
-    编辑 `docker-compose.yml` 文件，根据您的实际情况修改卷（volumes）映射：
-
-    ```yaml
-    services:
-      app:
-        # ...
-        volumes:
-          - ./config:/app/config
-          - ./data:/app/data
-          - ./logs:/app/logs
-          # 文件目录 - 请修改为你的实际路径
-          - /path/to/your/file:/file
-    ```
-
-3.  **启动服务**
-
-    ```bash
-    docker-compose up -d
-    ```
-
-4.  **首次配置**
-
-    容器首次启动后，默认配置文件会自动创建在 `./config/config.json`。需要在webui中配置。
 
 ## 开发指南
 
@@ -377,6 +471,8 @@ pnpm frontend:build
 # 数据库相关
 pnpm prisma:generate    # 生成 Prisma 客户端
 pnpm prisma:push       # 推送数据库模式变更
+pnpm prisma migrate dev # 创建新的迁移并应用（开发环境）
+pnpm prisma migrate deploy # 应用已有迁移（生产环境）
 ```
 
 ## 高级使用
@@ -400,13 +496,28 @@ pnpm prisma:push       # 推送数据库模式变更
 
 ### 自定义 LLM 提示
 
-您可以编辑`config/prompt.md`文件来自定义 LLM 的提示，以改进文件名解析逻辑。系统默认提供了一个优化的提示模板，适用于大多数常见的媒体文件命名格式。
+您可以编辑 `config/prompt.md` 和 `config/specialFolderPrompt.md` 文件来自定义 LLM 的提示，以改进文件名解析逻辑。系统默认提供了一个优化的提示模板，适用于大多数常见的媒体文件命名格式。
 
 ### 自定义正则表达式配置
 
 如果您不想使用 LLM 或需要更高效的文件名解析，可以通过编辑`config/regexConfig.ts`文件来自定义正则表达式规则
 
 通过添加自定义的正则表达式规则，您可以处理特殊的文件命名格式。
+
+### BDMV/DVD/ISO 特殊文件夹处理
+
+支持理蓝光原盘（BDMV）、DVD 原盘（VIDEO_TS）和 ISO 镜像文件
+
+**高级特性：**
+
+- **多卷支持**：自动识别和处理多卷蓝光（Vol.1、Vol.2、Disc 1、Disc 2 等）
+- **特典内容**：支持识别特典、SP、OVA、PV、Menu 等特殊内容
+- **智能分类**：通过 LLM 自动判断内容类型（主要内容/特典/菜单等）
+- **硬链接整合**：自动为每个卷或特典创建规范的硬链接结构
+
+**配置文件：**
+
+使用 `config/specialFolderPrompt.md` 文件来定义 LLM 识别特殊文件夹的规则。可以根据需要自定义识别规则和提示模板。
 
 ### 实际使用案例
 
@@ -429,7 +540,7 @@ pnpm prisma:push       # 推送数据库模式变更
 
 ### 功能规划
 
-- [ ] 蓝光原盘（BDMV/ISO）刮削支持
+- [ ] 特殊类型手动修改关联
 - [ ] NFO 文件支持
 
 ### 已完成
@@ -440,6 +551,7 @@ pnpm prisma:push       # 推送数据库模式变更
 - [x] 内存使用优化
 - [x] 异常情况下的错误恢复
 - [x] 网络中断时的重连机制
+- [x] 蓝光原盘（BDMV/ISO）刮削支持
 
 ## 许可证
 

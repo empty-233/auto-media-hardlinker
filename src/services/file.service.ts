@@ -27,6 +27,9 @@ interface FileSystemItem {
   folderType?: string | null;
   isMultiDisc?: boolean;
   discNumber?: number | null;
+  // 父文件夹标识
+  isParentFolder?: boolean;
+  childFolders?: any[];
 }
 
 export class FileService {
@@ -76,6 +79,11 @@ export class FileService {
         include: {
           Media: true,
           episodeInfo: true,
+          childFolders: {
+            include: {
+              Media: true,
+            }
+          },
         },
       });
 
@@ -180,6 +188,9 @@ export class FileService {
             folderType: dbRecord?.folderType,
             isMultiDisc: dbRecord?.isMultiDisc,
             discNumber: dbRecord?.discNumber,
+            // 添加父文件夹标识
+            isParentFolder: dbRecord?.isParentFolder,
+            childFolders: dbRecord?.childFolders,
           });
         } else {
           // 添加文件项

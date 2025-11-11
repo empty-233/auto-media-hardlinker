@@ -7,7 +7,7 @@ export interface FileInfo {
   id: number
   deviceId: string
   inode: string
-  fileHash: string
+  fileHash: string | null
   fileSize: string
   filePath: string
   linkPath: string
@@ -21,6 +21,10 @@ export interface FileInfo {
   folderType?: 'BDMV' | 'VIDEO_TS' | 'ISO' | null
   isMultiDisc?: boolean
   discNumber?: number | null
+  // 父文件夹标识
+  isParentFolder?: boolean
+  parentFolderId?: number | null
+  childFolders?: FileInfo[]
 }
 
 /**
@@ -42,6 +46,9 @@ export interface FileSystemItem {
   folderType?: 'BDMV' | 'VIDEO_TS' | 'ISO' | null
   isMultiDisc?: boolean
   discNumber?: number | null
+  // 父文件夹标识
+  isParentFolder?: boolean
+  childFolders?: FileInfo[]
 }
 
 /**

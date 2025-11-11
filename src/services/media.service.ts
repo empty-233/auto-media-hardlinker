@@ -27,7 +27,18 @@ export class MediaService {
           skip,
           take,
           include: {
-            files: true,
+            files: {
+              include: {
+                childFolders: {
+                  include: {
+                    Media: true,
+                    episodeInfo: true,
+                  },
+                },
+                Media: true,
+                episodeInfo: true,
+              },
+            },
             tvInfos: {
               include: {
                 episodes: true,
@@ -65,7 +76,18 @@ export class MediaService {
       const media = await prisma.media.findUnique({
         where: { id },
         include: {
-          files: true,
+          files: {
+            include: {
+              childFolders: {
+                include: {
+                  Media: true,
+                  episodeInfo: true,
+                },
+              },
+              Media: true,
+              episodeInfo: true,
+            },
+          },
           tvInfos: {
             include: {
               episodes: true,
@@ -123,7 +145,18 @@ export class MediaService {
           skip,
           take,
           include: {
-            files: true,
+            files: {
+              include: {
+                childFolders: {
+                  include: {
+                    Media: true,
+                    episodeInfo: true,
+                  },
+                },
+                Media: true,
+                episodeInfo: true,
+              },
+            },
             tvInfos:
               type === "tv"
                 ? {

@@ -54,11 +54,11 @@ const envSchema = z.object({
   DATABASE_URL: z.string().default('file:./dev.db'),
   
   // 服务器配置
-  PORT: z.coerce.number().int().positive().default(3000),
+  PORT: z.coerce.number().int().positive().default(4000),
   NODE_ENV: z.enum(NodeEnv).default(NodeEnv.DEVELOPMENT),
   
   // 图片URL配置
-  IMAGE_BASE_URL: z.url().default('http://localhost:3000'),
+  IMAGE_BASE_URL: z.url().default('http://localhost:4000'),
   
   // 日志配置
   LOG_LEVEL: z.enum(LogLevel).default(LogLevel.INFO),

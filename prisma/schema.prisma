@@ -51,7 +51,7 @@ model File {
   id        Int      @id @default(autoincrement()) /// 唯一标识符
   deviceId  BigInt   @map("device_id") /// 设备ID，与inode一起确保文件的唯一性
   inode     BigInt /// 文件系统inode号
-  fileHash  String   @map("file_hash") /// 文件内容哈希值
+  fileHash  String?  @map("file_hash") /// 文件内容哈希值（文件夹为null，只有普通文件才有）
   fileSize  BigInt   @map("file_size") /// 文件大小（字节）
   filePath  String   @unique @map("file_path") /// 原始文件路径
   linkPath  String   @unique @map("link_path") /// 硬链接文件路径
@@ -63,6 +63,12 @@ model File {
   folderType      String? @map("folder_type") /// 特殊文件夹类型（BDMV/VIDEO_TS/ISO）
   isMultiDisc     Boolean @default(false) @map("is_multi_disc") /// 是否为多碟片结构
   discNumber      Int?    @map("disc_number") /// 碟片编号（Vol.1, Disc 2 等）
+  isParentFolder  Boolean @default(false) @map("is_parent_folder") /// 是否为父文件夹（包含多个子卷的容器）
+  
+  // 父子文件夹关系
+  parentFolder   File?  @relation("ParentChildren", fields: [parentFolderId], references: [id], onDelete: SetNull)
+  parentFolderId Int?   @map("parent_folder_id") /// 父文件夹ID（用于子卷）
+  childFolders   File[] @relation("ParentChildren") /// 子文件夹列表（用于父文件夹）
 
   /// 关联的媒体信息
   Media   Media? @relation(fields: [mediaId], references: [id])
@@ -81,6 +87,8 @@ model File {
   @@index([isSpecialFolder]) /// 特殊文件夹索引，用于快速筛选特殊文件夹
   @@index([folderType]) /// 特殊文件夹类型索引，用于按类型查询
   @@index([isMultiDisc, discNumber]) /// 多碟片索引，用于关联同系列碟片
+  @@index([isParentFolder]) /// 父文件夹标识索引，用于快速筛选父文件夹
+  @@index([parentFolderId]) /// 父文件夹ID索引，用于快速查找子卷
 }
 
 /// 电视剧详细信息表

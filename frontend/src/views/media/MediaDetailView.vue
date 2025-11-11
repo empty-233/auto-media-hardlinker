@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { 
   ArrowLeft, 
@@ -102,6 +102,33 @@ const getFolderTypeColor = (folderType: string | null | undefined): string => {
   }
   return colors[folderType] || 'info'
 }
+
+// 组织文件结构：将父文件夹和子文件夹分组
+const organizedFiles = computed(() => {
+  if (!media.value?.files) return { parentFolders: [], regularFiles: [] }
+  
+  const parentFolders: MediaFile[] = []
+  const regularFiles: MediaFile[] = []
+  const childFileIds = new Set<number>()
+  
+  // 首先收集所有父文件夹
+  media.value.files.forEach(file => {
+    if (file.isParentFolder && file.childFolders && file.childFolders.length > 0) {
+      parentFolders.push(file)
+      // 记录所有子文件夹的ID
+      file.childFolders.forEach(child => childFileIds.add(child.id))
+    }
+  })
+  
+  // 然后收集所有非子文件夹的常规文件
+  media.value.files.forEach(file => {
+    if (!file.isParentFolder && !childFileIds.has(file.id)) {
+      regularFiles.push(file)
+    }
+  })
+  
+  return { parentFolders, regularFiles }
+})
 
 const formatFileSize = (sizeStr: string): string => {
   const size = parseInt(sizeStr)
@@ -251,9 +278,89 @@ onMounted(() => {
           关联文件 ({{ media.files.length }})
         </h2>
         
-        <div class="files-list">
+        <!-- 父文件夹列表 -->
+        <div v-if="organizedFiles.parentFolders.length > 0" class="parent-folders-list">
           <div 
-            v-for="file in media.files" 
+            v-for="parentFolder in organizedFiles.parentFolders" 
+            :key="parentFolder.id"
+            class="parent-folder-group"
+          >
+            <!-- 父文件夹头部 -->
+            <div class="parent-folder-header">
+              <div class="parent-folder-info">
+                <el-icon class="folder-icon" color="#f56c6c" size="20">
+                  <Document />
+                </el-icon>
+                <span class="parent-folder-name">{{ getFileName(parentFolder.filePath) }}</span>
+                <el-tag type="warning" size="small" effect="dark">
+                  包含 {{ parentFolder.childFolders?.length || 0 }} 个子卷
+                </el-tag>
+              </div>
+              <div class="parent-folder-actions">
+                <el-button 
+                  size="small" 
+                  type="primary" 
+                  :icon="View"
+                  @click="viewFile(parentFolder)"
+                >
+                  查看
+                </el-button>
+              </div>
+            </div>
+            
+            <!-- 子文件夹列表 -->
+            <div class="child-folders-list">
+              <div 
+                v-for="childFolder in parentFolder.childFolders" 
+                :key="childFolder.id"
+                class="file-item child-file-item"
+              >
+                <div class="file-info">
+                  <div class="file-name-row">
+                    <span class="file-name">{{ getFileName(childFolder.filePath) }}</span>
+                    <!-- 特殊文件夹标识 -->
+                    <div v-if="childFolder.isDirectory && childFolder.isSpecialFolder" class="folder-tags">
+                      <el-tag 
+                        :type="getFolderTypeColor(childFolder.folderType)" 
+                        size="small"
+                        effect="dark"
+                      >
+                        {{ getFolderTypeLabel(childFolder.folderType) }}
+                      </el-tag>
+                      <el-tag 
+                        v-if="childFolder.isMultiDisc && childFolder.discNumber" 
+                        type="info" 
+                        size="small"
+                      >
+                        碟片 {{ childFolder.discNumber }}
+                      </el-tag>
+                    </div>
+                  </div>
+                  <div class="file-meta">
+                    <span class="file-size">{{ formatFileSize(childFolder.fileSize) }}</span>
+                    <span class="file-path">{{ childFolder.filePath }}</span>
+                  </div>
+                </div>
+                
+                <div class="file-actions">
+                  <el-button 
+                    size="small" 
+                    type="primary" 
+                    :icon="View"
+                    @click="viewFile(childFolder)"
+                  >
+                    查看
+                  </el-button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 常规文件列表 -->
+        <div v-if="organizedFiles.regularFiles.length > 0" class="files-list">
+          <div 
+            v-for="file in organizedFiles.regularFiles" 
             :key="file.id"
             class="file-item"
           >
@@ -499,6 +606,76 @@ onMounted(() => {
   padding: 24px;
   border-radius: 12px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 父文件夹列表 */
+.parent-folders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.parent-folder-group {
+  border: 2px solid var(--el-color-warning);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--color-background-soft);
+}
+
+.parent-folder-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: linear-gradient(to right, var(--el-color-warning-light-9), var(--color-background));
+  border-bottom: 1px solid var(--el-color-warning-light-7);
+}
+
+.parent-folder-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.folder-icon {
+  flex-shrink: 0;
+}
+
+.parent-folder-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-heading);
+  word-break: break-all;
+}
+
+.parent-folder-actions {
+  flex-shrink: 0;
+  margin-left: 16px;
+}
+
+.child-folders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.child-file-item {
+  margin: 0;
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-background);
+}
+
+.child-file-item:last-child {
+  border-bottom: none;
+}
+
+.child-file-item:hover {
+  background: var(--color-background-mute);
 }
 
 .files-list {

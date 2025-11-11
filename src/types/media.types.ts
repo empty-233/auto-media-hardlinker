@@ -53,10 +53,10 @@ export interface IMediaIdentifier {
 export interface FileDetails {
   sourcePath: string;
   linkPath: string;
-  fileSize: number;
+  fileSize: bigint;
   fileHash: string;
-  deviceId: number;
-  inode: number;
+  deviceId: bigint;
+  inode: bigint;
 }
 
 /**

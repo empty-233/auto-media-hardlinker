@@ -2,6 +2,7 @@ import { Type, Prisma, LibraryStatus } from "@prisma/client";
 import prisma from "../client";
 import { logger } from "../utils/logger";
 import { downloadTMDBImage, formatDate } from "../utils/media";
+import { getFileDeviceInfo } from "../utils/hash";
 import { Episode } from "moviedb-promise";
 import {
   IMediaRepository,
@@ -35,9 +36,10 @@ export class MediaRepository implements IMediaRepository {
   }
 
   /**
-   * 保存特殊文件夹和媒体信息
+   * 保存媒体信息和特殊文件夹关联
    * @param media 媒体信息
    * @param folderDetails 文件夹详细信息
+   * @param parentFolderId 父文件夹ID（可选，用于子卷）
    * @returns 文件记录
    */
   public async saveMediaAndFolder(
@@ -47,12 +49,13 @@ export class MediaRepository implements IMediaRepository {
       linkPath: string;
       deviceId: bigint;
       inode: bigint;
-      fileHash: string;
+      fileHash: string | null;
       fileSize: bigint;
       folderType: string;
       isMultiDisc: boolean;
       discNumber: number | null;
-    }
+    },
+    parentFolderId?: number
   ): Promise<any> {
     try {
       const mediaRecord = await this.findOrCreateMediaRecord(media);
@@ -62,13 +65,80 @@ export class MediaRepository implements IMediaRepository {
       const fileRecord = await this.upsertFolderRecord(
         mediaRecord.id,
         folderDetails,
-        episodeId
+        episodeId,
+        parentFolderId
       );
 
       logger.info(`成功将特殊文件夹 "${folderDetails.sourcePath}" 信息保存到数据库`);
       return fileRecord;
     } catch (error) {
       logger.error(`保存特殊文件夹数据库操作失败`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 创建父文件夹记录（用于包含多个子卷的容器文件夹）
+   * @param media 媒体信息
+   * @param parentFolderPath 父文件夹路径
+   * @returns 父文件夹记录ID
+   */
+  public async createParentFolderRecord(
+    media: IdentifiedMedia,
+    parentFolderPath: string
+  ): Promise<number> {
+    try {
+      // 获取父文件夹的设备信息
+      const deviceInfo = await getFileDeviceInfo(parentFolderPath);
+      
+      // 查找或创建媒体记录
+      const mediaRecord = await this.findOrCreateMediaRecord(media);
+      
+      // 检查父文件夹是否已存在
+      const existingParent = await prisma.file.findFirst({
+        where: {
+          OR: [
+            { deviceId: deviceInfo.deviceId, inode: deviceInfo.inode },
+            { filePath: parentFolderPath }
+          ]
+        }
+      });
+
+      if (existingParent) {
+        logger.info(`父文件夹记录已存在: ${parentFolderPath} (ID: ${existingParent.id})`);
+        
+        // 更新为父文件夹标识
+        await prisma.file.update({
+          where: { id: existingParent.id },
+          data: {
+            isParentFolder: true,
+            Media: { connect: { id: mediaRecord.id } }
+          }
+        });
+        
+        return existingParent.id;
+      }
+
+      // 创建新的父文件夹记录
+      const parentRecord = await prisma.file.create({
+        data: {
+          deviceId: deviceInfo.deviceId,
+          inode: deviceInfo.inode,
+          fileHash: null,
+          fileSize: BigInt(0), // 父文件夹不计算实际大小
+          filePath: parentFolderPath,
+          linkPath: parentFolderPath, // 父文件夹本身不创建硬链接
+          isDirectory: true,
+          isParentFolder: true,
+          isSpecialFolder: false,
+          Media: { connect: { id: mediaRecord.id } }
+        }
+      });
+
+      logger.info(`创建父文件夹记录: ${parentFolderPath} (ID: ${parentRecord.id})`);
+      return parentRecord.id;
+    } catch (error) {
+      logger.error(`创建父文件夹记录失败: ${parentFolderPath}`, error);
       throw error;
     }
   }
@@ -83,13 +153,14 @@ export class MediaRepository implements IMediaRepository {
       linkPath: string;
       deviceId: bigint;
       inode: bigint;
-      fileHash: string;
+      fileHash: string | null;
       fileSize: bigint;
       folderType: string;
       isMultiDisc: boolean;
       discNumber: number | null;
     },
-    episodeId?: number
+    episodeId?: number,
+    parentFolderId?: number
   ) {
     let existingFile = await prisma.file.findFirst({
       where: {
@@ -129,6 +200,11 @@ export class MediaRepository implements IMediaRepository {
         discNumber: folderDetails.discNumber,
         Media: { connect: { id: mediaId } },
       };
+      
+      // 如果有父文件夹ID，关联父文件夹
+      if (parentFolderId) {
+        updateData.parentFolder = { connect: { id: parentFolderId } };
+      }
       
       if (episodeId) {
         updateData.episodeInfo = { connect: { id: episodeId } };
@@ -173,6 +249,7 @@ export class MediaRepository implements IMediaRepository {
           discNumber: folderDetails.discNumber,
           Media: { connect: { id: mediaId } },
           ...(episodeId ? { episodeInfo: { connect: { id: episodeId } } } : {}),
+          ...(parentFolderId ? { parentFolder: { connect: { id: parentFolderId } } } : {}),
         },
       });
 

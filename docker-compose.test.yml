@@ -1,0 +1,21 @@
+services:
+  auto-media-hardlinker-test:
+    build: .
+    container_name: auto-media-hardlinker-test
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      # 配置文件挂载
+      - ./config:/app/config
+      # 数据库和数据目录
+      - ./prisma:/app/data
+      # 静态资源（海报等）
+      - ./public:/app/public
+      # 文件目录
+      - ./file:/file
+    environment:
+      - NODE_ENV=production
+      - TZ=Asia/Shanghai
+      - CONSOLE_OUTPUT=true
+      - IMAGE_BASE_URL=http://localhost:8080/public

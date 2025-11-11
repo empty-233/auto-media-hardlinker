@@ -504,16 +504,30 @@ onActivated(() => {
                 {{ item.databaseRecord.Media.title }}
               </el-tag>
               <!-- 特殊文件夹标识 - 只对目录显示 -->
-              <div v-if="item.isDirectory && item.isSpecialFolder" class="folder-tags">
+              <div v-if="item.isDirectory" class="folder-tags">
+                <!-- 父文件夹标识-->
                 <el-tag 
+                  v-if="item.isParentFolder && item.childFolders?.length" 
+                  type="warning" 
+                  size="small"
+                  effect="dark"
+                  class="parent-folder-tag"
+                >
+                  <el-icon style="margin-right: 4px;"><Folder /></el-icon>
+                  包含 {{ item.childFolders.length }} 个子卷
+                </el-tag>
+                <!-- 特殊文件夹类型标识 -->
+                <el-tag 
+                  v-if="item.isSpecialFolder && !item.isParentFolder"
                   :type="getFolderTypeColor(item.folderType)" 
                   size="small"
                   effect="dark"
                 >
                   {{ getFolderTypeLabel(item.folderType) }}
                 </el-tag>
+                <!-- 碟片编号 -->
                 <el-tag 
-                  v-if="item.isMultiDisc && item.discNumber" 
+                  v-if="item.isMultiDisc && item.discNumber && !item.isParentFolder" 
                   type="info" 
                   size="small"
                 >
@@ -590,10 +604,19 @@ onActivated(() => {
           </template>
         </el-table-column>
 
-        <el-table-column label="关联媒体" width="200">
+        <el-table-column label="关联媒体" width="250">
           <template #default="{ row }">
             <div v-if="row.databaseRecord?.Media" class="media-info">
               <el-tag type="primary" size="small">{{ row.databaseRecord.Media.title }}</el-tag>
+              <!-- 父文件夹标识 -->
+              <el-tag 
+                v-if="row.isParentFolder && row.childFolders?.length" 
+                type="warning" 
+                size="small"
+                style="margin-left: 8px;"
+              >
+                {{ row.childFolders.length }} 个子卷
+              </el-tag>
             </div>
             <span v-else class="no-media">-</span>
           </template>
@@ -775,6 +798,17 @@ onActivated(() => {
   background: var(--el-color-danger-light-9);
 }
 
+.file-card.is-directory:has(.parent-folder-tag) {
+  border: 2px solid var(--el-color-warning);
+  background: linear-gradient(to bottom, var(--el-color-warning-light-9), var(--color-background-soft));
+}
+
+.file-card.is-directory:has(.parent-folder-tag):hover {
+  border-color: var(--el-color-warning);
+  box-shadow: 0 6px 16px rgba(230, 162, 60, 0.2);
+  background: linear-gradient(to bottom, var(--el-color-warning-light-8), var(--color-background-soft));
+}
+
 .file-icon-container {
   display: flex;
   flex-direction: column;
@@ -814,6 +848,12 @@ onActivated(() => {
   margin-top: 8px;
   flex-wrap: wrap;
   justify-content: center;
+}
+
+.parent-folder-tag {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
 }
 
 .file-meta {

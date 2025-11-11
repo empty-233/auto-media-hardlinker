@@ -65,7 +65,7 @@ COPY --from=builder /app/frontend/dist ./frontend
 RUN pnpm prisma generate
 
 # 创建运行时所需的目录
-RUN mkdir -p /app/data /app/db_init
+RUN mkdir -p /app/data /app/db_init /app/public
 
 # 生成临时初始数据库（用于首次启动时复制）
 # 优先使用 migrate deploy（如果有迁移文件），否则使用 db push
@@ -103,5 +103,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD wget --quiet --tries=1 --spider http://localhost:80/ || exit 1
 
 # 启动命令
-# 注意：您的原始 CMD 只会启动 Node.js。如果需要同时运行 Nginx，请参考下面的改进建议。
-CMD ["node", "/app/src/index.js"]
+# 注意:您的原始 CMD 只会启动 Node.js。如果需要同时运行 Nginx,请参考下面的改进建议。
+CMD ["node", "/app/dist/src/index.js"]
