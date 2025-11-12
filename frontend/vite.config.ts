@@ -36,6 +36,12 @@ export default defineConfig(({ mode }) => {
           secure: false,
           rewrite: (path) => path.replace(/^\/api/, ''),
         },
+        '/public': {
+          target: env.VITE_PUBLIC_BASE_URL,
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace(/^\/public/, ''),
+        },
       },
       watch: {
         usePolling: true,

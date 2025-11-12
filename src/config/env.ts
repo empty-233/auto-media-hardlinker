@@ -58,7 +58,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(NodeEnv).default(NodeEnv.DEVELOPMENT),
   
   // 图片URL配置
-  IMAGE_BASE_URL: z.url().default('http://localhost:4000'),
+  IMAGE_BASE_URL: z.string().default('/public'),
   
   // 日志配置
   LOG_LEVEL: z.enum(LogLevel).default(LogLevel.INFO),

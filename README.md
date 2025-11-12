@@ -276,7 +276,6 @@ docker run -d \
   -v /path/to/your/monitor:/file/monitor \
   -v /path/to/your/target:/file/target \
   -e NODE_ENV=production \
-  -e IMAGE_BASE_URL=http://localhost:8080/public \
   -e TZ=Asia/Shanghai \
   kongwu233/auto-media-hardlinker:latest
 ```

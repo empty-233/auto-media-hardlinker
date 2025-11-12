@@ -27,8 +27,6 @@ services:
       - NODE_ENV=production
       - TZ=Asia/Shanghai  # 时区设置
       - CONSOLE_OUTPUT=false
-      # 图片基础URL配置
-      - IMAGE_BASE_URL=http://localhost:8080/public
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
       interval: 30s

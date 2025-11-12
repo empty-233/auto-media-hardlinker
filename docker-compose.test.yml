@@ -18,4 +18,3 @@ services:
       - NODE_ENV=production
       - TZ=Asia/Shanghai
       - CONSOLE_OUTPUT=true
-      - IMAGE_BASE_URL=http://localhost:8080/public
