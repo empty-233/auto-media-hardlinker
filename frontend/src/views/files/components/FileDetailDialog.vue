@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Search, Edit, Check, Close, Link, ArrowLeft } from '@element-plus/icons-vue'
+import { Search, Edit, ArrowLeft } from '@element-plus/icons-vue'
 import type { FileSystemItem, LinkMediaParams } from '@/api/files/types'
 import { FileService } from '@/api/files'
 import { TMDBService, type TMDBSearchItem } from '@/api/tmdb'
-import { MediaService } from '@/api/media'
+import type { Episode, SimpleSeason } from 'moviedb-promise'
 
 interface Props {
   fileInfo: FileSystemItem | null
@@ -32,14 +32,19 @@ const selectedTmdbItem = ref<TMDBSearchItem | null>(null)
 const saveLoading = ref(false)
 const linkMediaLoading = ref(false)
 
+// 碟片编号编辑相关
+const editDiscMode = ref(false)
+const editDiscNumber = ref<number | null>(null)
+const saveDiscLoading = ref(false)
+
 // 多步骤流程状态
 const currentStep = ref<'search' | 'seasons' | 'episodes' | 'confirm'>('search')
 const selectedSeasonNumber = ref<number | null>(null)
 const selectedEpisodeNumber = ref<number | null>(null)
-const selectedEpisodeInfo = ref<any | null>(null)
-const selectedSeasonInfo = ref<any | null>(null)
-const seasonsData = ref<any[]>([])
-const episodesData = ref<any[]>([])
+const selectedEpisodeInfo = ref<Episode | null>(null)
+const selectedSeasonInfo = ref<SimpleSeason | null>(null)
+const seasonsData = ref<SimpleSeason[]>([])
+const episodesData = ref<Episode[]>([])
 const loadingSeasons = ref(false)
 const loadingEpisodes = ref(false)
 
@@ -65,36 +70,48 @@ const updateBreadcrumb = () => {
   ]
 
   if (selectedTmdbItem.value?.media_type === 'tv') {
-    // 只显示当前步骤及之前的步骤
-    if (
-      currentStep.value === 'seasons' ||
-      currentStep.value === 'episodes' ||
-      currentStep.value === 'confirm'
-    ) {
-      items.push({
-        label: '2. 选择季数',
-        step: 'seasons',
-        active: currentStep.value === 'seasons',
-        clickable: selectedTmdbItem.value !== null,
-      })
-    }
+    // 特殊文件夹的电视剧和电影一样，只有两步
+    if (props.fileInfo?.isSpecialFolder) {
+      if (currentStep.value === 'confirm') {
+        items.push({
+          label: '2. 确认信息',
+          step: 'confirm',
+          active: currentStep.value === 'confirm',
+          clickable: false,
+        })
+      }
+    } else {
+      // 普通文件的电视剧显示所有步骤
+      if (
+        currentStep.value === 'seasons' ||
+        currentStep.value === 'episodes' ||
+        currentStep.value === 'confirm'
+      ) {
+        items.push({
+          label: '2. 选择季数',
+          step: 'seasons',
+          active: currentStep.value === 'seasons',
+          clickable: selectedTmdbItem.value !== null,
+        })
+      }
 
-    if (currentStep.value === 'episodes' || currentStep.value === 'confirm') {
-      items.push({
-        label: '3. 选择集数',
-        step: 'episodes',
-        active: currentStep.value === 'episodes',
-        clickable: selectedSeasonNumber.value !== null,
-      })
-    }
+      if (currentStep.value === 'episodes' || currentStep.value === 'confirm') {
+        items.push({
+          label: '3. 选择集数',
+          step: 'episodes',
+          active: currentStep.value === 'episodes',
+          clickable: selectedSeasonNumber.value !== null,
+        })
+      }
 
-    if (currentStep.value === 'confirm') {
-      items.push({
-        label: '4. 确认信息',
-        step: 'confirm',
-        active: currentStep.value === 'confirm',
-        clickable: false,
-      })
+      if (currentStep.value === 'confirm') {
+        items.push({
+          label: '4. 确认信息',
+          step: 'confirm',
+          active: currentStep.value === 'confirm',
+          clickable: false,
+        })
+      }
     }
   } else if (selectedTmdbItem.value?.media_type === 'movie') {
     // 电影只有两步，只在确认步骤时显示第二步
@@ -120,16 +137,19 @@ const handleClose = () => {
 
 // 处理对话框打开事件
 const handleOpen = () => {
-  if (props.fileInfo && !props.fileInfo.isDirectory) {
-    editFileName.value = props.fileInfo.name
-    // 如果有关联的媒体，预填搜索框
-    if (props.fileInfo.databaseRecord?.Media) {
-      tmdbSearchQuery.value = props.fileInfo.databaseRecord.Media.title
-    } else {
-      // 尝试从文件名提取搜索关键词
-      const baseName = props.fileInfo.name.replace(/\.[^/.]+$/, '') // 去掉扩展名
-      const cleanName = baseName.replace(/\[.*?\]/g, '').trim() // 去掉方括号内容
-      tmdbSearchQuery.value = cleanName
+  if (props.fileInfo) {
+    // 对于特殊文件夹或普通文件
+    if (!props.fileInfo.isDirectory || props.fileInfo.isSpecialFolder) {
+      editFileName.value = props.fileInfo.name
+      // 如果有关联的媒体，预填搜索框
+      if (props.fileInfo.databaseRecord?.Media) {
+        tmdbSearchQuery.value = props.fileInfo.databaseRecord.Media.title
+      } else {
+        // 尝试从文件名/文件夹名提取搜索关键词
+        const baseName = props.fileInfo.name.replace(/\.[^/.]+$/, '') // 去掉扩展名
+        const cleanName = baseName.replace(/\[.*?\]/g, '').trim() // 去掉方括号内容
+        tmdbSearchQuery.value = cleanName
+      }
     }
   }
   resetState()
@@ -241,9 +261,14 @@ const selectTmdbItem = async (item: TMDBSearchItem) => {
     // 电影直接跳转到确认步骤
     currentStep.value = 'confirm'
   } else if (item.media_type === 'tv') {
-    // 电视剧需要先选择季数
-    currentStep.value = 'seasons'
-    await loadSeasons(item.id)
+    // 特殊文件夹的电视剧直接跳转到确认步骤，不需要选择季集
+    if (props.fileInfo?.isSpecialFolder) {
+      currentStep.value = 'confirm'
+    } else {
+      // 普通文件的电视剧需要先选择季数
+      currentStep.value = 'seasons'
+      await loadSeasons(item.id)
+    }
   }
   updateBreadcrumb()
 }
@@ -292,8 +317,8 @@ const loadEpisodes = async (tvId: number, seasonNumber: number) => {
 }
 
 // 选择集数
-const selectEpisode = (episode: any) => {
-  selectedEpisodeNumber.value = episode.episode_number
+const selectEpisode = (episode: Episode) => {
+  selectedEpisodeNumber.value = episode.episode_number || null
   selectedEpisodeInfo.value = episode
   currentStep.value = 'confirm'
   updateBreadcrumb()
@@ -309,11 +334,13 @@ const goBack = () => {
     selectedSeasonNumber.value = null
     selectedSeasonInfo.value = null
   } else if (currentStep.value === 'confirm') {
-    if (selectedTmdbItem.value?.media_type === 'tv') {
+    if (selectedTmdbItem.value?.media_type === 'tv' && !props.fileInfo?.isSpecialFolder) {
+      // 普通文件的电视剧返回到选择集数
       currentStep.value = 'episodes'
       selectedEpisodeNumber.value = null
       selectedEpisodeInfo.value = null
     } else {
+      // 电影或特殊文件夹的电视剧直接返回到搜索
       currentStep.value = 'search'
       selectedTmdbItem.value = null
     }
@@ -353,9 +380,11 @@ const saveAndLink = async () => {
     return
   }
 
-  // 对于电视剧，必须选择季数和集数
+  // 对于普通文件的电视剧，必须选择季数和集数
+  // 特殊文件夹的电视剧不需要选择季集
   if (
     selectedTmdbItem.value.media_type === 'tv' &&
+    !props.fileInfo?.isSpecialFolder &&
     (selectedSeasonNumber.value === null || selectedEpisodeNumber.value === null)
   ) {
     ElMessage.warning('请先选择季数和集数')
@@ -386,6 +415,7 @@ const saveAndLink = async () => {
       posterPath: selectedTmdbItem.value.poster_path,
       backdropPath: selectedTmdbItem.value.backdrop_path,
       rawData: selectedTmdbItem.value,
+      episodeInfo: selectedEpisodeInfo.value
     }
 
     // 根据文件是否已入库，决定ID和参数
@@ -394,10 +424,14 @@ const saveAndLink = async () => {
       mediaInfo: mediaInfo,
       filename: props.fileInfo.name,
       path: props.fileInfo.path,
+      isSpecialFolder: props.fileInfo?.isSpecialFolder || false,
     }
 
+    // 特殊文件夹不需要关联到具体集数
+    // 普通文件的电视剧才需要提供季集信息
     if (
       selectedTmdbItem.value.media_type === 'tv' &&
+      !props.fileInfo?.isSpecialFolder &&
       selectedSeasonNumber.value !== null &&
       selectedEpisodeNumber.value !== null
     ) {
@@ -479,20 +513,57 @@ const getPosterUrl = (posterPath?: string): string => {
   if (!posterPath) return ''
   return `https://image.tmdb.org/t/p/w200${posterPath}`
 }
+
+// 碟片编号编辑相关方法
+const startEditDisc = () => {
+  editDiscMode.value = true
+  editDiscNumber.value = props.fileInfo?.databaseRecord?.discNumber ?? null
+}
+
+const cancelEditDisc = () => {
+  editDiscMode.value = false
+  editDiscNumber.value = null
+}
+
+const saveDiscNumber = async () => {
+  if (!props.fileInfo?.databaseRecord?.id) {
+    ElMessage.warning('文件未入库，无法设置碟片编号')
+    return
+  }
+
+  try {
+    saveDiscLoading.value = true
+    await FileService.updateDiscNumber(props.fileInfo.databaseRecord.id, editDiscNumber.value)
+
+    ElMessage.success(editDiscNumber.value === null ? '取消碟片编号成功' : '更新碟片编号成功')
+    editDiscMode.value = false
+
+    // 刷新父组件数据
+    emit('refresh')
+
+    // 关闭弹窗，让父组件重新获取数据
+    handleClose()
+  } catch (error) {
+    console.error('更新碟片编号失败:', error)
+    ElMessage.error('更新碟片编号失败，请稍后重试')
+  } finally {
+    saveDiscLoading.value = false
+  }
+}
 </script>
 
 <template>
   <el-dialog
     v-model="visible"
-    title="编辑文件与关联媒体"
+    :title="fileInfo?.isSpecialFolder ? '编辑特殊文件夹与关联媒体' : '编辑文件与关联媒体'"
     width="90%"
     top="5vh"
     :close-on-click-modal="false"
     @close="handleClose"
     @open="handleOpen"
   >
-    <!-- 如果是目录，显示提示 -->
-    <div v-if="!fileInfo || fileInfo.isDirectory" class="directory-notice">
+    <!-- 如果是普通目录（非特殊文件夹），显示提示 -->
+    <div v-if="!fileInfo || (fileInfo.isDirectory && !fileInfo.isSpecialFolder)" class="directory-notice">
       <el-result icon="warning" title="无法编辑" sub-title="该项目是目录，无法进行编辑操作">
         <template #extra>
           <el-button type="primary" @click="handleClose">关闭</el-button>
@@ -500,15 +571,15 @@ const getPosterUrl = (posterPath?: string): string => {
       </el-result>
     </div>
 
-    <!-- 文件编辑界面 -->
+    <!-- 文件或特殊文件夹编辑界面 -->
     <div v-else class="file-edit-container">
       <!-- 左侧：文件信息 -->
       <div class="file-info-section">
-        <h3 class="section-title">文件信息</h3>
+        <h3 class="section-title">{{ fileInfo?.isSpecialFolder ? '文件夹信息' : '文件信息' }}</h3>
 
-        <!-- 文件名编辑 -->
+        <!-- 文件名/文件夹名编辑 -->
         <div class="info-item">
-          <label class="info-label">文件名</label>
+          <label class="info-label">{{ fileInfo?.isSpecialFolder ? '文件夹名' : '文件名' }}</label>
           <div class="info-content">
             <div v-if="!editMode" class="file-name-display">
               <div class="file-name-text">{{ fileInfo.name }}</div>
@@ -565,6 +636,66 @@ const getPosterUrl = (posterPath?: string): string => {
           <div class="info-content">
             <el-tag :type="fileInfo.inDatabase ? 'success' : 'warning'">
               {{ fileInfo.inDatabase ? '已入库' : '未入库' }}
+            </el-tag>
+          </div>
+        </div>
+
+        <!-- 特殊文件夹信息 -->
+        <div v-if="fileInfo.isSpecialFolder" class="info-item">
+          <label class="info-label">文件夹类型</label>
+          <div class="info-content special-folder-info">
+            <el-tag 
+              :type="fileInfo.folderType === 'BDMV' ? 'primary' : fileInfo.folderType === 'VIDEO_TS' ? 'success' : 'warning'"
+              effect="dark"
+            >
+              {{ fileInfo.folderType === 'BDMV' ? 'BDMV (蓝光原盘)' : fileInfo.folderType === 'VIDEO_TS' ? 'VIDEO_TS (DVD)' : fileInfo.folderType }}
+            </el-tag>
+          </div>
+        </div>
+
+        <!-- 碟片编号编辑 -->
+        <div v-if="fileInfo.isSpecialFolder && fileInfo.inDatabase" class="info-item">
+          <label class="info-label">碟片编号</label>
+          <div class="info-content">
+            <div v-if="!editDiscMode" class="disc-number-display">
+              <el-tag v-if="fileInfo.databaseRecord?.discNumber" type="info">
+                碟片 {{ fileInfo.databaseRecord.discNumber }}
+              </el-tag>
+              <span v-else class="no-disc-number">未设置</span>
+              <el-button link :icon="Edit" size="small" class="edit-btn" @click="startEditDisc">
+                编辑
+              </el-button>
+            </div>
+            <div v-else class="disc-number-edit-mode">
+              <el-input-number
+                v-model="editDiscNumber"
+                :min="1"
+                :max="99"
+                placeholder="输入碟片编号"
+                controls-position="right"
+                class="disc-number-input"
+              />
+              <el-button type="primary" size="small" :loading="saveDiscLoading" @click="saveDiscNumber">
+                保存
+              </el-button>
+              <el-button 
+                size="small" 
+                :loading="saveDiscLoading"
+                @click="() => { editDiscNumber = null; saveDiscNumber(); }"
+              >
+                取消编号
+              </el-button>
+              <el-button size="small" @click="cancelEditDisc">取消</el-button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 父文件夹信息 -->
+        <div v-if="fileInfo.isParentFolder && fileInfo.childFolders?.length" class="info-item">
+          <label class="info-label">子碟片</label>
+          <div class="info-content">
+            <el-tag type="warning">
+              包含 {{ fileInfo.childFolders.length }} 个子碟片
             </el-tag>
           </div>
         </div>
@@ -733,7 +864,7 @@ const getPosterUrl = (posterPath?: string): string => {
               v-for="season in seasonsData"
               :key="season.season_number"
               class="season-item"
-              @click="selectSeason(season.season_number)"
+              @click="season.season_number !== undefined && selectSeason(season.season_number)"
             >
               <div class="season-poster">
                 <img
@@ -874,6 +1005,11 @@ const getPosterUrl = (posterPath?: string): string => {
                     <li v-if="selectedTmdbItem?.media_type === 'tv'">同步电视剧的剧集信息</li>
                     <li>创建硬链接到媒体库</li>
                     <li>保存关联信息到数据库</li>
+                    <li v-if="fileInfo?.isSpecialFolder && (fileInfo?.parentFolderId || fileInfo?.isParentFolder)" style="color: var(--el-color-warning); font-weight: 500;">
+                      <strong>自动同步关联：</strong>
+                      <span v-if="fileInfo?.parentFolderId">将同时关联父文件夹和所有同级子文件夹</span>
+                      <span v-else-if="fileInfo?.isParentFolder">将同时关联所有子文件夹</span>
+                    </li>
                   </ul>
                   <p class="notice-warning">
                     <strong>注意：</strong>
@@ -922,10 +1058,13 @@ const getPosterUrl = (posterPath?: string): string => {
                     }}
                   </span>
                 </div>
-                <div v-if="selectedTmdbItem.media_type === 'tv'" class="episode-detail">
+                <div v-if="selectedTmdbItem.media_type === 'tv' && !fileInfo?.isSpecialFolder" class="episode-detail">
                   <el-tag type="success"
                     >第{{ selectedSeasonNumber }}季 第{{ selectedEpisodeNumber }}集</el-tag
                   >
+                </div>
+                <div v-if="selectedTmdbItem.media_type === 'tv' && fileInfo?.isSpecialFolder" class="episode-detail">
+                  <el-tag type="warning">关联整部剧集（不关联到具体集数）</el-tag>
                 </div>
                 <p v-if="selectedTmdbItem.overview" class="media-description">
                   {{ selectedTmdbItem.overview }}
@@ -940,10 +1079,10 @@ const getPosterUrl = (posterPath?: string): string => {
     <template #footer>
       <div class="dialog-footer">
         <el-button @click="handleClose">
-          {{ fileInfo?.isDirectory ? '关闭' : '取消' }}
+          {{ (fileInfo?.isDirectory && !fileInfo?.isSpecialFolder) ? '关闭' : '取消' }}
         </el-button>
         <el-button
-          v-if="!fileInfo?.isDirectory && currentStep === 'confirm'"
+          v-if="(!fileInfo?.isDirectory || fileInfo?.isSpecialFolder) && currentStep === 'confirm'"
           type="primary"
           :loading="linkMediaLoading"
           @click="saveAndLink"
@@ -1080,6 +1219,37 @@ const getPosterUrl = (posterPath?: string): string => {
   font-size: 13px;
   color: var(--color-text);
   line-height: 32px;
+}
+
+.special-folder-info {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* 碟片编号编辑样式 */
+.disc-number-display {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.no-disc-number {
+  color: var(--color-text);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.disc-number-edit-mode {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.disc-number-input {
+  width: 150px;
 }
 
 /* TMDB 搜索样式 */

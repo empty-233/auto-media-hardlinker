@@ -48,6 +48,7 @@ export interface FileSystemItem {
   discNumber?: number | null
   // 父文件夹标识
   isParentFolder?: boolean
+  parentFolderId?: number | null
   childFolders?: FileInfo[]
 }
 
@@ -56,6 +57,14 @@ export interface FileSystemItem {
  */
 export interface RenameFileParams {
   newName: string
+}
+
+/**
+ * 父文件夹信息
+ */
+export interface ParentFolderInfo {
+  id: number
+  path: string
 }
 
 /**
@@ -68,4 +77,6 @@ export interface LinkMediaParams {
   episodeTmdbId?: number
   seasonNumber?: number
   episodeNumber?: number
+  isSpecialFolder?: boolean
+  parentFolder?: ParentFolderInfo | null
 }

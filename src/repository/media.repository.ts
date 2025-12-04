@@ -81,11 +81,13 @@ export class MediaRepository implements IMediaRepository {
    * 创建父文件夹记录（用于包含多个子卷的容器文件夹）
    * @param media 媒体信息
    * @param parentFolderPath 父文件夹路径
+   * @param linkPath 硬链接路径
    * @returns 父文件夹记录ID
    */
   public async createParentFolderRecord(
     media: IdentifiedMedia,
-    parentFolderPath: string
+    parentFolderPath: string,
+    linkPath: string
   ): Promise<number> {
     try {
       // 获取父文件夹的设备信息
@@ -107,11 +109,12 @@ export class MediaRepository implements IMediaRepository {
       if (existingParent) {
         logger.info(`父文件夹记录已存在: ${parentFolderPath} (ID: ${existingParent.id})`);
         
-        // 更新为父文件夹标识
+        // 更新为父文件夹标识，并更新linkPath
         await prisma.file.update({
           where: { id: existingParent.id },
           data: {
             isParentFolder: true,
+            linkPath,
             Media: { connect: { id: mediaRecord.id } }
           }
         });
@@ -127,7 +130,7 @@ export class MediaRepository implements IMediaRepository {
           fileHash: null,
           fileSize: BigInt(0), // 父文件夹不计算实际大小
           filePath: parentFolderPath,
-          linkPath: parentFolderPath, // 父文件夹本身不创建硬链接
+          linkPath, // 父文件夹硬链接路径
           isDirectory: true,
           isParentFolder: true,
           isSpecialFolder: false,
@@ -135,7 +138,7 @@ export class MediaRepository implements IMediaRepository {
         }
       });
 
-      logger.info(`创建父文件夹记录: ${parentFolderPath} (ID: ${parentRecord.id})`);
+      logger.info(`创建父文件夹记录: ${parentFolderPath} -> ${linkPath} (ID: ${parentRecord.id})`);
       return parentRecord.id;
     } catch (error) {
       logger.error(`创建父文件夹记录失败: ${parentFolderPath}`, error);
@@ -479,13 +482,20 @@ export class MediaRepository implements IMediaRepository {
         );
 
         if (episodeInfo) {
-          // 更新现有剧集
-          if (!episodeInfo.posterUrl && localStillUrl) {
-            await prisma.episodeInfo.update({
-              where: { id: episodeInfo.id },
-              data: { posterUrl: localStillUrl },
-            });
-          }
+          // 更新现有剧集的所有信息
+          episodeInfo = await prisma.episodeInfo.update({
+            where: { id: episodeInfo.id },
+            data: {
+              seasonNumber: episodeData.season_number,
+              episodeNumber: episodeData.episode_number,
+              title: episodeData.name,
+              releaseDate: formatDate(episodeData.air_date),
+              description: episodeData.overview,
+              posterUrl: localStillUrl || episodeInfo.posterUrl, // 如果有新海报就用新的，否则保留旧的
+              tvInfoId: tvInfo.id,
+            },
+          });
+          logger.info(`更新剧集信息: ${episodeData.name} (TMDB ID: ${episodeTmdbId})`);
         } else {
           // 创建新剧集
           episodeInfo = await prisma.episodeInfo.create({
@@ -500,6 +510,7 @@ export class MediaRepository implements IMediaRepository {
               tvInfoId: tvInfo.id,
             },
           });
+          logger.info(`创建剧集信息: ${episodeData.name} (TMDB ID: ${episodeTmdbId})`);
         }
         return episodeInfo.id; // 返回剧集ID
       }

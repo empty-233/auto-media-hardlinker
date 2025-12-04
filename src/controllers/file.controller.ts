@@ -2,15 +2,11 @@ import { Response } from "express";
 import { FileService } from "../services";
 import {
   success,
-  badRequest,
   notFound,
-  internalError,
 } from "../utils/response";
 import { TypedController, TypedRequest } from "./base.controller";
 import { ParamValidators, FileValidators } from "../validators";
 import { z } from "zod";
-import { logger } from "../utils/logger";
-import { BusinessError, ErrorType } from "../core/errors";
 
 // 类型定义
 type IdParamType = z.infer<typeof ParamValidators.id>;
@@ -75,6 +71,8 @@ export class FileController extends TypedController {
         episodeTmdbId,
         seasonNumber,
         episodeNumber,
+        isSpecialFolder,
+        parentFolder
       } = req.body;
 
       const result = await this.fileService.linkMediaToFileProcess(
@@ -84,7 +82,9 @@ export class FileController extends TypedController {
         filePath,
         episodeTmdbId,
         seasonNumber,
-        episodeNumber
+        episodeNumber,
+        isSpecialFolder,
+        parentFolder
       );
 
       success(res, result, "关联媒体成功");
@@ -98,6 +98,17 @@ export class FileController extends TypedController {
 
       const result = await this.fileService.unlinkMediaFromFileProcess(fileId);
       success(res, result, "取消文件关联成功");
+    }
+  );
+
+  // 更新碟片编号
+  updateDiscNumber = this.asyncHandler<IdParamType, {}, z.infer<typeof FileValidators.updateDiscNumber>>(
+    async (req: TypedRequest<IdParamType, {}, z.infer<typeof FileValidators.updateDiscNumber>>, res: Response) => {
+      const { id: fileId } = req.params;
+      const { discNumber } = req.body;
+
+      const result = await this.fileService.updateDiscNumber(fileId, discNumber);
+      success(res, result, discNumber === null ? "取消碟片编号成功" : "更新碟片编号成功");
     }
   );
 }

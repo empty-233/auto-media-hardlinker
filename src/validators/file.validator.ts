@@ -26,7 +26,9 @@ const mediaInfoSchema = z.object({
   /** 背景图片路径，TMDB返回的相对路径如"/def.jpg"或完整URL */
   backdropPath: CommonValidators.imagePath,
   /** 原始数据，保存从TMDB获取的完整数据 */
-  rawData: z.any()
+  rawData: z.any(),
+  /** 剧集信息（仅对电视剧有效） */
+  episodeInfo: z.any().optional()
 });
 
 /**
@@ -112,17 +114,30 @@ export const FileValidators = {
     /** 季号（仅电视剧需要），自动转换为数字，允许从第0季开始 */
     seasonNumber: z.coerce.number().int().min(0).nullable().optional().default(0),
     /** 集号（仅电视剧需要），自动转换为数字，允许从第0集开始 */
-    episodeNumber: z.coerce.number().int().min(0).nullable().optional().default(0)
+    episodeNumber: z.coerce.number().int().min(0).nullable().optional().default(0),
+    /** 是否为特殊文件夹（BDMV、DVD等），特殊文件夹不需要提供季集信息 */
+    isSpecialFolder: z.boolean().optional().default(false),
+    /** 父文件夹信息（用于子碟片关联时同步父文件夹和其他子碟片） */
+    parentFolder: z.object({
+      /** 父文件夹的数据库ID */
+      id: z.coerce.number().int().positive(),
+      /** 父文件夹的路径 */
+      path: CommonValidators.filePath
+    }).nullable().optional()
   }).refine(
     (data) => {
-      // 如果是电视剧类型，必须提供季集信息
+      // 特殊文件夹不需要季集信息
+      if (data.isSpecialFolder) {
+        return true;
+      }
+      // 普通文件的电视剧类型，必须提供季集信息
       if (data.mediaInfo.type === 'tv') {
         return data.seasonNumber !== null && data.episodeNumber !== null && data.episodeTmdbId;
       }
       return true;
     },
     {
-      message: '电视剧类型必须提供季号、集号和剧集TMDB ID',
+      message: '电视剧类型必须提供季号、集号和剧集TMDB ID（特殊文件夹除外）',
       path: ['seasonNumber', 'episodeNumber', 'episodeTmdbId']
     }
   ),
@@ -141,6 +156,24 @@ export const FileValidators = {
   getDirectoryContents: z.object({
     /** 目录路径，可以为空(代表根目录)，长度限制在1024字符内 */
     dirPath: CommonValidators.optionalFilePath
+  }),
+
+  /**
+   * 更新碟片编号请求体验证
+   * 
+   * 验证更新特殊文件夹碟片编号的参数。
+   * discNumber 可以为 null（表示取消碟片编号）或正整数。
+   * 
+   * @example
+   * // 请求体示例 - 设置为碟片1
+   * { "discNumber": 1 }
+   * 
+   * // 请求体示例 - 取消碟片编号
+   * { "discNumber": null }
+   */
+  updateDiscNumber: z.object({
+    /** 碟片编号，null表示取消，正整数表示碟片序号 */
+    discNumber: z.coerce.number().int().positive().nullable()
   })
 };
 

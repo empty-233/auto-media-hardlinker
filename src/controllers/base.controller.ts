@@ -57,6 +57,8 @@ export abstract class TypedController {
           return badRequest(res, error.message);
         case ErrorType.FILE_NOT_FOUND:
           return notFound(res, error.message);
+        case ErrorType.FILE_OPERATION_ERROR:
+          return internalError(res, error.message);
         default:
           return internalError(res, error.message || "处理请求时发生未知业务错误");
       }

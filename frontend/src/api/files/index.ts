@@ -54,4 +54,11 @@ export class FileService {
   static async unlinkMedia(fileId: number): Promise<FileInfo> {
     return http.post<FileInfo>(`/files/${fileId}/unlink-media`)
   }
+
+  /**
+   * 更新碟片编号
+   */
+  static async updateDiscNumber(fileId: number, discNumber: number | null): Promise<FileInfo> {
+    return http.patch<FileInfo>(`/files/${fileId}/disc-number`, { discNumber })
+  }
 }

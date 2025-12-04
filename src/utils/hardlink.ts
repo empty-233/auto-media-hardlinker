@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { logger } from "./logger";
+import { BusinessError, ErrorType } from "../core/errors";
 
 /**
  * 创建从源路径到目标路径的硬链接。
@@ -104,31 +105,42 @@ export async function createHardlinkRecursively(
 }
 
 /**
- * 删除指定路径的文件。
- * @param filePath - 要删除的文件路径
+ * 删除指定路径的文件或目录。
+ * @param filePath - 要删除的文件或目录路径
  * @returns Promise<void>
  * @throws 如果删除失败（权限问题等），则抛出错误。
  */
 export async function deleteHardlink(filePath: string): Promise<void> {
   try {
-    // 1. 检查文件是否存在
+    // 1. 检查文件/目录是否存在
     await fs.promises.access(filePath, fs.constants.F_OK);
 
-    // 2. 删除文件
-    await fs.promises.unlink(filePath);
-    logger.info(`成功删除文件: ${filePath}`);
+    // 2. 获取文件/目录状态
+    const stats = await fs.promises.stat(filePath);
+
+    // 3. 根据类型删除
+    if (stats.isDirectory()) {
+      // 递归删除目录
+      await fs.promises.rm(filePath, { recursive: true, force: true });
+      logger.info(`成功删除目录: ${filePath}`);
+    } else {
+      // 删除文件
+      await fs.promises.unlink(filePath);
+      logger.info(`成功删除文件: ${filePath}`);
+    }
   } catch (error: any) {
-    let errorMessage = `删除文件失败: "${filePath}".`;
+    let errorMessage = `删除失败: "${filePath}".`;
     if (error.code === 'ENOENT') {
-      // 如果文件已经不存在，这通常不是一个需要上报的错误，可以静默处理或只记录警告。
-      logger.warn(errorMessage + " 原因: 文件不存在。可能已被提前删除。");
-      return; // 操作目标已不存在，可视为成功
+      logger.error(errorMessage + " 原因: 文件/目录不存在。");
+      throw new BusinessError(ErrorType.FILE_OPERATION_ERROR, errorMessage);
     } else if (error.code === 'EPERM' || error.code === 'EACCES') {
       errorMessage += " 原因: 权限不足。";
+    } else if (error.code === 'EISDIR') {
+      errorMessage += " 原因: 目标是目录，需要使用递归删除。";
     } else {
       errorMessage += ` 原因: 未知错误 (${error.message})`;
     }
     logger.error(errorMessage, error);
-    throw new Error(errorMessage); // 重新抛出错误，以便上层调用者可以捕获
+    throw new BusinessError(ErrorType.FILE_OPERATION_ERROR, errorMessage);
   }
 }

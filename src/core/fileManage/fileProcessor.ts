@@ -259,7 +259,7 @@ export class FileProcessor {
     return await this.processFile({
       filePath: fileInfo.path,
       fileName: fileInfo.filename,
-      isDirectory: false,
+      isDirectory: fileInfo.isDirectory,
       priority: FilePriority.REALTIME,
       source: FileSource.REALTIME_WATCH
     });

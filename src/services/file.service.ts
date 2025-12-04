@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import { logger } from "../utils/logger";
 import { getConfig } from "../config/config";
 import fs from "fs/promises";
@@ -6,8 +6,9 @@ import path from "path";
 import { MediaHardlinkerService } from "../core/fileManage/mediaHardlinker";
 import { MediaRepository } from "../repository/media.repository";
 import { EpisodeService } from "./episode.service";
-import { deleteHardlink } from "../utils/hardlink";
+import { deleteHardlink, createHardlinkRecursively } from "../utils/hardlink";
 import { BusinessError, ErrorType } from "../core/errors";
+import { IdentifiedMedia } from "../types/media.types";
 
 const prisma = new PrismaClient();
 
@@ -29,8 +30,15 @@ interface FileSystemItem {
   discNumber?: number | null;
   // 父文件夹标识
   isParentFolder?: boolean;
+  parentFolderId?: number | null;
   childFolders?: any[];
 }
+
+type ParentInfoWithChildren = Prisma.FileGetPayload<{
+  include: {
+    childFolders: true
+  }
+}>;
 
 export class FileService {
   constructor(
@@ -82,7 +90,7 @@ export class FileService {
           childFolders: {
             include: {
               Media: true,
-            }
+            },
           },
         },
       });
@@ -117,14 +125,14 @@ export class FileService {
       // 计算相对路径用于面包屑导航
       const relativePath = path.relative(monitorPath, targetPath);
       // 统一使用正斜杠，确保跨平台兼容性
-      const normalizedRelativePath = relativePath.replace(/\\/g, '/');
-      
+      const normalizedRelativePath = relativePath.replace(/\\/g, "/");
+
       // 计算父路径
       let parentPath: string | null = null;
       if (normalizedRelativePath) {
-        const dirname = path.dirname(relativePath).replace(/\\/g, '/');
+        const dirname = path.dirname(relativePath).replace(/\\/g, "/");
         // 如果 dirname 是 "."，表示父目录是根目录
-        parentPath = (dirname === "." || dirname === "") ? "" : dirname;
+        parentPath = dirname === "." || dirname === "" ? "" : dirname;
       } else {
         // 如果 relativePath 为空，表示当前在根目录，没有父目录
         parentPath = null;
@@ -161,7 +169,9 @@ export class FileService {
         const displayPath = path.relative(process.cwd(), fullPath);
 
         if (entry.isDirectory()) {
-          const navigationPath = path.relative(monitorPath, fullPath).replace(/\\/g, '/');
+          const navigationPath = path
+            .relative(monitorPath, fullPath)
+            .replace(/\\/g, "/");
           // 添加目录项
           const stat = await fs.stat(fullPath);
 
@@ -190,6 +200,7 @@ export class FileService {
             discNumber: dbRecord?.discNumber,
             // 添加父文件夹标识
             isParentFolder: dbRecord?.isParentFolder,
+            parentFolderId: dbRecord?.parentFolderId,
             childFolders: dbRecord?.childFolders,
           });
         } else {
@@ -279,25 +290,91 @@ export class FileService {
     episodeNumber?: number
   ) {
     try {
+      // 获取当前文件信息，检查是否有父文件夹或同级文件夹
+      const currentFile = await prisma.file.findUnique({
+        where: { id: fileId },
+        include: {
+          parentFolder: true,
+          childFolders: true,
+        },
+      });
+
+      if (!currentFile) {
+        throw new BusinessError(ErrorType.FILE_NOT_FOUND, "文件不存在");
+      }
+
       // 更新文件的媒体关联
       const file = await prisma.file.update({
         where: { id: fileId },
-        data: { mediaId },
+        data: {
+          mediaId,
+          ...(episodeInfoId &&
+          seasonNumber !== undefined &&
+          episodeNumber !== undefined
+            ? { episodeInfoId }
+            : {}),
+        },
         include: {
           Media: true,
           episodeInfo: true,
         },
       });
 
-      if (seasonNumber !== undefined && episodeNumber !== undefined && episodeInfoId) {
-        // 关联文件到剧集
+      logger.info(`文件${fileId}关联媒体${mediaId}成功`);
+
+      // 如果是子文件夹，同步更新父文件夹和所有同级子文件夹
+      if (currentFile.parentFolderId) {
+        logger.info(`检测到子文件夹，开始同步父文件夹和同级子文件夹...`);
+
+        // 更新父文件夹
         await prisma.file.update({
-          where: { id: fileId },
-          data: { episodeInfoId },
+          where: { id: currentFile.parentFolderId },
+          data: {
+            mediaId,
+            ...(episodeInfoId ? { episodeInfoId } : {}),
+          },
         });
+        logger.info(`已同步父文件夹 (ID: ${currentFile.parentFolderId})`);
+
+        // 查找并更新所有同级子文件夹
+        const siblingFolders = await prisma.file.findMany({
+          where: {
+            parentFolderId: currentFile.parentFolderId,
+            id: { not: fileId }, // 排除当前文件
+          },
+        });
+
+        if (siblingFolders.length > 0) {
+          await prisma.file.updateMany({
+            where: {
+              parentFolderId: currentFile.parentFolderId,
+              id: { not: fileId },
+            },
+            data: {
+              mediaId,
+              ...(episodeInfoId ? { episodeInfoId } : {}),
+            },
+          });
+          logger.info(`已同步 ${siblingFolders.length} 个同级子文件夹`);
+        }
       }
 
-      logger.info(`文件${fileId}关联媒体${mediaId}成功`);
+      // 如果是父文件夹，同步更新所有子文件夹
+      if (currentFile.isParentFolder && currentFile.childFolders.length > 0) {
+        logger.info(`检测到父文件夹，开始同步所有子文件夹...`);
+
+        await prisma.file.updateMany({
+          where: {
+            parentFolderId: fileId,
+          },
+          data: {
+            mediaId,
+            ...(episodeInfoId ? { episodeInfoId } : {}),
+          },
+        });
+        logger.info(`已同步 ${currentFile.childFolders.length} 个子文件夹`);
+      }
+
       return file;
     } catch (error) {
       logger.error(`关联媒体失败`, error);
@@ -397,14 +474,17 @@ export class FileService {
     filePath: string,
     episodeTmdbId: number,
     seasonNumber: number | null,
-    episodeNumber: number | null
+    episodeNumber: number | null,
+    isSpecialFolder: boolean = false,
+    _parentFolder?: { id: number; path: string } | null
   ) {
     try {
       // 预处理媒体信息（如同步剧集）
       const processedMedia = await this.processMediaInfo(
         mediaInfo,
         seasonNumber,
-        episodeNumber
+        episodeNumber,
+        isSpecialFolder
       );
 
       // 获取或创建媒体主记录
@@ -418,7 +498,8 @@ export class FileService {
         fileId,
         episodeTmdbId,
         seasonNumber,
-        episodeNumber
+        episodeNumber,
+        isSpecialFolder
       );
 
       // 保存详细的电影或电视剧信息
@@ -468,7 +549,8 @@ export class FileService {
     fileId: number,
     episodeTmdbId: number,
     seasonNumber: number | null,
-    episodeNumber: number | null
+    episodeNumber: number | null,
+    isSpecialFolder: boolean = false
   ) {
     if (!mediaRecord) {
       return;
@@ -478,6 +560,7 @@ export class FileService {
     let episodeInfoId: number | undefined;
     if (
       mediaRecord.type === "tv" &&
+      !isSpecialFolder &&
       seasonNumber !== null &&
       episodeNumber !== null
     ) {
@@ -501,7 +584,7 @@ export class FileService {
 
       // 如果是电视剧，添加剧集信息
       if (existingFile.episodeInfo) {
-        errorMessage = `剧集 "${existingFile.Media?.title}" S${existingFile.episodeInfo.seasonNumber}E${existingFile.episodeInfo.episodeNumber} 已被文件关联: ${existingFile.filePath}`;
+        errorMessage = `"${existingFile.Media?.title}" S${existingFile.episodeInfo.seasonNumber}E${existingFile.episodeInfo.episodeNumber} 已被文件关联: ${existingFile.filePath}`;
       }
 
       logger.warn(errorMessage);
@@ -514,31 +597,36 @@ export class FileService {
    * @param mediaInfo 原始媒体信息
    * @param seasonNumberInt 季号
    * @param episodeNumberInt 集号
+   * @param isSpecialFolder 是否为特殊文件夹
    * @returns 处理后的媒体信息
    */
   private async processMediaInfo(
     mediaInfo: any,
     seasonNumberInt: number | null,
-    episodeNumberInt: number | null
-  ) {
-    const media = { ...mediaInfo };
+    episodeNumberInt: number | null,
+    isSpecialFolder: boolean = false
+  ): Promise<IdentifiedMedia> {
+    const media: IdentifiedMedia = { ...mediaInfo };
 
     // 为电视剧添加季集信息
-    if (seasonNumberInt !== null && episodeNumberInt !== null) {
+    if (seasonNumberInt && episodeNumberInt) {
       media.seasonNumber = seasonNumberInt;
       media.episodeNumber = episodeNumberInt;
+      media.episodeTitle = mediaInfo.episodeInfo.name;
     }
 
     // 处理电视剧剧集同步 - 合并了isTvShowWithEpisode的逻辑
+    // 特殊文件夹不需要同步剧集信息（因为不关联到具体集数）
     if (
       media.type === "tv" &&
+      !isSpecialFolder &&
       seasonNumberInt !== null &&
       episodeNumberInt !== null
     ) {
       logger.info(`检测到电视剧关联，触发 ${media.title} 的剧集同步...`);
 
       const episodeSyncResult = await this.episodeService.syncEpisodesFromTmdb(
-        parseInt(media.tmdbId),
+        Number(media.tmdbId),
         seasonNumberInt
       );
       media.rawData.episodes = episodeSyncResult;
@@ -588,6 +676,7 @@ export class FileService {
   ) {
     // 获取并验证已有文件信息
     const existingFileInfo = await this.getFileById(fileId);
+    const parentFolderId = existingFileInfo?.parentFolderId;
     if (!existingFileInfo?.linkPath || existingFileInfo.mediaId == null) {
       throw new BusinessError(
         ErrorType.VALIDATION_ERROR,
@@ -596,10 +685,57 @@ export class FileService {
     }
 
     // 删除旧的硬链接
-    await deleteHardlink(existingFileInfo.linkPath);
-    logger.info(`删除旧的硬链接: ${existingFileInfo.linkPath}`);
+    let parentInfo: ParentInfoWithChildren | null = null;
+    if (parentFolderId) {
+      logger.info(`发现父文件夹ID: ${parentFolderId}`);
+      // 获取父文件夹信息，包含子文件夹列表（后续 handleSpecialFolderHardlink 会复用）
+      parentInfo = await prisma.file.findUnique({
+        where: { id: parentFolderId },
+        include: {
+          childFolders: true,
+        },
+      });
+      if (!parentInfo || !parentInfo?.linkPath)
+        throw new BusinessError(
+          ErrorType.VALIDATION_ERROR,
+          `无法获取父文件夹信息，ID: ${parentFolderId}`
+        );
+      logger.info(`删除父文件夹的旧硬链接: ${parentInfo.linkPath}`);
+      await deleteHardlink(parentInfo.linkPath);
+    } else {
+      await deleteHardlink(existingFileInfo.linkPath);
+      logger.info(`删除旧的硬链接: ${existingFileInfo.linkPath}`);
+    }
 
-    // 创建新的硬链接
+    if (episodeTmdbId) {
+      // 查找剧集信息(在创建硬链接之前)
+      const episodeInfo = await this.findEpisodeInfo(
+        episodeTmdbId,
+        seasonNumberInt,
+        episodeNumberInt
+      );
+
+      // 先更新数据库记录,清除旧的 episode_info_id
+      await this.linkMediaToFile(
+        fileId,
+        mediaRecord.id,
+        episodeInfo?.id,
+        seasonNumberInt ?? undefined,
+        episodeNumberInt ?? undefined
+      );
+    }
+
+    // 判断是否为特殊文件夹
+    if ((parentFolderId && parentInfo) || existingFileInfo.isSpecialFolder) {
+      return await this.handleSpecialFolderHardlink(
+        fileId,
+        parentInfo,
+        media,
+        mediaRecord
+      );
+    }
+
+    // 普通文件处理
     const targetPath = this.mediaHardlinkerService.buildTargetPath(media);
     const mediaFileLinkInfo =
       await this.mediaHardlinkerService.handleSingleFile(
@@ -609,30 +745,18 @@ export class FileService {
         false // 不直接保存到数据库，手动处理
       );
 
-    // 查找剧集信息
-    const episodeInfo = await this.findEpisodeInfo(
-      episodeTmdbId,
-      seasonNumberInt,
-      episodeNumberInt
-    );
-
-    // 更新文件记录
+    // 更新文件记录的链接路径
     if (mediaFileLinkInfo) {
-      await this.mediaRepository.upsertFileRecord(
-        mediaRecord.id,
-        mediaFileLinkInfo,
-        episodeInfo?.id
-      );
+      await prisma.file.update({
+        where: { id: fileId },
+        data: {
+          linkPath: mediaFileLinkInfo.linkPath,
+        },
+      });
     }
 
-    // 关联文件到媒体
-    return await this.linkMediaToFile(
-      fileId,
-      mediaRecord.id,
-      episodeInfo?.id,
-      seasonNumberInt ?? undefined,
-      episodeNumberInt ?? undefined
-    );
+    // 返回更新后的完整文件信息
+    return await this.getFileById(fileId);
   }
 
   /**
@@ -680,6 +804,125 @@ export class FileService {
     return episodeInfo;
   }
 
+  /**
+   * 处理特殊文件夹的硬链接创建
+   * 当文件是特殊文件夹的子卷时，需要处理整个父文件夹及其所有子文件夹
+   * 当文件本身是特殊文件夹（无父文件夹）时，直接处理当前文件夹
+   * @param fileId 当前文件ID
+   * @param parentInfo 父文件夹信息（包含 childFolders），可为 null
+   * @param media 媒体信息
+   * @param mediaRecord 数据库中的媒体记录
+   * @returns 更新后的文件信息
+   */
+  private async handleSpecialFolderHardlink(
+    fileId: number,
+    parentInfo: ParentInfoWithChildren | null,
+    media: IdentifiedMedia,
+    mediaRecord: any
+  ) {
+    const config = getConfig();
+
+    // 构建目标基础路径（使用媒体标题作为标准化名称）
+    const targetBasePath = path.join(config.targetFilePath, media.title);
+
+    // 确保目标基础目录存在
+    await fs.mkdir(targetBasePath, { recursive: true });
+    logger.info(`[特殊文件夹] 创建目标基础目录: ${targetBasePath}`);
+
+    // 没有父子文件夹
+    if (!parentInfo) {
+      const currentFile = await prisma.file.findUnique({
+        where: { id: fileId },
+      });
+
+      if (!currentFile) {
+        throw new BusinessError(ErrorType.FILE_NOT_FOUND, "文件不存在");
+      }
+
+      // 递归创建硬链接
+      await createHardlinkRecursively(currentFile.filePath, targetBasePath);
+
+      // 更新当前文件的 linkPath 和媒体关联
+      await prisma.file.update({
+        where: { id: fileId },
+        data: {
+          linkPath: targetBasePath,
+          mediaId: mediaRecord.id,
+        },
+      });
+
+      logger.info(
+        `[特殊文件夹] ✅ 已处理单独特殊文件夹: ${currentFile.filePath} -> ${targetBasePath}`
+      );
+
+      return await this.getFileById(fileId);
+    }
+
+    // 情况2：有父文件夹，处理父文件夹及其所有子文件夹
+    // 更新父文件夹的 linkPath
+    await prisma.file.update({
+      where: { id: parentInfo.id },
+      data: {
+        linkPath: targetBasePath,
+        mediaId: mediaRecord.id,
+      },
+    });
+    logger.info(`[特殊文件夹] 更新父文件夹 linkPath: ${targetBasePath}`);
+
+    // 处理所有子文件夹（包括当前文件）
+    const allChildFolders = parentInfo.childFolders || [];
+
+    for (const childFolder of allChildFolders) {
+      try {
+        // 根据子文件夹类型决定目标路径
+        let childTargetPath: string;
+
+        if (childFolder.isMultiDisc && childFolder.discNumber) {
+          // 多卷结构：创建 "作品名/Vol.X/" 子目录
+          const volumeName = `Vol.${childFolder.discNumber}`;
+          childTargetPath = path.join(targetBasePath, volumeName);
+          logger.info(`[特殊文件夹] 处理多卷子文件夹: ${volumeName}`);
+        } else {
+          // 单卷或无卷号：直接在基础目录下
+          childTargetPath = targetBasePath;
+          logger.info(`[特殊文件夹] 处理单卷子文件夹: ${childFolder.filePath}`);
+        }
+
+        // 创建目标子目录
+        await fs.mkdir(childTargetPath, { recursive: true });
+
+        // 递归创建硬链接
+        await createHardlinkRecursively(childFolder.filePath, childTargetPath);
+
+        // 更新子文件夹的 linkPath 和媒体关联
+        await prisma.file.update({
+          where: { id: childFolder.id },
+          data: {
+            linkPath: childTargetPath,
+            mediaId: mediaRecord.id,
+          },
+        });
+
+        logger.info(
+          `[特殊文件夹] ✅ 已处理子文件夹: ${childFolder.filePath} -> ${childTargetPath}`
+        );
+      } catch (error) {
+        logger.error(
+          `[特殊文件夹] 处理子文件夹失败: ${childFolder.filePath}`,
+          error
+        );
+        throw error;
+      }
+    }
+
+    logger.info(
+      `[特殊文件夹] 所有子文件夹处理完成，共 ${allChildFolders.length} 个`
+    );
+
+    // 返回更新后的当前文件信息
+    return await this.getFileById(fileId);
+  }
+
   // 取消关联媒体文件业务逻辑
   async unlinkMediaFromFileProcess(fileId: number) {
     try {
@@ -720,6 +963,46 @@ export class FileService {
       return file;
     } catch (error) {
       logger.error(`取消媒体关联失败`, error);
+      throw error;
+    }
+  }
+
+  // 更新特殊文件夹的碟片编号
+  async updateDiscNumber(fileId: number, discNumber: number | null) {
+    try {
+      const file = await prisma.file.findUnique({
+        where: { id: fileId },
+      });
+
+      if (!file) {
+        throw new BusinessError(ErrorType.FILE_NOT_FOUND, "文件不存在");
+      }
+
+      if (!file.isSpecialFolder) {
+        throw new BusinessError(
+          ErrorType.VALIDATION_ERROR,
+          "只能为特殊文件夹设置碟片编号"
+        );
+      }
+
+      const updatedFile = await prisma.file.update({
+        where: { id: fileId },
+        data: {
+          discNumber: discNumber,
+          isMultiDisc: discNumber !== null,
+        },
+        include: {
+          Media: true,
+          episodeInfo: true,
+        },
+      });
+
+      logger.info(
+        `特殊文件夹${fileId}碟片编号更新成功: ${discNumber ?? "已取消"}`
+      );
+      return updatedFile;
+    } catch (error) {
+      logger.error(`更新碟片编号失败`, error);
       throw error;
     }
   }

@@ -61,4 +61,14 @@ router.post(
   fileController.unlinkMedia
 );
 
+// 更新碟片编号
+router.patch(
+  "/:id/disc-number",
+  createValidator({
+    params: ParamValidators.id,
+    body: FileValidators.updateDiscNumber
+  }),
+  fileController.updateDiscNumber
+);
+
 export default router;

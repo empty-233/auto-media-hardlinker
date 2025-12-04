@@ -155,9 +155,9 @@ const handleFileIdParam = () => {
     delete query.fileId
     router.replace({ query })
     
-    // 查找并打开文件
+    // 查找并打开文件或特殊文件夹
     const fileToView = fileList.value.find(
-      (f) => f.databaseRecord?.id === fileId && !f.isDirectory,
+      (f) => f.databaseRecord?.id === fileId && (!f.isDirectory || f.isSpecialFolder),
     )
     if (fileToView) {
       viewFileDetail(fileToView)
@@ -232,7 +232,13 @@ const navigateToParent = () => {
 
 const handleItemClick = (item: FileSystemItem) => {
   if (item.isDirectory) {
-    navigateToDirectory(item.navigationPath ?? item.path)
+    // 特殊文件夹（BDMV、DVD等）点击时打开详情对话框
+    if (item.isSpecialFolder) {
+      viewFileDetail(item)
+    } else {
+      // 普通目录进入文件夹
+      navigateToDirectory(item.navigationPath ?? item.path)
+    }
   } else {
     viewFileDetail(item)
   }
@@ -461,10 +467,13 @@ onActivated(() => {
           v-for="item in filteredFileList"
           :key="item.fullPath"
           class="file-card"
-          :class="{ 'is-directory': item.isDirectory }"
+          :class="{ 
+            'is-directory': item.isDirectory,
+            'is-special-folder': item.isSpecialFolder
+          }"
           @click="handleItemClick(item)"
           @dblclick="
-            item.isDirectory
+            item.isDirectory && !item.isSpecialFolder
               ? navigateToDirectory(item.navigationPath ?? item.path)
               : viewFileDetail(item)
           "
@@ -807,6 +816,20 @@ onActivated(() => {
   border-color: var(--el-color-warning);
   box-shadow: 0 6px 16px rgba(230, 162, 60, 0.2);
   background: linear-gradient(to bottom, var(--el-color-warning-light-8), var(--color-background-soft));
+}
+
+/* 特殊文件夹样式 */
+.file-card.is-special-folder {
+  border: 2px solid var(--el-color-primary);
+  background: linear-gradient(to bottom, var(--el-color-primary-light-9), var(--color-background-soft));
+  position: relative;
+}
+
+.file-card.is-special-folder:hover {
+  border-color: var(--el-color-primary);
+  box-shadow: 0 6px 16px rgba(64, 158, 255, 0.3);
+  background: linear-gradient(to bottom, var(--el-color-primary-light-8), var(--color-background-soft));
+  transform: translateY(-4px);
 }
 
 .file-icon-container {

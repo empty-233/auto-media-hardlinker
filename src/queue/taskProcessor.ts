@@ -1,3 +1,4 @@
+import { dirname } from "path";
 import { IMediaIdentifier, IdentifiedMedia } from "../types/media.types";
 import { MediaRepository } from "../repository/media.repository";
 import { MediaHardlinkerService } from "../core/fileManage/mediaHardlinker";
@@ -117,9 +118,13 @@ export class TaskProcessor {
             rawData: null,
           };
           
+          // 从第一个子卷的 linkPath 提取父目录路径
+          const parentLinkPath = dirname(firstResult.linkPath);
+          
           parentFolderId = await this.mediaRepository.createParentFolderRecord(
             identifiedMedia,
-            task.filePath
+            task.filePath,
+            parentLinkPath
           );
           
           logger.info(`[特殊文件夹] 创建父文件夹记录: ${task.filePath} (Parent ID: ${parentFolderId})`);
