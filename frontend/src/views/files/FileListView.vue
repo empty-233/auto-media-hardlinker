@@ -522,7 +522,6 @@ onActivated(() => {
                   effect="dark"
                   class="parent-folder-tag"
                 >
-                  <el-icon style="margin-right: 4px;"><Folder /></el-icon>
                   包含 {{ item.childFolders.length }} 个子卷
                 </el-tag>
                 <!-- 特殊文件夹类型标识 -->

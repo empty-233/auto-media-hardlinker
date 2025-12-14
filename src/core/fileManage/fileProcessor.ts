@@ -6,7 +6,8 @@ import { createHardlink } from "../../utils/hardlink";
 import { getQueueService } from "../../queue/queueService";
 import { ScrapingTaskData } from "../../types/queue.types";
 import { getConfig } from "../../config/config";
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@/generated/client';
+import client from '../../client';
 import { LibraryStatus } from './libraryScanner';
 import { FileDetails, IdentifiedMedia } from "../../types/media.types";
 import { MediaRepository } from "../../repository/media.repository";
@@ -81,7 +82,7 @@ export class FileProcessor {
   private mediaRepository: MediaRepository;
 
   constructor(prisma?: PrismaClient) {
-    this.prisma = prisma || new PrismaClient();
+    this.prisma = prisma || client;
     this.mediaRepository = new MediaRepository();
   }
 

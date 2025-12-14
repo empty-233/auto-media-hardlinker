@@ -9,7 +9,7 @@ import { logger } from '../../utils/logger';
 import { generatePathHash } from '../../utils/hash';
 import { createHardlinkRecursively } from '../../utils/hardlink';
 import { FileProcessor } from './fileProcessor';
-import { PrismaClient, LibraryStatus } from '@prisma/client';
+import { PrismaClient, LibraryStatus } from '@/generated/client';
 import { getConfig } from '../../config/config';
 import { getQueueService } from '../../queue/queueService';
 import { LLMIdentifier, LLMFolderIdentification } from '../../strategies/llm.identifier';

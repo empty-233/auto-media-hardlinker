@@ -1,4 +1,3 @@
-import { PrismaClient } from '@prisma/client';
 import { getConfig } from '../../config/config';
 import { LibraryScanner } from './libraryScanner';
 import { logger } from '../../utils/logger';
@@ -9,15 +8,13 @@ import { FileProcessor } from './fileProcessor';
  * 定期扫描调度器
  */
 export class ScanScheduler {
-  private prisma: PrismaClient;
   private scanner: LibraryScanner;
   private fileProcessor: FileProcessor;
   private config = getConfig();
   private intervalId: NodeJS.Timeout | null = null;
   private isRunning: boolean = false;
 
-  constructor(prisma: PrismaClient) {
-    this.prisma = prisma;
+  constructor() {
     this.scanner = new LibraryScanner(prisma);
     const container = getContainer();
     this.fileProcessor = container.getFileProcessor();

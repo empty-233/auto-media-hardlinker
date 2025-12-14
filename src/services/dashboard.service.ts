@@ -1,8 +1,8 @@
-import { PrismaClient } from "@prisma/client";
+import client from "../client";
 import { logger } from "../utils/logger";
 import { ImageUrlHelper } from "../utils/imageUrl";
 
-const prisma = new PrismaClient();
+const prisma = client;
 
 export class DashboardService {
   // 获取仪表板统计信息

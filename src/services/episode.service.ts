@@ -1,9 +1,9 @@
-import { PrismaClient } from "@prisma/client";
+import client from "../client";
 import { logger } from "../utils/logger";
 import { TMDBService } from "./tmdb.service";
 import { formatDate, downloadTMDBImage } from "../utils/media";
 
-const prisma = new PrismaClient();
+const prisma = client;
 
 export class EpisodeService {
   constructor(private tmdbService: TMDBService) {}

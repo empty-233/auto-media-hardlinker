@@ -1,8 +1,10 @@
-import { PrismaClient, Type, Prisma } from "@prisma/client";
+import { Type } from "@/generated/client";
+import type { Prisma } from "@/generated/client";
+import client from "../client";
 import { logger } from "../utils/logger";
 import { ImageUrlHelper } from "../utils/imageUrl";
 
-const prisma = new PrismaClient();
+const prisma = client;
 
 export class MediaService {
   // 获取所有媒体列表

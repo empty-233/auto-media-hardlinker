@@ -8,7 +8,7 @@ import {
   TaskResult,
   QueueConfig,
 } from "../types/queue.types";
-import { TaskStatus, Queue } from "@prisma/client";
+import { TaskStatus, Queue } from "@/generated/client";
 
 /**
  * 队列管理器 - 负责任务的入队、出队和状态管理

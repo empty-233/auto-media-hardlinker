@@ -3,7 +3,8 @@
  * @description 管理应用程序中的依赖关系，避免单例模式的问题
  */
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@/generated/client';
+import client from '../../client';
 import { FileProcessor } from './fileProcessor';
 import { SpecialFolderProcessor } from './specialFolderProcessor';
 import { MediaRepository } from '../../repository/media.repository';
@@ -33,7 +34,7 @@ class DIContainer implements Container {
    */
   getPrismaClient(): PrismaClient {
     if (!this.prismaClient) {
-      this.prismaClient = new PrismaClient();
+      this.prismaClient = client;
     }
     return this.prismaClient;
   }
@@ -75,10 +76,7 @@ class DIContainer implements Container {
    * 清理资源
    */
   async dispose(): Promise<void> {
-    if (this.prismaClient) {
-      await this.prismaClient.$disconnect();
-      this.prismaClient = null;
-    }
+    this.prismaClient = null;
     
     this.mediaRepository = null;
     this.fileProcessor = null;

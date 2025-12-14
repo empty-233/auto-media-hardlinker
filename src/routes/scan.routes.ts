@@ -1,12 +1,10 @@
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { ScanController } from '../controllers';
 import { ScanScheduler } from '../core/fileManage/scanScheduler';
 import { createValidator } from '../middleware/validation.middleware';
 import { ParamValidators, ScanQueryValidators, ScanBodyValidators } from '../validators';
 
-const prisma = new PrismaClient();
-const scanScheduler = new ScanScheduler(prisma);
+const scanScheduler = new ScanScheduler();
 const scanController = new ScanController(scanScheduler);
 
 // 启动扫描调度器

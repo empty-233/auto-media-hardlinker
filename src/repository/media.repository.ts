@@ -1,5 +1,5 @@
-import { Type, Prisma, LibraryStatus } from "@prisma/client";
-import prisma from "../client";
+import { Type, Prisma, LibraryStatus } from "@/generated/client";
+import client from "../client";
 import { logger } from "../utils/logger";
 import { downloadTMDBImage, formatDate } from "../utils/media";
 import { getFileDeviceInfo } from "../utils/hash";
@@ -97,7 +97,7 @@ export class MediaRepository implements IMediaRepository {
       const mediaRecord = await this.findOrCreateMediaRecord(media);
       
       // 检查父文件夹是否已存在
-      const existingParent = await prisma.file.findFirst({
+      const existingParent = await client.file.findFirst({
         where: {
           OR: [
             { deviceId: deviceInfo.deviceId, inode: deviceInfo.inode },
@@ -110,7 +110,7 @@ export class MediaRepository implements IMediaRepository {
         logger.info(`父文件夹记录已存在: ${parentFolderPath} (ID: ${existingParent.id})`);
         
         // 更新为父文件夹标识，并更新linkPath
-        await prisma.file.update({
+        await client.file.update({
           where: { id: existingParent.id },
           data: {
             isParentFolder: true,
@@ -123,7 +123,7 @@ export class MediaRepository implements IMediaRepository {
       }
 
       // 创建新的父文件夹记录
-      const parentRecord = await prisma.file.create({
+      const parentRecord = await client.file.create({
         data: {
           deviceId: deviceInfo.deviceId,
           inode: deviceInfo.inode,
@@ -165,7 +165,7 @@ export class MediaRepository implements IMediaRepository {
     episodeId?: number,
     parentFolderId?: number
   ) {
-    let existingFile = await prisma.file.findFirst({
+    let existingFile = await client.file.findFirst({
       where: {
         deviceId: folderDetails.deviceId,
         inode: folderDetails.inode,
@@ -177,7 +177,7 @@ export class MediaRepository implements IMediaRepository {
 
     // 如果通过 deviceId 和 inode 没找到，尝试通过 filePath 查找
     if (!existingFile) {
-      existingFile = await prisma.file.findUnique({
+      existingFile = await client.file.findUnique({
         where: {
           filePath: folderDetails.sourcePath,
         },
@@ -218,12 +218,12 @@ export class MediaRepository implements IMediaRepository {
       // 同时更新Library表中对应的记录状态
       await this.updateLibraryStatus(folderDetails.sourcePath, LibraryStatus.PROCESSED, existingFile.id);
 
-      return prisma.file.update({
+      return client.file.update({
         where: { id: existingFile.id },
         data: updateData,
       });
     } else {
-      const fileWithSameLinkPath = await prisma.file.findFirst({
+      const fileWithSameLinkPath = await client.file.findFirst({
         where: {
           linkPath: folderDetails.linkPath,
         },
@@ -237,7 +237,7 @@ export class MediaRepository implements IMediaRepository {
       
       logger.info(`创建新的特殊文件夹记录: ${folderDetails.sourcePath}`);
 
-      const fileRecord = await prisma.file.create({
+      const fileRecord = await client.file.create({
         data: {
           deviceId: folderDetails.deviceId,
           inode: folderDetails.inode,
@@ -267,7 +267,7 @@ export class MediaRepository implements IMediaRepository {
     const localPosterUrl = await downloadTMDBImage(media.posterPath, "poster");
     logger.info(`图片本地URL: 海报=${localPosterUrl}`);
 
-    const existingMedia = await prisma.media.findFirst({
+    const existingMedia = await client.media.findFirst({
       where: {
         tmdbId: media.tmdbId,
         type: media.type.toLowerCase() as Type,
@@ -277,7 +277,7 @@ export class MediaRepository implements IMediaRepository {
     if (existingMedia) {
       if (!existingMedia.posterUrl && localPosterUrl) {
         logger.info(`更新了已存在媒体(ID=${existingMedia.id})的海报URL`);
-        return prisma.media.update({
+        return client.media.update({
           where: { id: existingMedia.id },
           data: { posterUrl: localPosterUrl },
         });
@@ -285,7 +285,7 @@ export class MediaRepository implements IMediaRepository {
       return existingMedia;
     }
 
-    return prisma.media.create({
+    return client.media.create({
       data: {
         type: media.type.toLowerCase() as Type,
         tmdbId: media.tmdbId,
@@ -315,7 +315,7 @@ export class MediaRepository implements IMediaRepository {
     fileDetails: FileDetails,
     episodeId?: number
   ) {
-    let existingFile = await prisma.file.findFirst({
+    let existingFile = await client.file.findFirst({
       where: {
         deviceId: fileDetails.deviceId,
         inode: fileDetails.inode,
@@ -327,7 +327,7 @@ export class MediaRepository implements IMediaRepository {
 
     // 如果通过 deviceId 和 inode 没找到，尝试通过 filePath 查找
     if (!existingFile) {
-      existingFile = await prisma.file.findUnique({
+      existingFile = await client.file.findUnique({
         where: {
           filePath: fileDetails.sourcePath,
         },
@@ -357,12 +357,12 @@ export class MediaRepository implements IMediaRepository {
       // 同时更新Library表中对应的记录状态
       await this.updateLibraryStatus(fileDetails.sourcePath, LibraryStatus.PROCESSED, existingFile.id);
 
-      return prisma.file.update({
+      return client.file.update({
         where: { id: existingFile.id },
         data: updateData,
       });
     } else {
-      const fileWithSameLinkPath = await prisma.file.findFirst({
+      const fileWithSameLinkPath = await client.file.findFirst({
         where: {
           linkPath: fileDetails.linkPath,
         },
@@ -376,7 +376,7 @@ export class MediaRepository implements IMediaRepository {
       
       logger.info(`创建新的文件记录: ${fileDetails.sourcePath}`);
 
-      const fileRecord = await prisma.file.create({
+      const fileRecord = await client.file.create({
         data: {
           deviceId: fileDetails.deviceId,
           inode: fileDetails.inode,
@@ -408,7 +408,7 @@ export class MediaRepository implements IMediaRepository {
         ...(fileId && { fileId })
       };
 
-      await prisma.library.updateMany({
+      await client.library.updateMany({
         where: { path: filePath },
         data: updateData
       });
@@ -418,7 +418,7 @@ export class MediaRepository implements IMediaRepository {
   }
 
   private async saveMovieInfo(mediaId: number, media: IdentifiedMedia) {
-    const existingMovie = await prisma.movieInfo.findFirst({
+    const existingMovie = await client.movieInfo.findFirst({
       where: { tmdbId: media.tmdbId },
     });
 
@@ -427,14 +427,14 @@ export class MediaRepository implements IMediaRepository {
       return;
     }
 
-    const movieInfo = await prisma.movieInfo.create({
+    const movieInfo = await client.movieInfo.create({
       data: {
         tmdbId: media.tmdbId,
         description: media.description,
       },
     });
 
-    await prisma.media.update({
+    await client.media.update({
       where: { id: mediaId },
       data: { movieInfoId: movieInfo.id },
     });
@@ -445,12 +445,12 @@ export class MediaRepository implements IMediaRepository {
     media: IdentifiedMedia
   ): Promise<number | undefined> {
     // 创建或查找 TvInfo
-    let tvInfo = await prisma.tvInfo.findFirst({
+    let tvInfo = await client.tvInfo.findFirst({
       where: { tmdbId: media.tmdbId },
     });
 
     if (!tvInfo) {
-      tvInfo = await prisma.tvInfo.create({
+      tvInfo = await client.tvInfo.create({
         data: {
           tmdbId: media.tmdbId,
           description: media.description,
@@ -459,7 +459,7 @@ export class MediaRepository implements IMediaRepository {
     }
 
     // 关联 Media 和 TvInfo
-    await prisma.media.update({
+    await client.media.update({
       where: { id: mediaId },
       data: { tvInfoId: tvInfo.id },
     });
@@ -472,7 +472,7 @@ export class MediaRepository implements IMediaRepository {
 
       if (episodeData && episodeData.id && episodeData.season_number && episodeData.episode_number) {
         const episodeTmdbId = episodeData.id;
-        let episodeInfo = await prisma.episodeInfo.findFirst({
+        let episodeInfo = await client.episodeInfo.findFirst({
           where: { tmdbId: episodeTmdbId },
         });
 
@@ -483,7 +483,7 @@ export class MediaRepository implements IMediaRepository {
 
         if (episodeInfo) {
           // 更新现有剧集的所有信息
-          episodeInfo = await prisma.episodeInfo.update({
+          episodeInfo = await client.episodeInfo.update({
             where: { id: episodeInfo.id },
             data: {
               seasonNumber: episodeData.season_number,
@@ -498,7 +498,7 @@ export class MediaRepository implements IMediaRepository {
           logger.info(`更新剧集信息: ${episodeData.name} (TMDB ID: ${episodeTmdbId})`);
         } else {
           // 创建新剧集
-          episodeInfo = await prisma.episodeInfo.create({
+          episodeInfo = await client.episodeInfo.create({
             data: {
               tmdbId: episodeTmdbId,
               seasonNumber: episodeData.season_number,

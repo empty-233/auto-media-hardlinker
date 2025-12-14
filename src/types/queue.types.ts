@@ -1,4 +1,4 @@
-import { TaskStatus, Queue } from '@prisma/client';
+import { TaskStatus, Queue } from '@/generated/client';
 
 /**
  * 刮削任务数据

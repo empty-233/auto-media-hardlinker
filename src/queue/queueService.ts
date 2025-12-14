@@ -8,7 +8,7 @@ import {
   TaskQueryOptions,
   IQueueManager 
 } from "../types/queue.types";
-import { Queue } from "@prisma/client";
+import { Queue } from "@/generated/client";
 
 /**
  * 队列服务 - 队列系统的主要入口点

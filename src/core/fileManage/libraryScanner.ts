@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { glob } from 'fast-glob';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@/generated/client';
 import { getConfig } from '../../config/config';
 import { logger } from '../../utils/logger';
 import { generatePathHash } from '../../utils/hash';
