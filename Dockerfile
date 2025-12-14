@@ -67,15 +67,6 @@ RUN pnpm prisma generate
 # 创建运行时所需的目录
 RUN mkdir -p /app/data /app/db_init /app/public
 
-# 生成临时初始数据库（用于首次启动时复制）
-# 优先使用 migrate deploy（如果有迁移文件），否则使用 db push
-RUN if DATABASE_URL="file:/app/db_init/dev.db" pnpm prisma migrate deploy 2>/dev/null; then \
-        echo "使用 migrate deploy 初始化数据库"; \
-    else \
-        echo "无迁移文件，使用 db push 初始化数据库"; \
-        DATABASE_URL="file:/app/db_init/dev.db" pnpm prisma db push; \
-    fi
-
 # 复制 Nginx 配置文件
 COPY docker/http.d/ /etc/nginx/http.d/
 
@@ -83,9 +74,23 @@ COPY docker/http.d/ /etc/nginx/http.d/
 COPY config/config.json.example /app/config/config.json.example
 COPY config/prompt.md /app/config/prompt.md
 COPY .env.example /app/.env
+COPY prisma.config.ts /app/prisma.config.ts
+
+# 生成临时初始数据库(用于首次启动时复制)
+# 设置数据库路径到 db_init 目录
+RUN sed -i 's|DATABASE_URL=".*"|DATABASE_URL="file:/app/db_init/dev.db"|g' /app/.env
+
+# 优先使用 migrate deploy(如果有迁移文件),否则使用 db push
+RUN if [ -d "/app/prisma/migrations" ]; then \
+        echo "检测到迁移文件,使用 migrate deploy 初始化数据库"; \
+        pnpm prisma migrate deploy; \
+    else \
+        echo "无迁移文件,使用 db push 初始化数据库"; \
+        pnpm prisma db push; \
+    fi
 
 # 替换 .env 文件中的 DATABASE_URL 为容器中的路径
-RUN sed -i 's|DATABASE_URL="file:./dev.db"|DATABASE_URL="file:/app/data/dev.db"|g' /app/.env
+RUN sed -i 's|DATABASE_URL=".*"|DATABASE_URL="file:/app/data/dev.db"|g' /app/.env
 
 # 修改配置文件夹名称
 RUN mv /app/config /app/config.example
@@ -103,5 +108,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD wget --quiet --tries=1 --spider http://localhost:80/ || exit 1
 
 # 启动命令
-# 注意:您的原始 CMD 只会启动 Node.js。如果需要同时运行 Nginx,请参考下面的改进建议。
 CMD ["node", "/app/dist/src/index.js"]
