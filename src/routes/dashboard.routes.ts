@@ -1,7 +1,7 @@
 import { Router } from 'express'
-import { DashboardController } from '../controllers';
-import { createValidator } from '../middleware/validation.middleware';
-import { DashboardQueryValidators } from '../validators';
+import { DashboardController } from '@/controllers';
+import { createValidator } from '@/middleware/validation.middleware';
+import { DashboardQueryValidators } from '@/validators';
 
 const dashboardController = new DashboardController();
 

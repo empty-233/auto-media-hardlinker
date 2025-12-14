@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
-import { verifyAndRefreshToken, JwtPayload } from '../utils/jwt'
-import { logger } from '../utils/logger'
-import { unauthorized, forbidden } from '../utils/response'
+import { verifyAndRefreshToken, JwtPayload } from '@/utils/jwt'
+import { logger } from '@/utils/logger'
+import { unauthorized, forbidden } from '@/utils/response'
 
 // 扩展Request接口以包含用户信息
 declare global {

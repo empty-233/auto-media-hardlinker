@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { QueueController } from "../controllers/queue.controller";
-import { createValidator } from "../middleware/validation.middleware";
-import { QueueParamValidators, QueueQueryValidators, QueueBodyValidators } from "../validators";
+import { QueueController } from "@/controllers";
+import { createValidator } from "@/middleware/validation.middleware";
+import { QueueParamValidators, QueueQueryValidators, QueueBodyValidators } from "@/validators";
 
 const queueController = new QueueController();
 const router = Router();

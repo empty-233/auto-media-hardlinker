@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { ScanController } from '../controllers';
-import { ScanScheduler } from '../core/fileManage/scanScheduler';
-import { createValidator } from '../middleware/validation.middleware';
-import { ParamValidators, ScanQueryValidators, ScanBodyValidators } from '../validators';
+import { ScanController } from '@/controllers';
+import { ScanScheduler } from '@/core/fileManage/scanScheduler';
+import { createValidator } from '@/middleware/validation.middleware';
+import { ParamValidators, ScanQueryValidators, ScanBodyValidators } from '@/validators';
 
 const scanScheduler = new ScanScheduler();
 const scanController = new ScanController(scanScheduler);

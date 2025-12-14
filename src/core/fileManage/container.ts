@@ -4,10 +4,10 @@
  */
 
 import { PrismaClient } from '@/generated/client';
-import client from '../../client';
+import client from '@/client';
 import { FileProcessor } from './fileProcessor';
 import { SpecialFolderProcessor } from './specialFolderProcessor';
-import { MediaRepository } from '../../repository/media.repository';
+import { MediaRepository } from '@/repository/media.repository';
 
 /**
  * 依赖注入容器接口

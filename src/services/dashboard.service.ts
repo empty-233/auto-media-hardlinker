@@ -1,6 +1,6 @@
-import client from "../client";
-import { logger } from "../utils/logger";
-import { ImageUrlHelper } from "../utils/imageUrl";
+import client from "@/client";
+import { logger } from "@/utils/logger";
+import { ImageUrlHelper } from "@/utils/imageUrl";
 
 const prisma = client;
 

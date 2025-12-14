@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { BusinessError, ErrorType } from "../core/errors";
-import { logger } from "../utils/logger";
-import { badRequest, internalError, notFound } from "../utils/response";
+import { BusinessError, ErrorType } from "@/core/errors";
+import { logger } from "@/utils/logger";
+import { badRequest, internalError, notFound } from "@/utils/response";
 
 /**
  * 类型安全的请求接口

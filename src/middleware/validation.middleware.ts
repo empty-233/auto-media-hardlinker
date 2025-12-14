@@ -1,7 +1,7 @@
 import validate from "express-zod-safe";
 import type { CompleteValidationSchema, ErrorRequestHandler } from "express-zod-safe";
-import { logger } from "../utils/logger";
-import { badRequest } from "../utils/response";
+import { logger } from "@/utils/logger";
+import { badRequest } from "@/utils/response";
 
 /**
  * 创建默认的错误处理器

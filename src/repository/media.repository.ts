@@ -1,15 +1,15 @@
 import { Type, Prisma, LibraryStatus } from "@/generated/client";
-import client from "../client";
-import { logger } from "../utils/logger";
-import { downloadTMDBImage, formatDate } from "../utils/media";
-import { getFileDeviceInfo } from "../utils/hash";
+import client from "@/client";
+import { logger } from "@/utils/logger";
+import { downloadTMDBImage, formatDate } from "@/utils/media";
+import { getFileDeviceInfo } from "@/utils/hash";
 import { Episode } from "moviedb-promise";
 import {
   IMediaRepository,
   IdentifiedMedia,
   FileDetails,
-} from "../types/media.types";
-import { NonRetryableError } from "../core/errors";
+} from "@/types/media.types";
+import { NonRetryableError } from "@/core/errors";
 
 export class MediaRepository implements IMediaRepository {
   constructor() {}

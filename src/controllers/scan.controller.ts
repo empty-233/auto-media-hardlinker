@@ -1,13 +1,13 @@
 import { Response } from "express";
-import { success, successWithPagination } from "../utils/response";
-import { ScanService } from "../services/scan.service";
-import { ScanScheduler } from "../core/fileManage/scanScheduler";
+import { success, successWithPagination } from "@/utils/response";
+import { ScanService } from "@/services";
+import { ScanScheduler } from "@/core/fileManage/scanScheduler";
 import { TypedController, TypedRequest } from "./base.controller";
 import {
   ScanQueryValidators,
   ScanBodyValidators,
   ParamValidators,
-} from "../validators";
+} from "@/validators";
 import { z } from "zod";
 
 // 类型推导

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LogLevel } from "../config/env";
+import { LogLevel } from "@/config/env";
 import { CommonValidators } from "./common.validator";
 
 /**

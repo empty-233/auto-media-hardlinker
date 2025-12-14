@@ -5,15 +5,15 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { logger } from '../../utils/logger';
-import { generatePathHash } from '../../utils/hash';
-import { createHardlinkRecursively } from '../../utils/hardlink';
+import { logger } from '@/utils/logger';
+import { generatePathHash } from '@/utils/hash';
+import { createHardlinkRecursively } from '@/utils/hardlink';
 import { FileProcessor } from './fileProcessor';
 import { PrismaClient, LibraryStatus } from '@/generated/client';
-import { getConfig } from '../../config/config';
-import { getQueueService } from '../../queue/queueService';
-import { LLMIdentifier, LLMFolderIdentification } from '../../strategies/llm.identifier';
-import { SpecialFolderType, SpecialFolder, SpecialFolderProcessResult } from '../../types/specialFolder.types';
+import { getConfig } from '@/config/config';
+import { getQueueService } from '@/queue/queueService';
+import { LLMIdentifier, LLMFolderIdentification } from '@/strategies/llm.identifier';
+import { SpecialFolderType, SpecialFolder, SpecialFolderProcessResult } from '@/types/specialFolder.types';
 
 /**
  * 特殊文件夹处理器

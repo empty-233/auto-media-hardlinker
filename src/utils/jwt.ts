@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken'
-import { env } from '../config/env'
+import { env } from '@/config/env'
 
 const JWT_SECRET = env.JWT_SECRET || 'auto-media-hardlinker-secret-key'
 

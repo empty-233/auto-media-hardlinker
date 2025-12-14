@@ -1,4 +1,4 @@
-import { getConfig } from "../config/config";
+import { getConfig } from "@/config/config";
 import {
   MovieDb,
   SearchMovieRequest,
@@ -10,7 +10,7 @@ import {
   IdAppendToResponseRequest, // 导入请求参数类型
   TvSeasonRequest, // 导入季详情请求参数类型
 } from "moviedb-promise";
-import { logger } from "../utils/logger";
+import { logger } from "@/utils/logger";
 
 const config = getConfig();
 

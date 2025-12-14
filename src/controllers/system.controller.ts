@@ -2,13 +2,13 @@ import { Response } from "express";
 import {
   success,
   successWithPagination,
-} from "../utils/response";
-import { SystemService } from "../services";
+} from "@/utils/response";
+import { SystemService } from "@/services";
 import { TypedController, TypedRequest } from "./base.controller";
 import {
   SystemBodyValidators,
   SystemQueryValidators,
-} from "../validators";
+} from "@/validators";
 import { z } from "zod";
 
 // 类型推导

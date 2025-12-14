@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { logger } from "./logger";
-import { BusinessError, ErrorType } from "../core/errors";
+import { BusinessError, ErrorType } from "@/core/errors";
 
 /**
  * 创建从源路径到目标路径的硬链接。

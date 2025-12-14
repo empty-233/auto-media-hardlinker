@@ -1,16 +1,16 @@
 import path from "path";
 import fs from "fs/promises";
-import { logger } from "../../utils/logger";
-import { generatePathHash, getFileDeviceInfo, calculateFileHash } from "../../utils/hash";
-import { createHardlink } from "../../utils/hardlink";
-import { getQueueService } from "../../queue/queueService";
-import { ScrapingTaskData } from "../../types/queue.types";
-import { getConfig } from "../../config/config";
+import { logger } from "@/utils/logger";
+import { generatePathHash, getFileDeviceInfo, calculateFileHash } from "@/utils/hash";
+import { createHardlink } from "@/utils/hardlink";
+import { getQueueService } from "@/queue/queueService";
+import { ScrapingTaskData } from "@/types/queue.types";
+import { getConfig } from "@/config/config";
 import { PrismaClient } from '@/generated/client';
-import client from '../../client';
+import client from '@/client';
 import { LibraryStatus } from './libraryScanner';
-import { FileDetails, IdentifiedMedia } from "../../types/media.types";
-import { MediaRepository } from "../../repository/media.repository";
+import { FileDetails, IdentifiedMedia } from "@/types/media.types";
+import { MediaRepository } from "@/repository/media.repository";
 
 /**
  * 文件处理优先级枚举

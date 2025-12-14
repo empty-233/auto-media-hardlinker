@@ -1,16 +1,16 @@
 import { dirname } from "path";
-import { IMediaIdentifier, IdentifiedMedia } from "../types/media.types";
-import { MediaRepository } from "../repository/media.repository";
-import { MediaHardlinkerService } from "../core/fileManage/mediaHardlinker";
-import { LLMIdentifier } from "../strategies/llm.identifier";
-import { RegexIdentifier } from "../strategies/regex.identifier";
-import { getConfig } from "../config/config";
-import { logger } from "../utils/logger";
-import { getFileDeviceInfo } from "../utils/hash";
-import { TaskResult, QueueTask } from "../types/queue.types";
-import { NonRetryableError } from "../core/errors";
-import { getContainer } from "../core/fileManage/container";
-import { FolderDetails, SpecialFolderProcessResult } from "../types/specialFolder.types";
+import { IMediaIdentifier, IdentifiedMedia } from "@/types/media.types";
+import { MediaRepository } from "@/repository/media.repository";
+import { MediaHardlinkerService } from "@/core/fileManage/mediaHardlinker";
+import { LLMIdentifier } from "@/strategies/llm.identifier";
+import { RegexIdentifier } from "@/strategies/regex.identifier";
+import { getConfig } from "@/config/config";
+import { logger } from "@/utils/logger";
+import { getFileDeviceInfo } from "@/utils/hash";
+import { TaskResult, QueueTask } from "@/types/queue.types";
+import { NonRetryableError } from "@/core/errors";
+import { getContainer } from "@/core/fileManage/container";
+import { FolderDetails, SpecialFolderProcessResult } from "@/types/specialFolder.types";
 
 /**
  * 任务处理器 - 统一处理普通文件和特殊文件夹

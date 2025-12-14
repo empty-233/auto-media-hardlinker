@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { SystemController } from "../controllers";
-import { SystemService } from "../services";
-import { createValidator } from "../middleware/validation.middleware";
-import { SystemBodyValidators, SystemQueryValidators } from "../validators";
+import { SystemController } from "@/controllers";
+import { SystemService } from "@/services";
+import { createValidator } from "@/middleware/validation.middleware";
+import { SystemBodyValidators, SystemQueryValidators } from "@/validators";
 
 const systemService = new SystemService();
 const systemController = new SystemController(systemService);

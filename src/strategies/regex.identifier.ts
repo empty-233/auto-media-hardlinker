@@ -1,10 +1,10 @@
 import { MovieDb, MovieResult, TvResult } from "moviedb-promise";
-import { getConfig } from "../config/config";
+import { getConfig } from "@/config/config";
 import { regexConfig } from "../../config/regexConfig";
 import path from "path";
-import { IMediaIdentifier, IdentifiedMedia } from "../types/media.types";
-import { logger } from "../utils/logger";
-import { getMediaName, getMediaReleaseDate } from "../utils/media";
+import { IMediaIdentifier, IdentifiedMedia } from "@/types/media.types";
+import { logger } from "@/utils/logger";
+import { getMediaName, getMediaReleaseDate } from "@/utils/media";
 
 const config = getConfig();
 const moviedb = new MovieDb(config.tmdbApi);

@@ -1,10 +1,10 @@
-import { logger, LogLevel } from "../utils/logger";
+import { logger, LogLevel } from "@/utils/logger";
 import {
   getConfig,
   Config,
   updateConfig as updateConfigFile,
-} from "../config/config";
-import { getPrompt, updatePrompt } from "../config/prompt";
+} from "@/config/config";
+import { getPrompt, updatePrompt } from "@/config/prompt";
 
 export class SystemService {
   // 获取系统日志

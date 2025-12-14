@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { MediaController } from "../controllers";
-import { MediaService } from "../services";
-import { createValidator } from "../middleware/validation.middleware";
-import { MediaParamValidators, MediaQueryValidators, ParamValidators } from "../validators";
+import { MediaController } from "@/controllers";
+import { MediaService } from "@/services";
+import { createValidator } from "@/middleware/validation.middleware";
+import { MediaParamValidators, MediaQueryValidators, ParamValidators } from "@/validators";
 
 const mediaService = new MediaService();
 const mediaController = new MediaController(mediaService);

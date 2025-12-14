@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { TMDBController } from "../controllers/tmdb.controller";
-import { TMDBService } from "../services";
-import { createValidator } from "../middleware/validation.middleware";
-import { ParamValidators, TMDBParamValidators, TMDBQueryValidators } from "../validators";
+import { TMDBController } from "@/controllers";
+import { TMDBService } from "@/services";
+import { createValidator } from "@/middleware/validation.middleware";
+import { ParamValidators, TMDBParamValidators, TMDBQueryValidators } from "@/validators";
 
 const tmdbService = TMDBService.getInstance();
 const tmdbController = new TMDBController(tmdbService);

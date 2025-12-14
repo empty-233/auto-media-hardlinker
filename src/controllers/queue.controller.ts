@@ -3,14 +3,14 @@ import {
   success,
   notFound,
   successWithPagination,
-} from "../utils/response";
-import { getQueueService } from "../queue/queueService";
+} from "@/utils/response";
+import { getQueueService } from "@/queue/queueService";
 import * as fs from "fs";
 import * as path from "path";
-import { clearConfigCache } from "../config/config";
+import { clearConfigCache } from "@/config/config";
 import { TypedController, TypedRequest } from "./base.controller";
-import { QueueParamValidators, QueueQueryValidators, QueueBodyValidators } from "../validators";
-import { logger } from "../utils/logger";
+import { QueueParamValidators, QueueQueryValidators, QueueBodyValidators } from "@/validators";
+import { logger } from "@/utils/logger";
 import { z } from "zod";
 
 // 类型推导

@@ -1,15 +1,15 @@
 import type { Prisma } from "@/generated/client";
-import client from "../client";
-import { logger } from "../utils/logger";
-import { getConfig } from "../config/config";
+import client from "@/client";
+import { logger } from "@/utils/logger";
+import { getConfig } from "@/config/config";
 import fs from "fs/promises";
 import path from "path";
-import { MediaHardlinkerService } from "../core/fileManage/mediaHardlinker";
-import { MediaRepository } from "../repository/media.repository";
+import { MediaHardlinkerService } from "@/core/fileManage/mediaHardlinker";
+import { MediaRepository } from "@/repository/media.repository";
 import { EpisodeService } from "./episode.service";
-import { deleteHardlink, createHardlinkRecursively } from "../utils/hardlink";
-import { BusinessError, ErrorType } from "../core/errors";
-import { IdentifiedMedia } from "../types/media.types";
+import { deleteHardlink, createHardlinkRecursively } from "@/utils/hardlink";
+import { BusinessError, ErrorType } from "@/core/errors";
+import { IdentifiedMedia } from "@/types/media.types";
 
 const prisma = client;
 

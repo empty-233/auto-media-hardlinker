@@ -1,6 +1,6 @@
-import { getConfig } from '../../config/config';
+import { getConfig } from '@/config/config';
 import { LibraryScanner } from './libraryScanner';
-import { logger } from '../../utils/logger';
+import { logger } from '@/utils/logger';
 import { getContainer } from './container';
 import { FileProcessor } from './fileProcessor';
 

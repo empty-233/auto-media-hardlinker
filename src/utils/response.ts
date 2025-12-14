@@ -5,7 +5,7 @@ import {
   ValidationErrorResponse,
   HttpStatus,
   ResponseMessages,
-} from "../types/response.types";
+} from "@/types/response.types";
 
 // 响应工具类
 export class ResponseUtil {

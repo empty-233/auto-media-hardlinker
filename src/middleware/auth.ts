@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express'
-import { verifyToken, JwtPayload } from '../utils/jwt'
+import { verifyToken, JwtPayload } from '@/utils/jwt'
 import { JsonWebTokenError, TokenExpiredError } from 'jsonwebtoken';
-import { logger } from '../utils/logger';
-import { unauthorized, internalError } from '../utils/response';
+import { logger } from '@/utils/logger';
+import { unauthorized, internalError } from '@/utils/response';
 
 // 扩展 Request 接口以包含用户信息
 declare global {

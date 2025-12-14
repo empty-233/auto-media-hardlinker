@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { logger } from "../utils/logger";
+import { logger } from "@/utils/logger";
 
 const promptFilePath = path.join(process.cwd(), "config", "prompt.md");
 const specialFolderPromptFilePath = path.join(process.cwd(), "config", "specialFolderPrompt.md");

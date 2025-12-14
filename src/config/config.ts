@@ -1,8 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
-import { QueueConfig } from "../types/queue.types";
-import { logger } from "../utils/logger";
-import { isDevelopment } from '../config/env';
+import { QueueConfig } from "@/types/queue.types";
+import { logger } from "@/utils/logger";
+import { isDevelopment } from '@/config/env';
 
 /**
  * 扫描配置接口

@@ -1,11 +1,11 @@
 import { Ollama } from "ollama";
 import OpenAI from "openai";
 import { MovieDb, MovieResult, TvResult } from "moviedb-promise";
-import { getConfig, Config } from "../config/config";
-import { getPrompt, getSpecialFolderPrompt } from "../config/prompt";
-import { IMediaIdentifier, IdentifiedMedia } from "../types/media.types";
-import { logger } from "../utils/logger";
-import { getMediaName, getMediaReleaseDate } from "../utils/media";
+import { getConfig, Config } from "@/config/config";
+import { getPrompt, getSpecialFolderPrompt } from "@/config/prompt";
+import { IMediaIdentifier, IdentifiedMedia } from "@/types/media.types";
+import { logger } from "@/utils/logger";
+import { getMediaName, getMediaReleaseDate } from "@/utils/media";
 import { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import * as fs from 'fs';
 import * as path from 'path';

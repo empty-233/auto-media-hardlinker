@@ -1,7 +1,7 @@
-import client from "../client";
-import { logger } from "../utils/logger";
+import client from "@/client";
+import { logger } from "@/utils/logger";
 import { TMDBService } from "./tmdb.service";
-import { formatDate, downloadTMDBImage } from "../utils/media";
+import { formatDate, downloadTMDBImage } from "@/utils/media";
 
 const prisma = client;
 

@@ -1,13 +1,13 @@
 import { QueueManager } from "./queueManager";
 import { TaskWorker, DEFAULT_QUEUE_CONFIG } from "./taskWorker";
-import { logger } from "../utils/logger";
+import { logger } from "@/utils/logger";
 import { 
   ScrapingTaskData, 
   QueueConfig, 
   QueueStats, 
   TaskQueryOptions,
   IQueueManager 
-} from "../types/queue.types";
+} from "@/types/queue.types";
 import { Queue } from "@/generated/client";
 
 /**

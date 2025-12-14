@@ -1,12 +1,12 @@
 import { Response } from "express";
-import { MediaService } from "../services";
+import { MediaService } from "@/services";
 import {
   success,
   notFound,
   successWithPagination,
-} from "../utils/response";
+} from "@/utils/response";
 import { TypedController, TypedRequest } from "./base.controller";
-import { ParamValidators, MediaParamValidators, MediaQueryValidators } from "../validators";
+import { ParamValidators, MediaParamValidators, MediaQueryValidators } from "@/validators";
 import { z } from "zod";
 
 // 类型定义

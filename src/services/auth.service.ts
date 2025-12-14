@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt";
-import prisma from "../client";
-import { generateToken } from "../utils/jwt";
-import { logger } from "../utils/logger";
+import prisma from "@/client";
+import { generateToken } from "@/utils/jwt";
+import { logger } from "@/utils/logger";
 
 interface LoginData {
   username: string;

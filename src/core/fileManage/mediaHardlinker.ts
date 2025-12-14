@@ -1,14 +1,14 @@
 // REFACTOR: 封装为服务类，移除自动启动逻辑，并实现完全异步I/O
-import { getConfig, Config } from "../../config/config";
+import { getConfig, Config } from "@/config/config";
 import { FileMonitor } from "./fileMonitor";
 import { getContainer } from "./container";
 import { FileProcessor } from "./fileProcessor";
 import fs from "fs/promises";
-import { logger } from "../../utils/logger";
+import { logger } from "@/utils/logger";
 import {
   FileDetails,
   IdentifiedMedia,
-} from "../../types/media.types";
+} from "@/types/media.types";
 
 /**
  * @class MediaHardlinkerService

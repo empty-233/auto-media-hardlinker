@@ -1,13 +1,13 @@
 import { Response } from "express";
-import { success } from "../utils/response";
-import { TMDBService } from "../services";
+import { success } from "@/utils/response";
+import { TMDBService } from "@/services";
 import { TypedController, TypedRequest } from "./base.controller";
 import {
   TMDBQueryValidators,
   TMDBParamValidators,
   ParamValidators,
-} from "../validators";
-import { logger } from "../utils/logger";
+} from "@/validators";
+import { logger } from "@/utils/logger";
 import { z } from "zod";
 import { SearchMovieRequest, SearchTvRequest } from "moviedb-promise";
 

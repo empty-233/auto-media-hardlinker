@@ -4,3 +4,5 @@ export { FileController } from "./file.controller";
 export { SystemController } from "./system.controller";
 export { TMDBController } from "./tmdb.controller";
 export { ScanController } from "./scan.controller";
+export { AuthController } from "./auth.controller";
+export { QueueController } from "./queue.controller";

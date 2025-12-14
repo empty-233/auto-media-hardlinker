@@ -1,5 +1,5 @@
-import prisma from "../client";
-import { logger } from "../utils/logger";
+import prisma from "@/client";
+import { logger } from "@/utils/logger";
 import {
   ScrapingTaskData,
   QueueStats,
@@ -7,7 +7,7 @@ import {
   IQueueManager,
   TaskResult,
   QueueConfig,
-} from "../types/queue.types";
+} from "@/types/queue.types";
 import { TaskStatus, Queue } from "@/generated/client";
 
 /**

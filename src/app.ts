@@ -1,9 +1,9 @@
 import path from "path";
 import express from "express";
 import cors from "cors";
-import routers from "./routes";
-import { authenticateToken } from "./middleware/auth.middleware";
-import { isDevelopment } from "./config/env";
+import routers from "@/routes";
+import { authenticateToken } from "@/middleware/auth.middleware";
+import { isDevelopment } from "@/config/env";
 
 const app = express();
 

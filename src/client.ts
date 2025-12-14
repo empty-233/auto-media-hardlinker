@@ -1,6 +1,6 @@
 import { PrismaClient } from '@/generated/client';
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
-import { isDevelopment } from "./config/env";
+import { isDevelopment } from "@/config/env";
 
 // 将 prisma 客户端的类型定义添加到 Node.js 的全局类型中
 declare global {

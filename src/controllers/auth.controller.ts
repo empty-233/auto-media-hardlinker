@@ -3,10 +3,10 @@ import {
   success,
   badRequest,
   unauthorized,
-} from "../utils/response";
-import { AuthService } from "../services/auth.service";
+} from "@/utils/response";
+import { AuthService } from "@/services";
 import { TypedController, TypedRequest } from "./base.controller";
-import { AuthBodyValidators } from "../validators";
+import { AuthBodyValidators } from "@/validators";
 import { z } from "zod";
 
 // 类型推导

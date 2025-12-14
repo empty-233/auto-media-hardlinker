@@ -1,4 +1,4 @@
-import { env } from "../config/env";
+import { env } from "@/config/env";
 
 /**
  * 图片URL处理工具

@@ -1,6 +1,6 @@
 import { Response } from "express";
-import { success } from "../utils/response";
-import { DashboardService } from "../services/dashboard.service";
+import { success } from "@/utils/response";
+import { DashboardService } from "@/services";
 import { TypedController, TypedRequest } from "./base.controller";
 
 // 仪表板控制器

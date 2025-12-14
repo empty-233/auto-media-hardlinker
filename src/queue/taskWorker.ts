@@ -1,7 +1,7 @@
 import { QueueManager } from "./queueManager";
 import { TaskProcessor } from "./taskProcessor";
-import { logger } from "../utils/logger";
-import { ITaskWorker, QueueConfig } from "../types/queue.types";
+import { logger } from "@/utils/logger";
+import { ITaskWorker, QueueConfig } from "@/types/queue.types";
 
 /**
  * 任务工作进程 - 负责从队列中消费任务并处理

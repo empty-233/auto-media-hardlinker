@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import pino from 'pino';
-import { getConfig } from '../config/config';
-import { env, LogLevel, isDevelopment } from '../config/env';
+import { getConfig } from '@/config/config';
+import { env, LogLevel, isDevelopment } from '@/config/env';
 
 // 日志级别映射
 const LOG_LEVEL_MAP = {

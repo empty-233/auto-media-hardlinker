@@ -1,11 +1,11 @@
 import { Response } from "express";
-import { FileService } from "../services";
+import { FileService } from "@/services";
 import {
   success,
   notFound,
-} from "../utils/response";
+} from "@/utils/response";
 import { TypedController, TypedRequest } from "./base.controller";
-import { ParamValidators, FileValidators } from "../validators";
+import { ParamValidators, FileValidators } from "@/validators";
 import { z } from "zod";
 
 // 类型定义
