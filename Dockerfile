@@ -41,17 +41,17 @@ ENV NODE_ENV=production
 ENV DATABASE_URL="file:/app/data/dev.db"
 
 # 安装运行时的必要工具 (nginx 和 wget 用于健康检查)
-RUN npm install -g pnpm && \
-    apk add --no-cache nginx wget
+RUN npm install -g pnpm
+RUN apk add --no-cache nginx wget
 
 # 设置工作目录
 WORKDIR /app
 
-# 从构建阶段复制 package.json，并只安装生产环境依赖
+# 从构建阶段复制 package.json,并只安装生产环境依赖
 COPY --from=builder /app/package.json /app/pnpm-lock.yaml ./
-RUN apk add --no-cache --virtual .build-deps python3 build-base && \
-    pnpm install --prod --frozen-lockfile && \
-    apk del .build-deps
+RUN apk add --no-cache --virtual .build-deps python3 build-base
+RUN pnpm install --prod --frozen-lockfile
+RUN apk del .build-deps
 
 # 从构建阶段复制构建好的产物
 # 1. 复制后端代码 (dist 目录)

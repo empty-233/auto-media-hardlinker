@@ -35,6 +35,10 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           cd frontend && pnpm install --frozen-lockfile
+
+      - name: Copy environment file
+        run: |
+          cp .env.example .env 2>/dev/null || true
           
       - name: Build project
         run: |
@@ -57,7 +61,6 @@ jobs:
           cp docker-compose.yml Dockerfile start.sh release/ 2>/dev/null || true
           cp -r docker release/ 2>/dev/null || true
           cp config/config.json.example release/config/config.json 2>/dev/null || true
-          cp .env.example .env 2>/dev/null || true
           cp .env release/.env 2>/dev/null || true
 
           # 初始化数据库
