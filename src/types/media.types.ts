@@ -24,6 +24,7 @@ export interface IdentifiedMedia {
   seasonNumber?: number;
   episodeNumber?: number;
   episodeTitle?: string;
+  episodeDescription?: string | null;
   episodeStillPath?: string | null;
   // 包含从TMDB获取的原始数据，以备将来使用
   rawData: any;

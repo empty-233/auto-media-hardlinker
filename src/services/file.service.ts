@@ -10,6 +10,7 @@ import { EpisodeService } from "./episode.service";
 import { deleteHardlink, createHardlinkRecursively } from "@/utils/hardlink";
 import { BusinessError, ErrorType } from "@/core/errors";
 import { IdentifiedMedia } from "@/types/media.types";
+import { createNfoFromMedia } from "@/utils/nfo/jellyfin";
 
 const prisma = client;
 
@@ -647,12 +648,20 @@ export class FileService {
     media: any
   ) {
     const targetPath = this.mediaHardlinkerService.buildTargetPath(media);
-    return await this.mediaHardlinkerService.handleSingleFile(
+    const result = await this.mediaHardlinkerService.handleSingleFile(
       fileInfo,
       media,
       targetPath,
       true // 保存到数据库
     );
+
+    // 创建 NFO 文件
+    if (result?.linkPath) {
+      const nfoPath = result.linkPath.replace(/\.[^.]+$/, '.nfo');
+      createNfoFromMedia(nfoPath, media);
+    }
+
+    return result;
   }
 
   /**
@@ -754,6 +763,10 @@ export class FileService {
           linkPath: mediaFileLinkInfo.linkPath,
         },
       });
+
+      // 创建 NFO 文件（将视频文件扩展名替换为 .nfo）
+      const nfoPath = mediaFileLinkInfo.linkPath.replace(/\.[^.]+$/, '.nfo');
+      createNfoFromMedia(nfoPath, media);
     }
 
     // 返回更新后的完整文件信息

@@ -116,6 +116,7 @@ export class RegexIdentifier implements IMediaIdentifier {
         seasonNumber: mediaType === 'tv' ? (extractedInfo.season ?? 1) : undefined,
         episodeNumber: mediaType === 'tv' ? extractedInfo.episode : undefined,
         episodeTitle: mediaType === 'tv' && episodeData ? episodeData.name : undefined,
+        episodeDescription: mediaType === 'tv' && episodeData ? episodeData.overview : null,
         episodeStillPath: mediaType === 'tv' && episodeData ? episodeData.still_path : null,
         rawData: rawData,
       };

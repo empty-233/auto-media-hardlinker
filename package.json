@@ -15,7 +15,7 @@
   "keywords": [],
   "author": "",
   "license": "MIT",
-  "packageManager": "pnpm@10.24.0",
+  "packageManager": "pnpm@10.25.0",
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.1.0",
     "@prisma/client": "7.1.0",
@@ -27,6 +27,7 @@
     "express": "^5.2.1",
     "express-zod-safe": "^3.1.0",
     "fast-glob": "^3.3.3",
+    "fast-xml-parser": "^5.3.3",
     "jsonwebtoken": "^9.0.3",
     "moviedb-promise": "^4.0.7",
     "ollama": "^0.6.3",

@@ -11,6 +11,7 @@ import { TaskResult, QueueTask } from "@/types/queue.types";
 import { NonRetryableError } from "@/core/errors";
 import { getContainer } from "@/core/fileManage/container";
 import { FolderDetails, SpecialFolderProcessResult } from "@/types/specialFolder.types";
+import { createNfoFromMedia } from "@/utils/nfo/jellyfin";
 
 /**
  * 任务处理器 - 统一处理普通文件和特殊文件夹
@@ -255,6 +256,9 @@ export class TaskProcessor {
         );
 
         if (fileDetails) {
+          // 创建 NFO 文件（将 .mkv 等扩展名替换为 .nfo）
+          const nfoPath = fileDetails.linkPath.replace(/\.[^.]+$/, '.nfo');
+          createNfoFromMedia(nfoPath, media);
           // 保存媒体和文件信息到数据库
           const fileRecord = await this.mediaRepository.saveMediaAndFile(media, fileDetails);
           fileId = fileRecord.id;

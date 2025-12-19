@@ -106,6 +106,7 @@ export async function createHardlinkRecursively(
 
 /**
  * 删除指定路径的文件或目录。
+ * 如果是视频文件，会同时检查并删除对应的 NFO 文件。
  * @param filePath - 要删除的文件或目录路径
  * @returns Promise<void>
  * @throws 如果删除失败（权限问题等），则抛出错误。
@@ -127,6 +128,18 @@ export async function deleteHardlink(filePath: string): Promise<void> {
       // 删除文件
       await fs.promises.unlink(filePath);
       logger.info(`成功删除文件: ${filePath}`);
+      
+      // 4. 检查并删除对应的 NFO 文件
+      const nfoPath = filePath.replace(/\.[^.]+$/, '.nfo');
+      try {
+        await fs.promises.access(nfoPath, fs.constants.F_OK);
+        await fs.promises.unlink(nfoPath);
+        logger.info(`成功删除对应的 NFO 文件: ${nfoPath}`);
+      } catch (error: any) {
+        if (error.code !== 'ENOENT') {
+          logger.warn(`删除 NFO 文件失败: ${nfoPath} - ${error.message}`);
+        }
+      }
     }
   } catch (error: any) {
     let errorMessage = `删除失败: "${filePath}".`;
