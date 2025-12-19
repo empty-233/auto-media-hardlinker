@@ -3,8 +3,8 @@
  * @description 统一处理BDMV、DVD等特殊文件夹结构，集成 LLM 识别和硬链接功能
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
+import fs from 'fs';
+import path from 'path';
 import { logger } from '@/utils/logger';
 import { generatePathHash } from '@/utils/hash';
 import { createHardlinkRecursively } from '@/utils/hardlink';

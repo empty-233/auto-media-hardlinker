@@ -2,8 +2,8 @@ import client from '@/client';
 import { logger } from '@/utils/logger';
 import { LibraryScanner } from '@/core/fileManage/libraryScanner';
 import { ScanScheduler } from '@/core/fileManage/scanScheduler';
-import * as fs from "fs";
-import * as path from "path";
+import fs from "fs";
+import path from "path";
 import { getConfig, clearConfigCache, type ScanConfig } from '@/config/config';
 
 const prisma = client;

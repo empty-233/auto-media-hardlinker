@@ -7,8 +7,8 @@ import { IMediaIdentifier, IdentifiedMedia } from "@/types/media.types";
 import { logger } from "@/utils/logger";
 import { getMediaName, getMediaReleaseDate } from "@/utils/media";
 import { ChatCompletionMessageParam } from "openai/resources/chat/completions";
-import * as fs from 'fs';
-import * as path from 'path';
+import fs from 'fs';
+import path from 'path';
 
 /**
  * @interface ExtractedInfo
@@ -285,6 +285,7 @@ export class LLMIdentifier implements IMediaIdentifier {
         seasonNumber: mediaType === 'tv' ? (extractedInfo.season ?? 1) : undefined,
         episodeNumber: mediaType === 'tv' ? extractedInfo.episode : undefined,
         episodeTitle: mediaType === 'tv' && episodeData ? episodeData.name : undefined,
+        episodeDescription: mediaType === 'tv' && episodeData ? episodeData.overview : null,
         episodeStillPath: mediaType === 'tv' && episodeData ? episodeData.still_path : null,
         rawData: rawData,
       };

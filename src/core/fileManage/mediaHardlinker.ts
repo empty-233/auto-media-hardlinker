@@ -60,16 +60,23 @@ export class MediaHardlinkerService {
       ext.startsWith('.') ? ext : `.${ext}`
     );
 
-    // 初始化文件监控器
+    // 初始化文件监控器 - 只监听视频文件的add和change事件
+    // 特殊文件夹（BDMV/DVD等）交由定时扫描处理
     this.fileMonitorInstance = new FileMonitor(
       this.config.monitorFilePath,
       {
-        usePolling: true,
         ignored: (filePath: string, stats?: any) => {
-          if (stats?.isFile?.() === false) return false;
-          return !videoExtensions.some(ext => 
-            filePath.toLowerCase().endsWith(ext.toLowerCase())
-          );
+          // 文件夹需要遍历，但不触发事件（在 fileMonitor 中过滤）
+          if (stats?.isDirectory?.() === true) {
+            return false;
+          }
+          // 只监听视频文件
+          if (stats?.isFile?.() === true) {
+            return !videoExtensions.some(ext => 
+              filePath.toLowerCase().endsWith(ext.toLowerCase())
+            );
+          }
+          return false;
         },
       }
     );

@@ -74,13 +74,23 @@ export class FileMonitor {
    */
   private setupEventListeners(watcher: FSWatcher, callback: EventCallback): void {
     const eventHandler = (eventType: string, itemPath: string, isDirectory: boolean) => {
+      logger.debug(`文件监控事件: ${eventType}, 文件: ${path.basename(itemPath)}`);
       callback(eventType, { path: itemPath, filename: path.basename(itemPath), isDirectory });
     };
 
     watcher
-      .on("add", (filePath) => eventHandler("add", filePath, false))
-      .on("change", (filePath) => eventHandler("change", filePath, false))
+      .on("add", (filePath) => {
+        // 只处理文件，忽略文件夹
+        eventHandler("add", filePath, false);
+      })
+      .on("change", (filePath) => {
+        // 只处理文件变化
+        eventHandler("change", filePath, false);
+      })
+      // addDir 事件不处理，让特殊文件夹由定时扫描处理
       .on("error", (error) => logger.error(`监控错误`, error))
-      .on("ready", () => logger.info("初始扫描完成，准备监控文件变化"));
+      .on("ready", () => {
+        logger.info("初始扫描完成，准备监控文件变化");
+      });
   }
 }

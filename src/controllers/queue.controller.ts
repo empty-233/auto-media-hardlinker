@@ -5,8 +5,8 @@ import {
   successWithPagination,
 } from "@/utils/response";
 import { getQueueService } from "@/queue/queueService";
-import * as fs from "fs";
-import * as path from "path";
+import fs from "fs";
+import path from "path";
 import { clearConfigCache } from "@/config/config";
 import { TypedController, TypedRequest } from "./base.controller";
 import { QueueParamValidators, QueueQueryValidators, QueueBodyValidators } from "@/validators";
