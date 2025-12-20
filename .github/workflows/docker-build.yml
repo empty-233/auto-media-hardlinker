@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: Build and Push Docker Image (Multi-Arch)
 
 on:
   push:
@@ -14,10 +14,20 @@ env:
 
 jobs:
   docker-build:
-    runs-on: ubuntu-latest
+    name: Build ${{ matrix.arch }} Image
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
+    strategy:
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            arch: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            arch: arm64
       
     steps:
       - name: Checkout repository
@@ -40,84 +50,186 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           
-      - name: Extract metadata for GHCR
-        id: meta-ghcr
+      - name: Extract metadata
+        id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.GHCR_REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: |
+            ${{ env.GHCR_REGISTRY }}/${{ env.IMAGE_NAME }}
+            ${{ env.DOCKERHUB_IMAGE_NAME }}
           tags: |
-            type=ref,event=tag
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=tag,suffix=-${{ matrix.arch }}
+            type=semver,pattern={{version}},suffix=-${{ matrix.arch }}
+            type=semver,pattern={{major}}.{{minor}},suffix=-${{ matrix.arch }}
+            type=semver,pattern={{major}},suffix=-${{ matrix.arch }}
             
-      - name: Extract metadata for Docker Hub
-        id: meta-dockerhub
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.DOCKERHUB_IMAGE_NAME }}
-          tags: |
-            type=ref,event=tag
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=latest,enable={{is_default_branch}}
-            
-      - name: Build and push to GitHub Container Registry
+      - name: Build and push ${{ matrix.arch }} image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ steps.meta-ghcr.outputs.tags }}
-          labels: ${{ steps.meta-ghcr.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+          platforms: ${{ matrix.platform }}
+          provenance: false
+
+  docker-manifest:
+    name: Create Multi-Arch Manifest
+    runs-on: ubuntu-latest
+    needs: docker-build
+    permissions:
+      contents: read
+      packages: write
+      
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
           
-      - name: Build and push to Docker Hub
-        uses: docker/build-push-action@v6
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
         with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: ${{ steps.meta-dockerhub.outputs.tags }}
-          labels: ${{ steps.meta-dockerhub.outputs.labels }}
-          cache-from: type=gha
-          platforms: linux/amd64,linux/arm64
+          registry: ${{ env.DOCKERHUB_REGISTRY }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          SEMVER="${VERSION#v}"
+          echo "semver=$SEMVER" >> $GITHUB_OUTPUT
+          
+          # Extract major and minor versions
+          if [[ $VERSION =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
+            echo "major=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+            echo "minor=${BASH_REMATCH[1]}.${BASH_REMATCH[2]}" >> $GITHUB_OUTPUT
+            echo "is_release=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_release=false" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Create and push multi-arch manifest for GHCR
+        run: |
+          GHCR_IMAGE="${{ env.GHCR_REGISTRY }}/${{ env.IMAGE_NAME }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          SEMVER="${{ steps.version.outputs.semver }}"
+          MAJOR="${{ steps.version.outputs.major }}"
+          MINOR="${{ steps.version.outputs.minor }}"
+          IS_RELEASE="${{ steps.version.outputs.is_release }}"
+          
+          # Create and push version tag manifest (v1.0.0)
+          docker buildx imagetools create -t ${GHCR_IMAGE}:${VERSION} \
+            ${GHCR_IMAGE}:${SEMVER}-amd64 \
+            ${GHCR_IMAGE}:${SEMVER}-arm64
+          
+          # Create semver tag manifest (1.0.0)
+          docker buildx imagetools create -t ${GHCR_IMAGE}:${SEMVER} \
+            ${GHCR_IMAGE}:${SEMVER}-amd64 \
+            ${GHCR_IMAGE}:${SEMVER}-arm64
+          
+          # Create major.minor manifest if available (1.0)
+          if [ -n "$MINOR" ]; then
+            docker buildx imagetools create -t ${GHCR_IMAGE}:${MINOR} \
+              ${GHCR_IMAGE}:${SEMVER}-amd64 \
+              ${GHCR_IMAGE}:${SEMVER}-arm64
+          fi
+          
+          # Create major manifest if available (1)
+          if [ -n "$MAJOR" ]; then
+            docker buildx imagetools create -t ${GHCR_IMAGE}:${MAJOR} \
+              ${GHCR_IMAGE}:${SEMVER}-amd64 \
+              ${GHCR_IMAGE}:${SEMVER}-arm64
+          fi
+          
+          # Create latest tag for release versions
+          if [ "$IS_RELEASE" = "true" ]; then
+            docker buildx imagetools create -t ${GHCR_IMAGE}:latest \
+              ${GHCR_IMAGE}:${SEMVER}-amd64 \
+              ${GHCR_IMAGE}:${SEMVER}-arm64
+          fi
+          
+      - name: Create and push multi-arch manifest for Docker Hub
+        run: |
+          DOCKERHUB_IMAGE="${{ env.DOCKERHUB_IMAGE_NAME }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          SEMVER="${{ steps.version.outputs.semver }}"
+          MAJOR="${{ steps.version.outputs.major }}"
+          MINOR="${{ steps.version.outputs.minor }}"
+          IS_RELEASE="${{ steps.version.outputs.is_release }}"
+          
+          # Create and push version tag manifest (v1.0.0)
+          docker buildx imagetools create -t ${DOCKERHUB_IMAGE}:${VERSION} \
+            ${DOCKERHUB_IMAGE}:${SEMVER}-amd64 \
+            ${DOCKERHUB_IMAGE}:${SEMVER}-arm64
+          
+          # Create semver tag manifest (1.0.0)
+          docker buildx imagetools create -t ${DOCKERHUB_IMAGE}:${SEMVER} \
+            ${DOCKERHUB_IMAGE}:${SEMVER}-amd64 \
+            ${DOCKERHUB_IMAGE}:${SEMVER}-arm64
+          
+          # Create major.minor manifest if available (1.0)
+          if [ -n "$MINOR" ]; then
+            docker buildx imagetools create -t ${DOCKERHUB_IMAGE}:${MINOR} \
+              ${DOCKERHUB_IMAGE}:${SEMVER}-amd64 \
+              ${DOCKERHUB_IMAGE}:${SEMVER}-arm64
+          fi
+          
+          # Create major manifest if available (1)
+          if [ -n "$MAJOR" ]; then
+            docker buildx imagetools create -t ${DOCKERHUB_IMAGE}:${MAJOR} \
+              ${DOCKERHUB_IMAGE}:${SEMVER}-amd64 \
+              ${DOCKERHUB_IMAGE}:${SEMVER}-arm64
+          fi
+          
+          # Create latest tag for release versions
+          if [ "$IS_RELEASE" = "true" ]; then
+            docker buildx imagetools create -t ${DOCKERHUB_IMAGE}:latest \
+              ${DOCKERHUB_IMAGE}:${SEMVER}-amd64 \
+              ${DOCKERHUB_IMAGE}:${SEMVER}-arm64
+          fi
           
       - name: Output image details
         run: |
-          echo "### 🐳 Docker Images Published" >> $GITHUB_STEP_SUMMARY
+          VERSION="${{ steps.version.outputs.version }}"
+          GHCR_IMAGE="${{ env.GHCR_REGISTRY }}/${{ env.IMAGE_NAME }}"
+          DOCKERHUB_IMAGE="${{ env.DOCKERHUB_IMAGE_NAME }}"
+          
+          echo "### 🐳 Multi-Arch Docker Images Published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "**Platforms:** linux/amd64, linux/arm64" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           echo "#### GitHub Container Registry (ghcr.io)" >> $GITHUB_STEP_SUMMARY
-          echo "**Images:**" >> $GITHUB_STEP_SUMMARY
-          echo '${{ steps.meta-ghcr.outputs.tags }}' | while read -r tag; do
-            if [ ! -z "$tag" ]; then
-              echo "- \`docker pull $tag\`" >> $GITHUB_STEP_SUMMARY
-            fi
-          done
+          echo "- \`docker pull ${GHCR_IMAGE}:${VERSION}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`docker pull ${GHCR_IMAGE}:latest\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           echo "#### Docker Hub (docker.io)" >> $GITHUB_STEP_SUMMARY
-          echo "**Images:**" >> $GITHUB_STEP_SUMMARY
-          echo '${{ steps.meta-dockerhub.outputs.tags }}' | while read -r tag; do
-            if [ ! -z "$tag" ]; then
-              echo "- \`docker pull $tag\`" >> $GITHUB_STEP_SUMMARY
-            fi
-          done
+          echo "- \`docker pull ${DOCKERHUB_IMAGE}:${VERSION}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`docker pull ${DOCKERHUB_IMAGE}:latest\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           echo "#### Usage Examples" >> $GITHUB_STEP_SUMMARY
-          echo "```bash" >> $GITHUB_STEP_SUMMARY
-          echo "# From GitHub Container Registry" >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ghcr.io/${{ env.IMAGE_NAME }}:${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "# From Docker Hub" >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ${{ env.DOCKERHUB_IMAGE_NAME }}:${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "# Pull multi-arch image (automatically selects the right architecture)" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${DOCKERHUB_IMAGE}:${VERSION}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "# Run container" >> $GITHUB_STEP_SUMMARY
-          echo "docker run -d -p 80:80 ${{ env.DOCKERHUB_IMAGE_NAME }}:${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "```" >> $GITHUB_STEP_SUMMARY
+          echo "docker run -d -p 80:80 ${DOCKERHUB_IMAGE}:${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# Pull specific architecture" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull --platform linux/amd64 ${DOCKERHUB_IMAGE}:${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull --platform linux/arm64 ${DOCKERHUB_IMAGE}:${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
