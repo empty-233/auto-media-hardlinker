@@ -4,7 +4,7 @@ import {
   Config,
   updateConfig as updateConfigFile,
 } from "@/config/config";
-import { getPrompt, updatePrompt } from "@/config/prompt";
+import { getPrompt, updatePrompt, getSpecialFolderPrompt, updateSpecialFolderPrompt } from "@/config/prompt";
 
 export class SystemService {
   // 获取系统日志
@@ -54,6 +54,7 @@ export class SystemService {
         persistentLogging,
       } = config;
       const llmPrompt = getPrompt();
+      const llmSpecialFolderPrompt = getSpecialFolderPrompt();
       logger.info("获取系统配置成功");
       return {
         tmdbApi,
@@ -65,6 +66,7 @@ export class SystemService {
         openaiModel,
         openaiBaseUrl,
         llmPrompt,
+        llmSpecialFolderPrompt,
         persistentLogging,
       };
     } catch (error) {
@@ -74,13 +76,18 @@ export class SystemService {
   }
 
   // 更新系统配置
-  updateConfig(data: Partial<Config & { llmPrompt: string }>) {
+  updateConfig(data: Partial<Config & { llmPrompt: string; llmSpecialFolderPrompt: string }>) {
     try {
-      const { llmPrompt, ...configData } = data;
+      const { llmPrompt, llmSpecialFolderPrompt, ...configData } = data;
 
       // 更新 prompt
       if (typeof llmPrompt === "string") {
         updatePrompt(llmPrompt);
+      }
+
+      // 更新 specialFolderPrompt
+      if (typeof llmSpecialFolderPrompt === "string") {
+        updateSpecialFolderPrompt(llmSpecialFolderPrompt);
       }
 
       // 更新 config

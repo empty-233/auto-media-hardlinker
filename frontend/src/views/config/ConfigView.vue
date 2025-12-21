@@ -28,6 +28,7 @@ const configForm = reactive<SystemConfig>({
   openaiModel: '',
   openaiBaseUrl: '',
   llmPrompt: '',
+  llmSpecialFolderPrompt: '',
   persistentLogging: true
 })
 
@@ -42,6 +43,7 @@ const originalConfig = ref<SystemConfig>({
   openaiModel: '',
   openaiBaseUrl: '',
   llmPrompt: '',
+  llmSpecialFolderPrompt: '',
   persistentLogging: true
 })
 
@@ -80,7 +82,8 @@ const configRules = reactive<FormRules<SystemConfig>>({
       trigger: 'blur'
     }
   ],
-  llmPrompt: [{ required: true, message: 'LLM 刮削提示不能为空', trigger: 'blur' }]
+  llmPrompt: [{ required: true, message: 'LLM 刮削提示不能为空', trigger: 'blur' }],
+  llmSpecialFolderPrompt: [{ required: true, message: '特殊文件夹识别提示不能为空', trigger: 'blur' }]
 })
 
 // URL验证函数
@@ -431,6 +434,21 @@ onMounted(() => {
             type="textarea"
             :rows="10"
             placeholder="请输入 LLM 刮削提示词"
+            :disabled="!configForm.useLlm"
+            clearable
+          >
+            <template #prefix>
+              <el-icon><Document /></el-icon>
+            </template>
+          </el-input>
+        </el-form-item>
+
+        <el-form-item label="特殊文件夹识别提示" prop="llmSpecialFolderPrompt">
+          <el-input
+            v-model="configForm.llmSpecialFolderPrompt"
+            type="textarea"
+            :rows="10"
+            placeholder="请输入特殊文件夹识别提示词（用于 BDMV/DVD/ISO）"
             :disabled="!configForm.useLlm"
             clearable
           >

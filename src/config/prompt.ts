@@ -66,6 +66,21 @@ export function updatePrompt(newPrompt: string): void {
 }
 
 /**
+ * 更新特殊文件夹识别 Prompt
+ * @param {string} newPrompt - 新的prompt内容
+ */
+export function updateSpecialFolderPrompt(newPrompt: string): void {
+  try {
+    fs.writeFileSync(specialFolderPromptFilePath, newPrompt, "utf-8");
+    clearPromptCache(); // 更新后清除缓存
+    logger.info("特殊文件夹识别 Prompt更新成功");
+  } catch (error) {
+    logger.error("写入特殊文件夹识别 prompt文件失败", error);
+    throw new Error("写入特殊文件夹识别 prompt文件失败");
+  }
+}
+
+/**
  * 清除LLM Prompt缓存
  */
 export function clearPromptCache(): void {

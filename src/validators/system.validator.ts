@@ -162,6 +162,7 @@ export const SystemBodyValidators = {
         .url({ message: "openaiBaseUrl必须是有效的URL" })
         .optional(),
       llmPrompt: z.string().min(1, { message: "llmPrompt不能为空" }).optional(),
+      llmSpecialFolderPrompt: z.string().min(1, { message: "llmSpecialFolderPrompt不能为空" }).optional(),
       persistentLogging: CommonValidators.boolean.optional(),
     })
     .refine(

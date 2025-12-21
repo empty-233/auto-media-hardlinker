@@ -11,6 +11,7 @@ export interface SystemConfig {
   openaiModel: string
   openaiBaseUrl: string
   llmPrompt: string
+  llmSpecialFolderPrompt: string
   persistentLogging: boolean
 }
 
