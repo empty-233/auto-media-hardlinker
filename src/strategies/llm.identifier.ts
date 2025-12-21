@@ -303,6 +303,7 @@ export class LLMIdentifier implements IMediaIdentifier {
       messages: [
         { role: "user", content: `${getPrompt()}\n\n文件名: "${fileName}"` },
       ],
+      temperature: 0.1,
     });
 
     const content = response.message.content;

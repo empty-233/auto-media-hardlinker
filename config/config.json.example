@@ -7,9 +7,9 @@
     "useLlm": true,
     "llmProvider": "ollama",
     "llmHost": "http://localhost:11434",
-    "llmModel": "qwen2.5",
+    "llmModel": "qwen3:4b-instruct",
     "openaiApiKey": "your_openai_api_key",
-    "openaiModel": "gpt-4-turbo",
+    "openaiModel": "gemini-2.5-flash-lite",
     "openaiBaseUrl": "https://api.openai.com/v1",
     "videoExtensions": [
         ".mp4",
