@@ -1,6 +1,7 @@
 import chokidar, { FSWatcher } from "chokidar";
 import path from "path";
 import { logger } from "@/utils/logger";
+import fs from "fs/promises";
 
 /**
  * 文件监控器配置选项
@@ -12,6 +13,10 @@ export interface FileMonitorOptions {
   ignoreInitial?: boolean;
   ignored?: RegExp | string | Array<RegExp | string> | ((path: string, stats?: any) => boolean);
   cwd?: string;
+  awaitWriteFinish?: {
+    stabilityThreshold?: number;
+    pollInterval?: number;
+  };
 }
 
 type EventCallback = (eventType: string, fileInfo: { path: string; filename: string; isDirectory: boolean }) => void;
@@ -30,6 +35,10 @@ export class FileMonitor {
     this.options = {
       persistent: true,
       ignoreInitial: true,
+      awaitWriteFinish: {
+        stabilityThreshold: 2000,
+        pollInterval: 100
+      },
       ...options,
     };
   }
@@ -73,7 +82,27 @@ export class FileMonitor {
    * @param callback - 事件回调函数。
    */
   private setupEventListeners(watcher: FSWatcher, callback: EventCallback): void {
-    const eventHandler = (eventType: string, itemPath: string, isDirectory: boolean) => {
+    const eventHandler = async (eventType: string, itemPath: string, isDirectory: boolean) => {
+      // 对于 change 事件，检查是否是真正的内容变化
+      if (eventType === "change") {
+        try {
+          const stats = await fs.stat(itemPath);
+          
+          // 比较 mtime 和 ctime：
+          // - 如果 ctime > mtime，说明只有元数据变化（如硬链接、权限等）
+          // - 如果 ctime == mtime，说明是内容变化
+          const mtimeMs = Math.floor(stats.mtimeMs);
+          const ctimeMs = Math.floor(stats.ctimeMs);
+          
+          if (ctimeMs > mtimeMs) {
+            logger.debug(`忽略仅元数据变化的事件 (ctime=${ctimeMs} > mtime=${mtimeMs}): ${path.basename(itemPath)}`);
+            return;
+          }
+        } catch {
+          logger.debug(`获取文件状态失败，继续处理: ${itemPath}`);
+        }
+      }
+      
       logger.debug(`文件监控事件: ${eventType}, 文件: ${path.basename(itemPath)}`);
       callback(eventType, { path: itemPath, filename: path.basename(itemPath), isDirectory });
     };

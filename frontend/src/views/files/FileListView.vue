@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, onActivated } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, computed, onActivated, nextTick } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Search,
@@ -14,73 +14,72 @@ import {
   Folder,
   Check,
   Close,
-  Warning,
   ArrowLeft,
-  ArrowRight,
 } from '@element-plus/icons-vue'
-import { FileService, type DirectoryResponse } from '@/api/files'
+import { FileService } from '@/api/files'
 import type { FileSystemItem } from '@/api/files/types'
 import FileDetailDialog from './components/FileDetailDialog.vue'
 
-// 定义组件名称以支持 keep-alive
-defineOptions({
-  name: 'FileListView',
-})
+defineOptions({ name: 'FileListView' })
 
-// 路由
+// 配置常量
+const FILE_EXTENSIONS = {
+  video: ['.mp4', '.mkv', '.avi', '.wmv', '.flv', '.mov', '.webm'],
+  image: ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.webp'],
+  audio: ['.mp3', '.wav', '.flac', '.aac', '.ogg'],
+}
+
+const FOLDER_CONFIG: Record<string, { label: string; color: string }> = {
+  BDMV: { label: 'BDMV', color: 'primary' },
+  VIDEO_TS: { label: 'DVD', color: 'success' },
+  ISO: { label: 'ISO', color: 'warning' },
+}
+
+const LONG_PRESS_DELAY = 500
+
 const route = useRoute()
 const router = useRouter()
 
-// 响应式数据
+// 状态管理
 const loading = ref(false)
+const isLoaded = ref(false)
 const fileList = ref<FileSystemItem[]>([])
 const currentPath = ref('')
 const parentPath = ref<string | null>(null)
 const searchKeyword = ref('')
-const sortConfig = ref<{ prop: string; order: string }>({ prop: 'name', order: 'ascending' })
-const detailDialogVisible = ref(false)
-const selectedFile = ref<FileSystemItem | null>(null)
+const sortConfig = ref({ prop: 'name', order: 'ascending' })
 const viewMode = ref<'grid' | 'list'>('grid')
 const filterType = ref<'all' | 'inDb' | 'notInDb' | 'directory'>('all')
-const isLoaded = ref(false)
 
-// 面包屑导航
+// 对话框和菜单
+const detailDialogVisible = ref(false)
+const selectedFile = ref<FileSystemItem | null>(null)
+const contextMenuVisible = ref(false)
+const contextMenuPosition = ref({ x: 0, y: 0 })
+const contextMenuItem = ref<FileSystemItem | null>(null)
+const longPressTimer = ref<number | null>(null)
+
+// 计算属性
 const breadcrumbItems = computed(() => {
-  if (!currentPath.value) {
-    return [{ name: '根目录', path: '' }]
-  }
-
-  const pathParts = currentPath.value.split(/[/\\]/).filter((part) => part)
   const items = [{ name: '根目录', path: '' }]
+  if (!currentPath.value) return items
 
   let accumulatedPath = ''
-  for (const part of pathParts) {
+  currentPath.value.split(/[/\\]/).filter(Boolean).forEach((part) => {
     accumulatedPath = accumulatedPath ? `${accumulatedPath}/${part}` : part
     items.push({ name: part, path: accumulatedPath })
-  }
-
+  })
   return items
 })
 
-// 计算属性
-const totalCount = computed(() => fileList.value.length)
-
-// 统计数据
 const statistics = computed(() => {
-  const total = fileList.value.length
-  const inDatabase = fileList.value.filter((item) => item.inDatabase).length
-  const notInDatabase = fileList.value.filter(
-    (item) => !item.inDatabase && !item.isDirectory,
-  ).length
-  const directories = fileList.value.filter((item) => item.isDirectory).length
-  const files = fileList.value.filter((item) => !item.isDirectory).length
-
+  const items = fileList.value
   return {
-    total,
-    inDatabase,
-    notInDatabase,
-    directories,
-    files,
+    total: items.length,
+    inDatabase: items.filter((item) => item.inDatabase).length,
+    notInDatabase: items.filter((item) => !item.inDatabase && !item.isDirectory).length,
+    directories: items.filter((item) => item.isDirectory).length,
+    files: items.filter((item) => !item.isDirectory).length,
   }
 })
 
@@ -88,93 +87,62 @@ const filteredFileList = computed(() => {
   let result = fileList.value
 
   // 按类型过滤
-  if (filterType.value !== 'all') {
-    switch (filterType.value) {
-      case 'inDb':
-        result = result.filter((item) => item.inDatabase)
-        break
-      case 'notInDb':
-        result = result.filter((item) => !item.inDatabase && !item.isDirectory)
-        break
-      case 'directory':
-        result = result.filter((item) => item.isDirectory)
-        break
-    }
+  const filterMap = {
+    inDb: (item: FileSystemItem) => item.inDatabase,
+    notInDb: (item: FileSystemItem) => !item.inDatabase && !item.isDirectory,
+    directory: (item: FileSystemItem) => item.isDirectory,
+  }
+  if (filterType.value !== 'all' && filterMap[filterType.value]) {
+    result = result.filter(filterMap[filterType.value])
   }
 
   // 按关键词搜索
-  if (searchKeyword.value.trim()) {
-    const keyword = searchKeyword.value.trim().toLowerCase()
-    result = result.filter(
-      (item) =>
-        item.name.toLowerCase().includes(keyword) ||
-        item.path.toLowerCase().includes(keyword) ||
-        item.databaseRecord?.Media?.title.toLowerCase().includes(keyword),
+  const keyword = searchKeyword.value.trim().toLowerCase()
+  if (keyword) {
+    result = result.filter((item) =>
+      [item.name, item.path, item.databaseRecord?.Media?.title || '']
+        .some((text) => text.toLowerCase().includes(keyword))
     )
   }
 
-  // 排序 - 目录永远在前面
-  result.sort((a, b) => {
-    // 目录永远在前面
-    if (a.isDirectory !== b.isDirectory) {
-      return a.isDirectory ? -1 : 1
-    }
+  // 排序
+  return result.sort((a, b) => {
+    if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1
 
-    // 如果有排序配置，按照指定字段排序
     if (sortConfig.value.prop) {
-      let aValue = getValueByPath(a, sortConfig.value.prop)
-      let bValue = getValueByPath(b, sortConfig.value.prop)
-
-      // 特殊处理文件大小
-      if (sortConfig.value.prop === 'size') {
-        aValue = aValue || 0
-        bValue = bValue || 0
-      }
-
-      if (sortConfig.value.order === 'ascending') {
-        return aValue > bValue ? 1 : -1
-      } else {
-        return aValue < bValue ? 1 : -1
-      }
-    } else {
-      // 默认按名称排序
-      return a.name.localeCompare(b.name)
+      const aValue = getValueByPath(a, sortConfig.value.prop) || 0
+      const bValue = getValueByPath(b, sortConfig.value.prop) || 0
+      const order = sortConfig.value.order === 'ascending' ? 1 : -1
+      return aValue > bValue ? order : -order
     }
+    return a.name.localeCompare(b.name)
   })
-
-  return result
 })
 
-// 处理文件ID参数的函数
+// 方法
 const handleFileIdParam = () => {
-  if (route.query.fileId) {
-    const fileId = parseInt(route.query.fileId as string)
-    
-    // 立即清除 fileId 参数
-    const query = { ...route.query }
-    delete query.fileId
-    router.replace({ query })
-    
-    // 查找并打开文件或特殊文件夹
-    const fileToView = fileList.value.find(
-      (f) => f.databaseRecord?.id === fileId && (!f.isDirectory || f.isSpecialFolder),
-    )
-    if (fileToView) {
-      viewFileDetail(fileToView)
-    }
+  const fileId = route.query.fileId ? parseInt(route.query.fileId as string) : null
+  if (!fileId) return
+
+  const query = { ...route.query }
+  delete query.fileId
+  router.replace({ query })
+
+  const fileToView = fileList.value.find(
+    (f) => f.databaseRecord?.id === fileId && (!f.isDirectory || f.isSpecialFolder)
+  )
+  if (fileToView) {
+    viewFileDetail(fileToView)
   }
 }
-
-// 方法
 const loadDirectoryContents = async (dirPath?: string) => {
+  loading.value = true
   try {
-    loading.value = true
     const response = await FileService.getDirectoryContents(dirPath)
     fileList.value = response.items
     currentPath.value = response.currentPath
     parentPath.value = response.parentPath
 
-    // 更新URL参数
     const query = { ...route.query }
     if (response.currentPath) {
       query.path = response.currentPath
@@ -183,21 +151,16 @@ const loadDirectoryContents = async (dirPath?: string) => {
     }
     router.replace({ query })
 
-    // 处理文件ID参数
     handleFileIdParam()
   } catch (error) {
     console.error('加载目录内容失败:', error)
-    ElMessage.error('加载目录内容失败，请稍后重试')
+    ElMessage.error('加载目录内容失败,请稍后重试')
   } finally {
     loading.value = false
   }
 }
 
-const refreshData = () => {
-  loadDirectoryContents(currentPath.value || undefined)
-}
-
-const handleSearch = () => {}
+const refreshData = () => loadDirectoryContents(currentPath.value || undefined)
 
 const handleSortChange = ({ prop, order }: { prop: string; order: string }) => {
   sortConfig.value = { prop, order }
@@ -209,19 +172,18 @@ const viewFileDetail = (file: FileSystemItem) => {
 }
 
 const handleDetailDialogRefresh = () => {
-  // 清除选中的文件，因为文件信息可能已经改变
   selectedFile.value = null
-  // 刷新数据
   refreshData()
 }
 
-const handleFilterChange = (type: 'all' | 'inDb' | 'notInDb' | 'directory') => {
+const handleFilterChange = (type: typeof filterType.value) => {
   filterType.value = type
 }
 
 const navigateToDirectory = (dirPath: string) => {
-  if (dirPath === currentPath.value) return
-  loadDirectoryContents(dirPath || undefined)
+  if (dirPath !== currentPath.value) {
+    loadDirectoryContents(dirPath || undefined)
+  }
 }
 
 const navigateToParent = () => {
@@ -232,11 +194,9 @@ const navigateToParent = () => {
 
 const handleItemClick = (item: FileSystemItem) => {
   if (item.isDirectory) {
-    // 特殊文件夹（BDMV、DVD等）点击时打开详情对话框
     if (item.isSpecialFolder) {
       viewFileDetail(item)
     } else {
-      // 普通目录进入文件夹
       navigateToDirectory(item.navigationPath ?? item.path)
     }
   } else {
@@ -244,54 +204,133 @@ const handleItemClick = (item: FileSystemItem) => {
   }
 }
 
-// 工具函数
-const getFileName = (filePath: string): string => {
-  return filePath.split(/[/\\]/).pop() || filePath
+const handleContextMenu = (event: MouseEvent, item: FileSystemItem) => {
+  if (item.isDirectory) return
+  
+  event.preventDefault()
+  event.stopPropagation()
+  
+  contextMenuItem.value = item
+  contextMenuPosition.value = { x: event.clientX, y: event.clientY }
+  contextMenuVisible.value = true
+  
+  const closeMenu = () => {
+    contextMenuVisible.value = false
+    document.removeEventListener('click', closeMenu)
+  }
+  setTimeout(() => document.addEventListener('click', closeMenu), 0)
 }
 
+const handleLinkMedia = () => {
+  if (contextMenuItem.value) {
+    viewFileDetail(contextMenuItem.value)
+  }
+  contextMenuVisible.value = false
+}
+
+const handleViewDetail = () => {
+  if (contextMenuItem.value) {
+    viewFileDetail(contextMenuItem.value)
+  }
+  contextMenuVisible.value = false
+}
+
+const handleUnlinkMedia = async () => {
+  const fileId = contextMenuItem.value?.databaseRecord?.id
+  contextMenuVisible.value = false
+  
+  if (!fileId) {
+    ElMessage.warning('无法取消关联：文件信息不完整')
+    return
+  }
+
+  await nextTick()
+
+  try {
+    await ElMessageBox.confirm(
+      '此操作将删除数据库记录和硬链接文件，是否继续？',
+      '取消关联',
+      { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+    )
+
+    await FileService.unlinkMedia(fileId)
+    ElMessage.success('取消关联成功')
+    refreshData()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('取消关联失败:', error)
+      ElMessage.error((error as { message?: string })?.message || '取消关联失败')
+    }
+  }
+}
+
+const handleTouchStart = (event: TouchEvent, item: FileSystemItem) => {
+  if (item.isDirectory) return
+
+  if (longPressTimer.value) {
+    clearTimeout(longPressTimer.value)
+  }
+
+  longPressTimer.value = window.setTimeout(() => {
+    event.preventDefault()
+    event.stopPropagation()
+    
+    navigator.vibrate?.(50)
+
+    const touch = event.touches[0]
+    if (touch) {
+      contextMenuItem.value = item
+      contextMenuPosition.value = { x: touch.clientX, y: touch.clientY }
+      contextMenuVisible.value = true
+
+      const closeMenu = (e: Event) => {
+        if ((e.target as HTMLElement).closest('.context-menu')) return
+        contextMenuVisible.value = false
+        document.removeEventListener('touchstart', closeMenu)
+        document.removeEventListener('click', closeMenu)
+      }
+      
+      setTimeout(() => {
+        document.addEventListener('touchstart', closeMenu)
+        document.addEventListener('click', closeMenu)
+      }, 100)
+    }
+  }, LONG_PRESS_DELAY)
+}
+
+const handleTouchEnd = () => {
+  if (longPressTimer.value) {
+    clearTimeout(longPressTimer.value)
+    longPressTimer.value = null
+  }
+}
+
+// 工具函数
 const getFileIcon = (item: FileSystemItem) => {
   if (item.isDirectory) return Folder
-
   const ext = item.extension?.toLowerCase()
   if (!ext) return Document
-
-  if (['.mp4', '.mkv', '.avi', '.wmv', '.flv', '.mov', '.webm'].includes(ext)) {
-    return VideoCamera
-  }
-  if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.webp'].includes(ext)) {
-    return Picture
-  }
-  if (['.mp3', '.wav', '.flac', '.aac', '.ogg'].includes(ext)) {
-    return Film
-  }
+  if (FILE_EXTENSIONS.video.includes(ext)) return VideoCamera
+  if (FILE_EXTENSIONS.image.includes(ext)) return Picture
+  if (FILE_EXTENSIONS.audio.includes(ext)) return Film
   return Document
 }
 
 const getFileIconColor = (item: FileSystemItem): string => {
   if (item.isDirectory) return 'var(--el-color-danger)'
-
   const ext = item.extension?.toLowerCase()
   if (!ext) return 'var(--el-color-info)'
-
-  if (['.mp4', '.mkv', '.avi', '.wmv', '.flv', '.mov', '.webm'].includes(ext)) {
-    return 'var(--el-color-warning)'
-  }
-  if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.webp'].includes(ext)) {
-    return 'var(--el-color-success)'
-  }
-  if (['.mp3', '.wav', '.flac', '.aac', '.ogg'].includes(ext)) {
-    return 'var(--el-color-primary)'
-  }
+  if (FILE_EXTENSIONS.video.includes(ext)) return 'var(--el-color-warning)'
+  if (FILE_EXTENSIONS.image.includes(ext)) return 'var(--el-color-success)'
+  if (FILE_EXTENSIONS.audio.includes(ext)) return 'var(--el-color-primary)'
   return 'var(--el-color-info)'
 }
 
 const formatFileSize = (size?: number): string => {
   if (!size) return '-'
-
-  if (size < 1024) return `${size} B`
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
-  if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`
-  return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`
+  const units: Array<[string, number]> = [['GB', 1024 ** 3], ['MB', 1024 ** 2], ['KB', 1024], ['B', 1]]
+  const unit = units.find(([, divisor]) => size >= divisor)!
+  return `${(size / unit[1]).toFixed(1)} ${unit[0]}`
 }
 
 const formatDate = (dateString: string): string => {
@@ -302,56 +341,35 @@ const formatDate = (dateString: string): string => {
   }
 }
 
-const getValueByPath = (obj: any, path: string): any => {
-  return path.split('.').reduce((o, p) => o?.[p], obj)
-}
+const getValueByPath = (obj: Record<string, unknown>, path: string): unknown =>
+  path.split('.').reduce((o: unknown, p: string) => {
+    return (o as Record<string, unknown>)?.[p]
+  }, obj)
 
-const getFolderTypeLabel = (folderType: string | null | undefined): string => {
-  if (!folderType) return ''
-  const labels: Record<string, string> = {
-    'BDMV': 'BDMV',
-    'VIDEO_TS': 'DVD',
-    'ISO': 'ISO'
-  }
-  return labels[folderType] || folderType
-}
+const getFolderTypeLabel = (folderType: string | null | undefined): string =>
+  folderType ? FOLDER_CONFIG[folderType]?.label || folderType : ''
 
-const getFolderTypeColor = (folderType: string | null | undefined): string => {
-  if (!folderType) return 'info'
-  const colors: Record<string, string> = {
-    'BDMV': 'primary',
-    'VIDEO_TS': 'success',
-    'ISO': 'warning'
-  }
-  return colors[folderType] || 'info'
-}
+const getFolderTypeColor = (folderType: string | null | undefined): string =>
+  folderType ? FOLDER_CONFIG[folderType]?.color || 'info' : 'info'
 
 const getStatusTag = (item: FileSystemItem) => {
-  if (item.isDirectory) {
-    return { type: 'info', text: '目录', icon: Folder }
-  }
-  if (item.inDatabase) {
-    return { type: 'success', text: '已入库', icon: Check }
-  }
-  return { type: 'warning', text: '未入库', icon: Warning }
+  if (item.isDirectory) return { type: 'info', text: '目录', icon: Folder }
+  if (item.inDatabase) return { type: 'success', text: '已入库', icon: Check }
+  return null
 }
 
-// 生命周期
 onActivated(() => {
   if (!isLoaded.value) {
-    // 首次加载
-    const initialPath = route.query.path as string
-    loadDirectoryContents(initialPath)
+    loadDirectoryContents(route.query.path as string)
     isLoaded.value = true
-  } else {
-    // 后续激活，检查是否有新的参数
-    const newPath = ((route.query.path as string) || '').replace(/\\/g, '/')
-    const current = (currentPath.value || '').replace(/\\/g, '/')
-    
-    if (route.query.fileId || newPath !== current) {
-      // 如果有 fileId 参数或路径变化，重新加载
-      loadDirectoryContents(newPath)
-    }
+    return
+  }
+
+  const newPath = ((route.query.path as string) || '').replace(/\\/g, '/')
+  const current = (currentPath.value || '').replace(/\\/g, '/')
+  
+  if (route.query.fileId || newPath !== current) {
+    loadDirectoryContents(newPath)
   }
 })
 </script>
@@ -365,7 +383,6 @@ onActivated(() => {
         <div class="statistics">
           <el-tag class="stat-tag">总计: {{ statistics.total }}</el-tag>
           <el-tag type="success" class="stat-tag">已入库: {{ statistics.inDatabase }}</el-tag>
-          <el-tag type="warning" class="stat-tag">未入库: {{ statistics.notInDatabase }}</el-tag>
           <el-tag type="info" class="stat-tag">目录: {{ statistics.directories }}</el-tag>
         </div>
       </div>
@@ -378,7 +395,6 @@ onActivated(() => {
           :prefix-icon="Search"
           clearable
           class="search-input"
-          @input="handleSearch"
         />
         <el-button type="primary" :icon="Refresh" @click="refreshData" :loading="loading">
           刷新
@@ -397,12 +413,6 @@ onActivated(() => {
           @click="handleFilterChange('inDb')"
         >
           已入库 ({{ statistics.inDatabase }})
-        </el-button>
-        <el-button
-          :type="filterType === 'notInDb' ? 'primary' : ''"
-          @click="handleFilterChange('notInDb')"
-        >
-          未入库 ({{ statistics.notInDatabase }})
         </el-button>
         <el-button
           :type="filterType === 'directory' ? 'primary' : ''"
@@ -472,6 +482,10 @@ onActivated(() => {
             'is-special-folder': item.isSpecialFolder
           }"
           @click="handleItemClick(item)"
+          @contextmenu="(e) => handleContextMenu(e, item)"
+          @touchstart="(e) => handleTouchStart(e, item)"
+          @touchend="handleTouchEnd"
+          @touchmove="handleTouchEnd"
           @dblclick="
             item.isDirectory && !item.isSpecialFolder
               ? navigateToDirectory(item.navigationPath ?? item.path)
@@ -482,9 +496,9 @@ onActivated(() => {
             <el-icon class="file-icon" :color="getFileIconColor(item)">
               <component :is="getFileIcon(item)" />
             </el-icon>
-            <div class="status-badge">
-              <el-tag :type="getStatusTag(item).type" size="small" :icon="getStatusTag(item).icon">
-                {{ getStatusTag(item).text }}
+            <div v-if="getStatusTag(item)" class="status-badge">
+              <el-tag :type="getStatusTag(item)!.type" size="small" :icon="getStatusTag(item)!.icon">
+                {{ getStatusTag(item)!.text }}
               </el-tag>
             </div>
           </div>
@@ -557,13 +571,20 @@ onActivated(() => {
         :default-sort="{ prop: 'modifiedTime', order: 'descending' }"
         @sort-change="handleSortChange"
         @row-click="handleItemClick"
+        @row-contextmenu="handleContextMenu"
         row-class-name="clickable-row"
       >
         <el-table-column type="index" width="50" />
 
         <el-table-column prop="name" label="名称" min-width="300" sortable="custom">
           <template #default="{ row }">
-            <div class="file-item" :class="{ 'is-directory': row.isDirectory }">
+            <div 
+              class="file-item" 
+              :class="{ 'is-directory': row.isDirectory }"
+              @touchstart="(e) => handleTouchStart(e, row)"
+              @touchend="handleTouchEnd"
+              @touchmove="handleTouchEnd"
+            >
               <el-icon class="file-icon" :color="getFileIconColor(row)">
                 <component :is="getFileIcon(row)" />
               </el-icon>
@@ -606,8 +627,8 @@ onActivated(() => {
 
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="getStatusTag(row).type" size="small" :icon="getStatusTag(row).icon">
-              {{ getStatusTag(row).text }}
+            <el-tag v-if="getStatusTag(row)" :type="getStatusTag(row)!.type" size="small" :icon="getStatusTag(row)!.icon">
+              {{ getStatusTag(row)!.text }}
             </el-tag>
           </template>
         </el-table-column>
@@ -655,6 +676,43 @@ onActivated(() => {
       :file-info="selectedFile"
       @refresh="handleDetailDialogRefresh"
     />
+
+    <!-- 右键菜单 -->
+    <Teleport to="body">
+      <div
+        v-if="contextMenuVisible"
+        class="context-menu"
+        :style="{
+          left: contextMenuPosition.x + 'px',
+          top: contextMenuPosition.y + 'px',
+        }"
+      >
+        <div
+          v-if="contextMenuItem && !contextMenuItem.inDatabase && !contextMenuItem.isDirectory"
+          class="context-menu-item"
+          @click.stop="handleLinkMedia"
+        >
+          <el-icon><Film /></el-icon>
+          <span>关联媒体</span>
+        </div>
+        <div
+          v-if="contextMenuItem && contextMenuItem.inDatabase"
+          class="context-menu-item"
+          @click.stop="handleViewDetail"
+        >
+          <el-icon><View /></el-icon>
+          <span>查看详情</span>
+        </div>
+        <div
+          v-if="contextMenuItem && contextMenuItem.inDatabase && !contextMenuItem.isDirectory"
+          class="context-menu-item context-menu-item-danger"
+          @click.stop="handleUnlinkMedia"
+        >
+          <el-icon><Close /></el-icon>
+          <span>取消关联</span>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -787,6 +845,9 @@ onActivated(() => {
   transition: all 0.3s ease;
   background: var(--color-background-soft);
   position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .file-card:hover {
@@ -938,6 +999,8 @@ onActivated(() => {
 
 .table-container :deep(.clickable-row) {
   cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .table-container :deep(.clickable-row:hover) {
@@ -952,6 +1015,9 @@ onActivated(() => {
   transition: background-color 0.2s;
   padding: 4px;
   border-radius: 4px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .file-item.is-directory {
@@ -1116,5 +1182,55 @@ onActivated(() => {
     justify-content: center;
     margin-left: 0;
   }
+}
+
+/* 右键菜单 */
+.context-menu {
+  position: fixed;
+  z-index: 9999;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  padding: 4px;
+  min-width: 160px;
+  animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.context-menu-item:hover {
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
+}
+
+.context-menu-item .el-icon {
+  font-size: 16px;
+}
+
+.context-menu-item-danger:hover {
+  background: var(--el-color-danger-light-9);
+  color: var(--el-color-danger);
 }
 </style>

@@ -960,20 +960,39 @@ export class FileService {
   // 取消文件的媒体关联
   async unlinkMediaFromFile(fileId: number) {
     try {
-      // 取消文件的媒体关联和剧集关联
-      const file = await prisma.file.update({
+      // 获取文件信息
+      const file = await prisma.file.findUnique({
         where: { id: fileId },
-        data: {
-          mediaId: null,
-          episodeInfoId: null,
-        },
         include: {
           Media: true,
           episodeInfo: true,
         },
       });
 
-      logger.info(`文件${fileId}取消媒体关联成功`);
+      if (!file) {
+        throw new BusinessError(ErrorType.FILE_NOT_FOUND, "文件不存在");
+      }
+
+      // 检查是否为特殊文件夹
+      if (file.isSpecialFolder || file.isParentFolder || file.parentFolderId) {
+        throw new BusinessError(
+          ErrorType.VALIDATION_ERROR,
+          "暂不支持取消特殊文件夹的关联"
+        );
+      }
+
+      // 如果有硬链接，删除硬链接
+      if (file.linkPath) {
+        logger.info(`删除硬链接: ${file.linkPath}`);
+        await deleteHardlink(file.linkPath);
+      }
+
+      // 删除数据库记录
+      await prisma.file.delete({
+        where: { id: fileId },
+      });
+
+      logger.info(`文件${fileId}取消媒体关联成功，已删除记录和硬链接`);
       return file;
     } catch (error) {
       logger.error(`取消媒体关联失败`, error);
