@@ -12,25 +12,21 @@
   - [目录](#目录)
   - [项目简介](#项目简介)
   - [功能特点](#功能特点)
-  - [技术栈](#技术栈)
-  - [快速开始](#快速开始)
-    - [前置条件](#前置条件)
-    - [基础配置](#基础配置)
-    - [Windows 环境中文支持](#windows-环境中文支持)
+  - [配置说明](#配置说明)
   - [部署指南](#部署指南)
     - [Docker 部署（推荐）](#docker-部署推荐)
       - [方式一：使用 Docker Compose（推荐）](#方式一使用-docker-compose推荐)
       - [方式二：使用 Docker 命令行](#方式二使用-docker-命令行)
       - [自行构建镜像（可选）](#自行构建镜像可选)
-    - [生产环境部署](#生产环境部署)
+    - [源码部署](#源码部署)
+      - [前置条件](#前置条件)
       - [1. 部署步骤](#1-部署步骤)
       - [2. 使用 PM2 进程管理](#2-使用-pm2-进程管理)
       - [3. Nginx 反向代理配置](#3-nginx-反向代理配置)
+      - [Windows 环境中文支持](#windows-环境中文支持)
   - [开发指南](#开发指南)
-    - [环境要求](#环境要求)
-    - [初始步骤](#初始步骤)
+    - [快速上手](#快速上手)
     - [项目结构](#项目结构)
-    - [开发命令](#开发命令)
   - [高级使用](#高级使用)
     - [定期扫描配置](#定期扫描配置)
     - [自定义 LLM 提示](#自定义-llm-提示)
@@ -55,7 +51,7 @@ Auto Media Hardlinker 是一款使用大语言模型（LLM）自动管理和整�
 > - 多卷内容的关联可能出现异常
 > - 可能会产生预期之外的目录结构或硬链接
 >
-> 建议在使用前先备份重要数据，或在测试环境中验证处理结果。如遇到问题，请在 GitHub Issues 中反馈。
+> 如遇到问题，请在 GitHub Issues 中反馈。
 
 ## 功能特点
 
@@ -66,60 +62,22 @@ Auto Media Hardlinker 是一款使用大语言模型（LLM）自动管理和整�
 - **现代化 Web 界面**：支持深色模式和移动端适配，提供仪表板统计和媒体库管理
 - **任务队列系统**：高级队列管理和任务调度，支持并发处理和失败重试
 
-## 技术栈
+## 配置说明
 
-- **后端**：Node.js + Express + TypeScript
-- **前端**：Vue 3 + Element Plus + Vite
-- **数据库**：SQLite + Prisma ORM
-- **AI 集成**：支持 Ollama (本地推理) 和 OpenAI
-- **媒体信息**：TMDB API
-- **文件监控**：Chokidar
-- **任务队列**：自定义队列管理系统
-- **日志系统**：Pino + 持久化日志支持
-- **用户认证**：JWT + bcrypt
+`config.json` 是项目的核心配置文件。
 
-## 快速开始
+> **⚠️ 路径配置重要说明**
+>
+> - **Docker 部署**：请保持 `monitorFilePath` 和 `targetFilePath` 默认值。**确保监听目录和目标在同一个层级避免权限问题**。
+> - **源码部署**：请将这两个路径修改为您宿主机上的实际绝对路径。
 
-### 前置条件
-
-- Node.js v22+
-- PNPM 包管理器
-- TMDB API 密钥（必需）
-- Ollama 或 OpenAI API（可选，用于AI功能）
-
-### 基础配置
-
-1. **克隆项目**
-
-```bash
-git clone https://github.com/empty-233/auto-media-hardlinker.git
-cd auto-media-hardlinker
-```
-
-2. **安装依赖**
-
-```bash
-pnpm install
-```
-
-3. **配置环境**
-
-复制配置示例文件并编辑：
-
-```bash
-cp config/config.json.example config/config.json
-cp .env.example .env
-```
-
-编辑 `config.json` 和 `.env` 文件，填写必要信息（详细配置说明请参考部署指南和开发指南）。
-
-下面是 `config.json` 的一个配置示例：
+下面是 `config.json` 的完整配置示例：
 
 ```json
 {
-    //监听目录位置
+    //监听目录位置 (Docker部署请保持默认，源码部署请修改为实际路径)
     "monitorFilePath": "/file/monitor",
-    //目标目录位置
+    //目标目录位置 (Docker部署请保持默认，源码部署请修改为实际路径)
     "targetFilePath": "/file/target",
     //是否持久化保存日志到文件(true/false)
     "persistentLogging": false,
@@ -174,101 +132,74 @@ cp .env.example .env
 }
 ```
 
-### Windows 环境中文支持
-
-如果在 Windows 终端中遇到乱码问题，请根据您使用的终端执行以下命令来设置UTF-8编码：
-
-- **PowerShell**:
-
-  ```powershell
-  [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-  ```
-
-- **CMD**:
-
-  ```cmd
-  chcp 65001
-  ```
-
 ## 部署指南
 
 ### Docker 部署（推荐）
 
-推荐使用 Docker 部署，可从以下平台拉取：
+推荐使用 Docker 部署，支持多架构（amd64/arm64）。
 
 - **Docker Hub**: `kongwu233/auto-media-hardlinker`
 - **GitHub Container Registry**: `ghcr.io/empty-233/auto-media-hardlinker`
 
 #### 方式一：使用 Docker Compose（推荐）
 
-1. **创建项目目录并下载配置文件**
+1. **准备工作目录**
 
-    ```bash
-    # 创建项目目录
-    mkdir -p auto-media-hardlinker/config
-    cd auto-media-hardlinker
-    
-    # 下载 docker-compose.yml
-    wget https://raw.githubusercontent.com/empty-233/auto-media-hardlinker/main/docker-compose.yml
-    
-    # 下载配置文件
-    wget -P config/config.json https://raw.githubusercontent.com/empty-233/auto-media-hardlinker/main/config/config.json.example
-    wget -P config https://raw.githubusercontent.com/empty-233/auto-media-hardlinker/main/config/prompt.md
-    wget -P config https://raw.githubusercontent.com/empty-233/auto-media-hardlinker/main/config/specialFolderPrompt.md
-    wget -P config https://raw.githubusercontent.com/empty-233/auto-media-hardlinker/main/config/regexConfig.ts
-    ```
+   ```bash
+   # 创建并进入项目目录
+   mkdir -p auto-media-hardlinker && cd auto-media-hardlinker
 
-2. **编辑 `docker-compose.yml`**
+   # 下载 docker-compose.yml
+   wget https://raw.githubusercontent.com/empty-233/auto-media-hardlinker/main/docker-compose.yml
+   ```
 
-    根据实际情况修改卷映射路径，特别是监控目录和目标目录：
+2. **启动服务**
 
-    ```yaml
-    volumes:
-      - /path/to/your/monitor:/file/monitor  # 修改为你的监控目录
-      - /path/to/your/target:/file/target    # 修改为你的目标目录
-    ```
+   ```bash
+   docker-compose up -d
+   ```
+   
+   容器首次启动时，会自动在 `config` 目录下生成默认配置文件。
 
-3. **启动服务**
+3. **修改配置**
 
-    ```bash
-    docker-compose up -d
-    ```
+   - **编辑 `docker-compose.yml`**：
 
-4. **查看日志**
+     重点修改 `volumes` 部分，将宿主机的实际路径映射到容器内部：
 
-    ```bash
-    docker-compose logs -f
-    ```
+     ```yaml
+     services:
+       auto-media-hardlinker:
+         # ...
+         volumes:
+           - ./config:/app/config           # 配置文件目录
+           - ./data:/app/data               # 数据库和数据目录
+           - ./public:/app/public           # 静态资源（海报等）
+           - ./logs:/app/logs               # 日志目录
+           - /your/media/monitor:/file/monitor  # [必改] 监控目录（源文件）
+           - /your/media/link:/file/target      # [必改] 目标目录（硬链接生成位置）
+     ```
 
-5. **访问 WebUI**
+   - **编辑 `config/config.json`**：填入 TMDB API Key 和 LLM 相关配置（参考上文[配置说明](#配置说明)）。
+   - **重启容器**：修改配置后需要重启容器使生效。
+  
+     ```bash
+     docker-compose restart
+     ```
 
-    打开浏览器访问 `http://localhost:8080`（端口可在 `docker-compose.yml` 中修改）
+4. **访问管理界面**
 
-> **提示**：
->
-> - Docker 容器启动时会自动执行数据库迁移（`prisma migrate deploy`）
-> - 下载的配置文件说明：
->   - `config.json.example` - 主配置文件示例
->   - `prompt.md` - LLM 提示词模板（用于普通文件）
->   - `specialFolderPrompt.md` - 特殊文件夹识别提示词（用于 BDMV/DVD/ISO）
->   - `regexConfig.ts` - 正则表达式配置
-> - 首次启动会自动生成 `config.json`，可在 WebUI 中修改配置
-> - 也可以手动复制 `config.json.example` 并重命名为 `config.json` 后修改
+   浏览器访问 `http://localhost:8080`。
 
 #### 方式二：使用 Docker 命令行
 
+如果不使用 Docker Compose，可以直接运行容器：
+
 ```bash
-# 创建项目目录
-mkdir -p auto-media-hardlinker/config
-cd auto-media-hardlinker
+# 1. 准备目录
+mkdir -p config data logs
 
-# 下载配置文件
-curl -o config/config.json https://raw.githubusercontent.com/empty-233/auto-media-hardlinker/main/config/config.json.example
-curl -o config https://raw.githubusercontent.com/empty-233/auto-media-hardlinker/main/config/prompt.md
-curl -o config https://raw.githubusercontent.com/empty-233/auto-media-hardlinker/main/config/specialFolderPrompt.md
-curl -o config https://raw.githubusercontent.com/empty-233/auto-media-hardlinker/main/config/regexConfig.ts
-
-# 启动容器
+# 2. 启动容器
 docker run -d \
   --name auto-media-hardlinker \
   --restart unless-stopped \
@@ -282,27 +213,30 @@ docker run -d \
   -e NODE_ENV=production \
   -e TZ=Asia/Shanghai \
   kongwu233/auto-media-hardlinker:latest
+
+# 3. 修改配置
+# 编辑 config/config.json 后重启容器
+docker restart auto-media-hardlinker
 ```
 
 #### 自行构建镜像（可选）
 
-如果需要使用最新的开发代码或自定义构建，需要克隆完整项目：
-
 ```bash
-# 克隆完整项目（包含源码）
 git clone https://github.com/empty-233/auto-media-hardlinker.git
 cd auto-media-hardlinker
-
-# 使用 Docker Compose 构建并启动
 docker-compose up -d --build
-
-# 或使用 Docker 命令构建
-docker build -t auto-media-hardlinker:custom .
 ```
 
 > **注意**：自行构建将使用仓库中的最新代码，可能不是稳定版本。建议使用预构建的镜像。
 
-### 生产环境部署
+### 源码部署
+
+#### 前置条件
+
+- Node.js v22+
+- PNPM 包管理器
+- TMDB API 密钥（必需）
+- Ollama 或 OpenAI API（可选，用于AI功能）
 
 #### 1. 部署步骤
 
@@ -322,7 +256,10 @@ cp .env.example .env
 # 编辑配置文件，填写TMDB API密钥等必要信息
 ```
 
-> **注意**：修改`IMAGE_BASE_URL`地址和端口
+> **注意**：
+>
+> - 修改 `config.json` 中的 `monitorFilePath` 和 `targetFilePath` 为实际绝对路径。
+> - 修改 `.env` 中的 `IMAGE_BASE_URL` 地址和端口。
 
 **初始化数据库：**
 
@@ -405,38 +342,38 @@ server {
 }
 ```
 
+#### Windows 环境中文支持
+
+如果在 Windows 终端中遇到乱码问题，请根据您使用的终端执行以下命令来设置UTF-8编码：
+
+- **PowerShell**:
+
+  ```powershell
+  [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+  ```
+
+- **CMD**:
+
+  ```cmd
+  chcp 65001
+  ```
+
 ## 开发指南
 
-### 环境要求
+### 快速上手
 
-- Node.js 22+
-- PNPM 包管理器
+1. **环境准备**：确保已安装 Node.js v22+ 和 PNPM。
+2. **项目安装**：参考 [源码部署](#源码部署) 章节完成代码克隆、依赖安装和配置文件设置。
+3. **启动开发模式**：
 
-### 初始步骤
-
-```bash
-# 克隆项目
-git clone https://github.com/empty-233/auto-media-hardlinker.git
-cd auto-media-hardlinker
-
-# 安装依赖
-pnpm install
-
-# 配置环境
-cp config/config.json.example config/config.json
-cp .env.example .env
-
-# 初始化数据库
-pnpm prisma:generate
-pnpm prisma db push
-
-# 启动开发服务器（同时启动前后端）
-pnpm dev & pnpm frontend:dev
-```
+   ```bash
+   # 同时启动后端和前端（开发模式）
+   pnpm dev & pnpm frontend:dev
+   ```
 
 ### 项目结构
 
-```
+``` txt
 ├── src/                    # 后端源码
 │   ├── config/            # 配置相关
 │   ├── controllers/       # 控制器
@@ -456,28 +393,6 @@ pnpm dev & pnpm frontend:dev
 └── public/           # 静态资源
 ```
 
-### 开发命令
-
-```bash
-# 后端开发（自动重载）
-pnpm dev
-
-# 前端开发
-pnpm frontend:dev
-
-# 构建后端
-pnpm build
-
-# 构建前端
-pnpm frontend:build
-
-# 数据库相关
-pnpm prisma:generate    # 生成 Prisma 客户端
-pnpm prisma:push       # 推送数据库模式变更
-pnpm prisma migrate dev # 创建新的迁移并应用（开发环境）
-pnpm prisma migrate deploy # 应用已有迁移（生产环境）
-```
-
 ## 高级使用
 
 ### 定期扫描配置
@@ -485,7 +400,7 @@ pnpm prisma migrate deploy # 应用已有迁移（生产环境）
 通过 `config.json` 中的 `scanConfig` 配置定期扫描：
 
 | 配置项 | 说明 | 推荐值 |
-|--------|------|--------|
+| --- | --- | --- |
 | `enabled` | 是否启用定期扫描 | `true` |
 | `interval` | 扫描间隔（分钟） | 60-1440 |
 | `concurrency` | 并发处理数 | 1-5 |

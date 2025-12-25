@@ -73,6 +73,7 @@ COPY docker/http.d/ /etc/nginx/http.d/
 # 复制 配置文件
 COPY config/config.json.example /app/config/config.json.example
 COPY config/prompt.md /app/config/prompt.md
+COPY --from=builder /app/dist/config/regexConfig.js /app/config/regexConfig.js
 COPY .env.example /app/.env
 COPY prisma.config.ts /app/prisma.config.ts
 
