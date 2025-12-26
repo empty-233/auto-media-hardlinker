@@ -44,7 +44,6 @@ export class SystemService {
       // 仅返回前端需要的配置信息
       const {
         tmdbApi,
-        useLlm,
         llmProvider,
         llmHost,
         llmModel,
@@ -58,7 +57,6 @@ export class SystemService {
       logger.info("获取系统配置成功");
       return {
         tmdbApi,
-        useLlm,
         llmProvider,
         llmHost,
         llmModel,

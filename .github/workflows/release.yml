@@ -117,7 +117,6 @@ jobs:
           wget -P config/config.json https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/config/config.json.example
           wget -P config https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/config/prompt.md
           wget -P config https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/config/specialFolderPrompt.md
-          wget -P config https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/config/regexConfig.ts
           
           # Edit docker-compose.yml to set your monitor and target directories
           # Then start the service
@@ -139,7 +138,6 @@ jobs:
           wget -P config/config.json https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/config/config.json.example
           wget -P config https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/config/prompt.md
           wget -P config https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/config/specialFolderPrompt.md
-          wget -P config https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/config/regexConfig.ts
           
           # Run with Docker Hub image (recommended)
           docker run -d \

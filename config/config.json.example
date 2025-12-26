@@ -4,7 +4,6 @@
     "persistentLogging": false,
     "tmdbApi": "your_tmdb_api_key",
     "language": "zh-CN",
-    "useLlm": true,
     "llmProvider": "ollama",
     "llmHost": "http://localhost:11434",
     "llmModel": "qwen3:4b-instruct",

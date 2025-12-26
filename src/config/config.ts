@@ -26,7 +26,6 @@ export interface Config {
   subtitleExtensions: string[];
   scanConfig: ScanConfig;
   // LLM相关配置
-  useLlm?: boolean;
   llmProvider?: "ollama" | "openai";
   llmHost?: string;
   llmModel?: string;
@@ -114,16 +113,15 @@ export function getConfig(
       throw new Error("配置文件中的 scanConfig.scanMaxDepth 字段必须是大于等于1的数字");
     }
 
-    if (config.useLlm) {
-      if (!config.llmProvider) {
-        throw new Error("启用LLM时，必须指定 llmProvider (ollama 或 openai)");
-      }
-      if (config.llmProvider === "ollama" && (!config.llmHost || !config.llmModel)) {
-        throw new Error("Ollama配置不完整，需要 llmHost 和 llmModel");
-      }
-      if (config.llmProvider === "openai" && (!config.openaiApiKey || !config.openaiModel)) {
-        throw new Error("OpenAI配置不完整，需要 openaiApiKey 和 openaiModel");
-      }
+    // LLM 配置验证
+    if (!config.llmProvider) {
+      throw new Error("必须指定 llmProvider (ollama 或 openai)");
+    }
+    if (config.llmProvider === "ollama" && (!config.llmHost || !config.llmModel)) {
+      throw new Error("Ollama配置不完整，需要 llmHost 和 llmModel");
+    }
+    if (config.llmProvider === "openai" && (!config.openaiApiKey || !config.openaiModel)) {
+      throw new Error("OpenAI配置不完整，需要 openaiApiKey 和 openaiModel");
     }
 
     // 验证持久化日志配置
@@ -197,7 +195,7 @@ export function updateConfig(
 
     // 记录LLM相关配置更新日志，以便调试
     if(isDevelopment()){
-      const llmConfigKeys = ['useLlm', 'llmProvider', 'llmHost', 'llmModel', 'openaiApiKey', 'openaiModel', 'openaiBaseUrl'];
+      const llmConfigKeys = ['llmProvider', 'llmHost', 'llmModel', 'openaiApiKey', 'openaiModel', 'openaiBaseUrl'];
       const updatedLlmKeys = Object.keys(updateData).filter(key => llmConfigKeys.includes(key));
       if (updatedLlmKeys.length > 0) {
         console.log(`LLM配置已更新，清除缓存: ${updatedLlmKeys.join(', ')}`);

@@ -141,7 +141,6 @@ export const SystemBodyValidators = {
             .max(60000, "请求超时时间不能超过60秒"),
         })
         .optional(),
-      useLlm: CommonValidators.boolean.optional(),
       llmProvider: z
         .enum(["ollama", "openai"], {
           message: 'LLM提供商必须是 "ollama" 或 "openai"',
@@ -167,8 +166,8 @@ export const SystemBodyValidators = {
     })
     .refine(
       (data) => {
-        // 如果启用了LLM且提供商是ollama，则其相关字段必须存在
-        if (data.useLlm && data.llmProvider === "ollama") {
+        // 如果提供商是ollama，则其相关字段必须存在
+        if (data.llmProvider === "ollama") {
           return !!data.llmHost && !!data.llmModel;
         }
         return true;
@@ -180,8 +179,8 @@ export const SystemBodyValidators = {
     )
     .refine(
       (data) => {
-        // 如果启用了LLM且提供商是openai，则其相关字段必须存在
-        if (data.useLlm && data.llmProvider === "openai") {
+        // 如果提供商是openai，则其相关字段必须存在
+        if (data.llmProvider === "openai") {
           return (
             !!data.openaiApiKey && !!data.openaiModel && !!data.openaiBaseUrl
           );

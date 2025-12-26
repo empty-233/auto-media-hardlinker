@@ -3,7 +3,6 @@
  */
 export interface SystemConfig {
   tmdbApi: string
-  useLlm: boolean
   llmProvider: 'ollama' | 'openai'
   llmHost: string
   llmModel: string

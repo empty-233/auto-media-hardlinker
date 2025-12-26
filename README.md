@@ -30,7 +30,6 @@
   - [高级使用](#高级使用)
     - [定期扫描配置](#定期扫描配置)
     - [自定义 LLM 提示](#自定义-llm-提示)
-    - [自定义正则表达式配置](#自定义正则表达式配置)
     - [BDMV/DVD/ISO 特殊文件夹处理](#bdmvdvdiso-特殊文件夹处理)
     - [实际使用案例](#实际使用案例)
   - [待办事项](#待办事项)
@@ -85,8 +84,7 @@ Auto Media Hardlinker 是一款使用大语言模型（LLM）自动管理和整�
     "tmdbApi": "your_tmdb_api_key",
     //tmdb 语言
     "language": "zh-CN",
-    //是否使用LLM进行刮削(true/false)
-    "useLlm": true,
+
     // LLM提供商，支持 "ollama" 或 "openai"
     "llmProvider": "ollama",
     // Ollama服务主机地址 (llmProvider为 "ollama" 时必填)
@@ -416,12 +414,6 @@ Web 界面支持手动触发扫描、实时查看日志和动态更新配置，�
 - `config/specialFolderPrompt.md` - BDMV/DVD/ISO 特殊文件夹识别提示词
 
 系统默认提供优化的提示模板，适用于大多数常见的媒体文件命名格式。您可以根据实际需求调整提示词，改进 LLM 的解析准确度。
-
-### 自定义正则表达式配置
-
-如果您不想使用 LLM 或需要更高效的文件名解析，可以通过编辑`config/regexConfig.ts`文件来自定义正则表达式规则
-
-通过添加自定义的正则表达式规则，您可以处理特殊的文件命名格式。
 
 ### BDMV/DVD/ISO 特殊文件夹处理
 

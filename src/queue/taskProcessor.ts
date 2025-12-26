@@ -3,7 +3,6 @@ import { IMediaIdentifier, IdentifiedMedia } from "@/types/media.types";
 import { MediaRepository } from "@/repository/media.repository";
 import { MediaHardlinkerService } from "@/core/fileManage/mediaHardlinker";
 import { LLMIdentifier } from "@/strategies/llm.identifier";
-import { RegexIdentifier } from "@/strategies/regex.identifier";
 import { getConfig } from "@/config/config";
 import { logger } from "@/utils/logger";
 import { getFileDeviceInfo } from "@/utils/hash";
@@ -216,10 +215,8 @@ export class TaskProcessor {
    */
   private async processNormalFile(task: QueueTask, startTime: number): Promise<TaskResult> {
     try {
-      // 选择识别策略
-      const identifier: IMediaIdentifier = this.config.useLlm
-        ? new LLMIdentifier()
-        : new RegexIdentifier();
+      // 使用 LLM 识别策略
+      const identifier: IMediaIdentifier = new LLMIdentifier();
 
       // 识别媒体
       const media = await identifier.identify(

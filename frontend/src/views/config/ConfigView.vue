@@ -15,12 +15,10 @@ const configStore = useConfigStore()
 // 加载状态
 const loading = ref(false)
 const saveLoading = ref(false)
-const switchLoading = ref(false)
 
 // 表单数据
 const configForm = reactive<SystemConfig>({
   tmdbApi: '',
-  useLlm: true,
   llmProvider: 'ollama',
   llmHost: '',
   llmModel: '',
@@ -35,7 +33,6 @@ const configForm = reactive<SystemConfig>({
 // 原始数据备份
 const originalConfig = ref<SystemConfig>({
   tmdbApi: '',
-  useLlm: true,
   llmProvider: 'ollama',
   llmHost: '',
   llmModel: '',
@@ -113,41 +110,6 @@ const getConfig = async () => {
     ElMessage.error('获取配置失败')
   } finally {
     loading.value = false
-  }
-}
-
-// 处理LLM开关变化
-const handleUseLlmChange = async (value: boolean) => {
-  try {
-    switchLoading.value = true
-    
-    // 如果关闭LLM，直接更新
-    if (!value) {
-      await updateConfig({ useLlm: value })
-      ElMessage.success('已禁用LLM媒体刮削')
-      return
-    }
-    
-    // 如果开启LLM，检查必要配置
-    if (value) {
-      if (configForm.llmProvider === 'ollama' && (!configForm.llmHost || !configForm.llmModel)) {
-        ElMessage.warning('请先配置Ollama主机地址和模型名称')
-        return
-      }
-      if (configForm.llmProvider === 'openai' && (!configForm.openaiApiKey || !configForm.openaiModel)) {
-        ElMessage.warning('请先配置OpenAI API Key和模型名称')
-        return
-      }
-    }
-    
-    await updateConfig({ useLlm: value })
-    ElMessage.success('已启用LLM媒体刮削')
-  } catch (error) {
-    console.error('更新LLM设置失败:', error)
-    // 回滚开关状态
-    configForm.useLlm = !value
-  } finally {
-    switchLoading.value = false
   }
 }
 
@@ -337,22 +299,9 @@ onMounted(() => {
         label-position="left"
         @submit.prevent
       >
-        <el-form-item label="LLM 媒体刮削" prop="useLlm">
-          <div class="switch-item">
-            <div class="switch-info">
-              <span class="switch-label">启用后，系统将使用 LLM 自动识别并补充媒体信息。</span>
-            </div>
-            <el-switch
-              v-model="configForm.useLlm"
-              size="large"
-              :loading="switchLoading"
-              @change="handleUseLlmChange"
-            />
-          </div>
-        </el-form-item>
 
         <el-form-item label="LLM 提供商" prop="llmProvider">
-          <el-radio-group v-model="configForm.llmProvider" :disabled="!configForm.useLlm">
+          <el-radio-group v-model="configForm.llmProvider">
             <el-radio-button label="ollama">Ollama</el-radio-button>
             <el-radio-button label="openai">OpenAI</el-radio-button>
           </el-radio-group>
@@ -363,7 +312,6 @@ onMounted(() => {
             <el-input
               v-model="configForm.llmHost"
               placeholder="例如: http://127.0.0.1:11434"
-              :disabled="!configForm.useLlm"
               clearable
             >
               <template #prefix>
@@ -376,7 +324,6 @@ onMounted(() => {
             <el-input
               v-model="configForm.llmModel"
               placeholder="例如: qwen2:7b"
-              :disabled="!configForm.useLlm"
               clearable
             >
               <template #prefix>
@@ -391,7 +338,6 @@ onMounted(() => {
             <el-input
               v-model="configForm.openaiApiKey"
               placeholder="请输入您的 OpenAI API Key"
-              :disabled="!configForm.useLlm"
               show-password
               clearable
             >
@@ -405,7 +351,6 @@ onMounted(() => {
             <el-input
               v-model="configForm.openaiModel"
               placeholder="例如: gpt-4-turbo"
-              :disabled="!configForm.useLlm"
               clearable
             >
               <template #prefix>
@@ -418,7 +363,6 @@ onMounted(() => {
             <el-input
               v-model="configForm.openaiBaseUrl"
               placeholder="例如: https://api.openai.com/v1"
-              :disabled="!configForm.useLlm"
               clearable
             >
               <template #prefix>
@@ -434,7 +378,7 @@ onMounted(() => {
             type="textarea"
             :rows="10"
             placeholder="请输入 LLM 刮削提示词"
-            :disabled="!configForm.useLlm"
+
             clearable
           >
             <template #prefix>
@@ -449,7 +393,6 @@ onMounted(() => {
             type="textarea"
             :rows="10"
             placeholder="请输入特殊文件夹识别提示词（用于 BDMV/DVD/ISO）"
-            :disabled="!configForm.useLlm"
             clearable
           >
             <template #prefix>

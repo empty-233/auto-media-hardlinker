@@ -133,10 +133,6 @@ export class LLMIdentifier implements IMediaIdentifier {
     // 获取当前配置进行基础验证
     const config = getConfig();
     
-    if (!config.useLlm) {
-      throw new Error("LLM识别器不应在 useLlm 为 false 时被初始化");
-    }
-
     if (!config.llmProvider) {
       throw new Error("未配置LLM提供商");
     }
@@ -431,13 +427,8 @@ ${movieResults.slice(0, 3).map((m, i) => `MOV${i + 1}: ${m.title} (${m.release_d
     // 构建文件夹结构信息
     const structureInfo = this.buildFolderStructure(folderPath, maxDepth);
 
-    // 使用 LLM 识别文件夹类型（如果启用）
-    let result: LLMFolderIdentification | LLMFolderIdentification[] | null;
-    if (config.useLlm) {
-      result = await this.identifyFolderWithLLM(structureInfo, config);
-    } else {
-      result = this.identifyFolderWithBasicRules(structureInfo);
-    }
+    // 使用 LLM 识别文件夹类型
+    const result = await this.identifyFolderWithLLM(structureInfo, config);
 
     // 统一返回数组格式
     if (!result) {
@@ -535,82 +526,6 @@ ${movieResults.slice(0, 3).map((m, i) => `MOV${i + 1}: ${m.title} (${m.release_d
   }
 
   /**
-   * @method identifyFolderWithBasicRules
-   * @description 基础规则识别（不使用 LLM 时的回退方案）
-   */
-  private identifyFolderWithBasicRules(
-    structureInfo: FolderStructureInfo
-  ): LLMFolderIdentification | null {
-    const { folderName, structure } = structureInfo;
-    
-    // 检查 BDMV 结构
-    if (structure['BDMV']) {
-      const bdmvContents = structure['BDMV'] || [];
-      if (bdmvContents.some(item => ['STREAM', 'CLIPINF', 'PLAYLIST'].includes(item))) {
-        return {
-          type: 'BDMV',
-          title: this.extractTitle(folderName),
-          originalName: folderName,
-          subFolderName: null,
-          mediaType: 'unknown',
-          contentType: 'main',
-          ...this.extractDiscInfo(folderName),
-          year: this.extractYear(folderName)
-        };
-      }
-    }
-
-    // 检查 DVD 结构
-    if (structure['VIDEO_TS']) {
-      const videoTsContents = structure['VIDEO_TS'] || [];
-      if (videoTsContents.some(item => 
-        item.toUpperCase().endsWith('.VOB') || item.toUpperCase().endsWith('.IFO')
-      )) {
-        return {
-          type: 'VIDEO_TS',
-          title: this.extractTitle(folderName),
-          originalName: folderName,
-          subFolderName: null,
-          mediaType: 'unknown',
-          contentType: 'main',
-          ...this.extractDiscInfo(folderName),
-          year: this.extractYear(folderName)
-        };
-      }
-    }
-
-    // 检查 ISO 文件
-    const isoFiles = Object.keys(structure).filter(key => 
-      key.toLowerCase().endsWith('.iso') && structure[key] === null
-    );
-    if (isoFiles.length > 0) {
-      return {
-        type: 'ISO',
-        title: this.extractTitle(folderName),
-        originalName: folderName,
-        subFolderName: null,
-        mediaType: 'unknown',
-        contentType: 'main',
-        ...this.extractDiscInfo(folderName),
-        year: this.extractYear(folderName)
-      };
-    }
-
-    // 普通文件夹
-    return {
-      type: 'NORMAL',
-      title: folderName,
-      originalName: folderName,
-      subFolderName: null,
-      mediaType: 'unknown',
-      contentType: 'main',
-      isMultiDisc: false,
-      discNumber: null,
-      year: null
-    };
-  }
-
-  /**
    * @method parseFolderLLMResponse
    * @description 解析 LLM 响应（特殊文件夹识别），支持单个对象或数组
    * @throws {Error} - 当解析失败或返回空数组时抛出错误
@@ -666,78 +581,6 @@ ${movieResults.slice(0, 3).map((m, i) => `MOV${i + 1}: ${m.title} (${m.release_d
       logger.error(`解析 LLM 响应失败: ${errorMessage}\n原始内容: ${content.substring(0, 500)}...`);
       throw new Error(`JSON 解析失败: ${errorMessage}`);
     }
-  }
-
-  /**
-   * @method extractTitle
-   * @description 提取标题（移除标签和元数据）
-   */
-  private extractTitle(folderName: string): string {
-    let title = folderName;
-    
-    // 移除方括号内容
-    title = title.replace(/\[.*?\]/g, '');
-    
-    // 移除分辨率信息
-    title = title.replace(/\b(1080p|720p|2160p|4K|UHD|HD)\b/gi, '');
-    
-    // 移除编码信息
-    title = title.replace(/\b(HEVC|x264|x265|AVC|H\.264|H\.265)\b/gi, '');
-    
-    // 移除音频信息
-    title = title.replace(/\b(FLAC|AAC|DTS|AC3|TrueHD|Atmos)\b/gi, '');
-    
-    // 移除字幕语言信息
-    title = title.replace(/\b(简繁日|CHT|CHS|JPN|ENG)\b/gi, '');
-    
-    // 移除分卷信息
-    title = title.replace(/\b(Disc|Vol\.?|CD|DVD|Part|卷|第.*?卷)\s*\d+\b/gi, '');
-    
-    // 清理多余空格
-    title = title.replace(/\s+/g, ' ').trim();
-    
-    return title || folderName;
-  }
-
-  /**
-   * @method extractDiscInfo
-   * @description 提取分卷信息
-   */
-  private extractDiscInfo(folderName: string): { isMultiDisc: boolean; discNumber: number | null } {
-    const discPatterns = [
-      /Disc\s*(\d+)/i,
-      /Vol\.?\s*(\d+)/i,
-      /CD\s*(\d+)/i,
-      /DVD\s*(\d+)/i,
-      /Part\s*(\d+)/i,
-      /卷\s*(\d+)/i,
-      /第(\d+)卷/i
-    ];
-
-    for (const pattern of discPatterns) {
-      const match = folderName.match(pattern);
-      if (match) {
-        return {
-          isMultiDisc: true,
-          discNumber: parseInt(match[1], 10)
-        };
-      }
-    }
-
-    return {
-      isMultiDisc: false,
-      discNumber: null
-    };
-  }
-
-  /**
-   * @method extractYear
-   * @description 提取年份
-   */
-  private extractYear(folderName: string): number | null {
-    const yearPattern = /\b(19\d{2}|20\d{2})\b/;
-    const match = folderName.match(yearPattern);
-    return match ? parseInt(match[1], 10) : null;
   }
 
   /**
